@@ -1,0 +1,77 @@
+name: PR Governance
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  policy-gates:
+    name: Policy Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enforce draft on open/reopen
+        if: github.event.action == 'opened' || github.event.action == 'reopened'
+        run: |
+          if [ "${{ github.event.pull_request.draft }}" != "true" ]; then
+            echo "::error::PRs must be opened as Draft first."
+            exit 1
+          fi
+
+      - name: Validate branch naming convention
+        id: branch_check
+        shell: bash
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if [[ "$BRANCH" =~ ^(feature|fix|chore|docs|refactor|test)/([0-9]+)-[a-z0-9._-]+$ ]]; then
+            ISSUE="${BASH_REMATCH[2]}"
+            echo "issue_number=$ISSUE" >> "$GITHUB_OUTPUT"
+            echo "Branch maps to issue #$ISSUE"
+          else
+            echo "::error::Branch must match <type>/<issue-number>-<slug>, for example feature/14-fastapi-health-endpoint"
+            exit 1
+          fi
+
+      - name: Verify issue exists in repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          ISSUE="${{ steps.branch_check.outputs.issue_number }}"
+          REPO="${{ github.repository }}"
+
+          STATE=$(gh api "repos/$REPO/issues/$ISSUE" --jq .state 2>/dev/null || true)
+          if [ -z "$STATE" ]; then
+            echo "::error::Issue #$ISSUE does not exist in $REPO"
+            exit 1
+          fi
+
+          echo "Issue #$ISSUE found with state: $STATE"
+
+      - name: Ensure PR body links matching issue
+        shell: bash
+        run: |
+          ISSUE="#${{ steps.branch_check.outputs.issue_number }}"
+          BODY_FILE="pr_body.txt"
+          printf "%s" "${{ github.event.pull_request.body }}" > "$BODY_FILE"
+
+          if ! grep -Eiq "(closes|fixes|resolves)[[:space:]]+$ISSUE" "$BODY_FILE"; then
+            echo "::error::PR body must include one of: Closes $ISSUE, Fixes $ISSUE, or Resolves $ISSUE"
+            exit 1
+          fi
+
+      - name: Ensure milestone line is not empty in PR template
+        shell: bash
+        run: |
+          BODY_FILE="pr_body_milestone.txt"
+          printf "%s" "${{ github.event.pull_request.body }}" > "$BODY_FILE"
+
+          if ! grep -Eiq "Milestone:[[:space:]]+Milestone[[:space:]]+[1-8]" "$BODY_FILE"; then
+            echo "::warning::Could not verify milestone declaration format in PR body. Ensure Milestone is filled in the template."
+          fi
+

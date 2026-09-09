@@ -1,0 +1,71 @@
+name: Data Engineering Workstream
+description: Dataset discovery, parsing, harmonization, and export tasks
+title: "[Data] "
+labels:
+  - project:feature-track
+  - data-engineering
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for ingestion, macro lookup, currency harmonization, and corpus export work.
+
+        Milestone assignment is done after issue creation. Pick the planned target below.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 1: Data Ingestion & Macroeconomic Harmonization"
+        - "Milestone 6: Master Pipeline Training, Validation & Auditing"
+      description: Select the milestone this issue belongs to.
+    validations:
+      required: true
+  - type: dropdown
+    id: data_domain
+    attributes:
+      label: Data domain
+      options:
+        - PPP and macro lookup extraction
+        - Cost-of-living normalization
+        - Marketplace parsing and cleaning
+        - Industry partition mapping
+        - Parquet export and validation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What needs to be implemented or fixed?
+      placeholder: Describe the expected behavior and the current gap.
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Proposed tasks
+      description: Add concrete steps (checkbox list format recommended).
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define measurable completion criteria.
+      placeholder: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: references
+    attributes:
+      label: File references
+      description: List impacted files or docs.
+      placeholder: "Data/Raw/... , Docs/Blueprint.md"
+

@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture and Blueprint
+    url: https://github.com/tyejaedon/Price-Optimization-Model/blob/master/Docs/Blueprint.md
+    about: Review architecture constraints and delivery gates before opening an issue.
+  - name: Milestone and Issue Roadmap
+    url: https://github.com/tyejaedon/Price-Optimization-Model/blob/master/Docs/Project_Milestones_and_Issues.md
+    about: Use the canonical milestone breakdown and dependency graph.
+
