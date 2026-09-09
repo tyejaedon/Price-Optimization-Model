@@ -9,10 +9,13 @@ from src.ingest_multisource import build_macro_lookup
 from src.experiment_reporting import run_experiment_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
+    _metric_summary,
     build_stratified_splits,
     evaluate_and_serialize_training,
+    inverse_target_log1p,
     load_harmonized_parquet,
     orchestrate_training,
+    transform_target_log1p,
 )
 
 
@@ -151,11 +154,29 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertIn("baseline_metrics", payload)
             self.assertIn("baseline_comparison", payload)
             self.assertIn("quality_gate", payload)
+            self.assertIn("target_transformation_comparison", payload)
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["transformation"], "log1p")
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["inverse_transformation"], "expm1")
             self.assertFalse(payload["has_split_overlap"])
 
             summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
             self.assertTrue(os.path.exists(summary_path))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "industry_kdtrees.joblib")))
+
+    def test_log_target_round_trip_and_robust_metrics_are_finite(self) -> None:
+        target = pd.Series([166.9, 2500.0, 60000.0, 343823.36], dtype=float).to_numpy()
+        transformed = transform_target_log1p(target)
+        restored = inverse_target_log1p(transformed)
+
+        pd.testing.assert_series_equal(pd.Series(restored), pd.Series(target), check_exact=False, rtol=1e-12, atol=1e-12)
+        metrics = _metric_summary(target, restored)
+        self.assertEqual(set(metrics), {"rmse", "mae", "median_absolute_error", "smape_percent", "r2"})
+        self.assertTrue(all(pd.notna(value) and value >= 0.0 for value in metrics.values() if value != metrics["r2"]))
+        self.assertTrue(pd.notna(metrics["r2"]))
+
+    def test_log_target_rejects_negative_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            transform_target_log1p(pd.Series([1.0, -0.5]).to_numpy(dtype=float))
 
     def test_quality_gate_is_enforced_programmatically(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -187,17 +208,25 @@ class TrainPipelineTests(unittest.TestCase):
                 "hyperparameter_results.csv",
                 "independent_variable_summary.csv",
                 "dependent_variable_summary.csv",
+                "target_transformation_results.csv",
                 "experiment_report.md",
                 "experiment_report.json",
                 "hyperparameter_trends.png",
                 "model_progress.png",
                 "variable_effects.png",
+                "target_transformation_comparison.png",
             }
             self.assertTrue(expected_files.issubset(set(os.listdir(report_dir))))
             self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
             self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
+            self.assertIn("best_log_configuration", payload)
+            self.assertEqual(payload["target_transformation"]["log"], "log1p")
+            self.assertEqual(payload["target_transformation"]["inverse"], "expm1")
             self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
-            self.assertIn("Hyperparameter results", Path(report_dir, "experiment_report.md").read_text(encoding="utf-8"))
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "target_transformation_results.csv"))), 2)
+            report_text = Path(report_dir, "experiment_report.md").read_text(encoding="utf-8")
+            self.assertIn("Hyperparameter results", report_text)
+            self.assertIn("Raw versus log1p target comparison", report_text)
 
 
 if __name__ == "__main__":
