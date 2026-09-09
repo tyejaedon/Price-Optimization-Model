@@ -209,6 +209,7 @@ class TrainPipelineTests(unittest.TestCase):
                 "independent_variable_summary.csv",
                 "dependent_variable_summary.csv",
                 "target_transformation_results.csv",
+                "hybrid_distance_results.csv",
                 "experiment_report.md",
                 "experiment_report.json",
                 "hyperparameter_trends.png",
@@ -220,13 +221,16 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
             self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
             self.assertIn("best_log_configuration", payload)
+            self.assertIn("best_hybrid_configuration", payload)
             self.assertEqual(payload["target_transformation"]["log"], "log1p")
             self.assertEqual(payload["target_transformation"]["inverse"], "expm1")
             self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
             self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "target_transformation_results.csv"))), 2)
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hybrid_distance_results.csv"))), 2)
             report_text = Path(report_dir, "experiment_report.md").read_text(encoding="utf-8")
             self.assertIn("Hyperparameter results", report_text)
             self.assertIn("Raw versus log1p target comparison", report_text)
+            self.assertIn("Hybrid-distance tuning results", report_text)
 
 
 if __name__ == "__main__":

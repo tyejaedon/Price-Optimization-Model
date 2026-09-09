@@ -172,6 +172,13 @@ python -m src.train_pipeline --mode evaluate --harmonized-parquet (Join-Path $en
 python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
 ```
 
+### 3e. Run M6.4 expanded KNN and hybrid-distance tuning
+```powershell
+python -m src.experiment_reporting --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --output-dir (Join-Path $env:TEMP "m64_knn_tuning_report") --k-values 1 3 5 7 10 15 20 30 50 --text-weights 1.0 --metadata-weights 1.0 --minimum-partition-sizes 1 --epsilons 1e-9 --fallback-policies 1
+```
+
+To compare hybrid block weights, pass multiple values such as `--text-weights 0.5 1.0 1.5 2.0 --metadata-weights 0.5 1.0 1.5 2.0`.
+
 ### 4. Start the Inference Server
 ```bash
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
