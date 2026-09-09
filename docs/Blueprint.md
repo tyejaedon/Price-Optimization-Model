@@ -114,6 +114,23 @@ Detailed issue definitions for each milestone live in `Docs/Project_Milestones_a
 
 ---
 
+## Model Selection Scope Decision
+
+To keep the feature track focused and deliverable within the project scope, the production pricing model will remain a **KNN-style peer model**: the domain-partitioned KD-Tree with inverse-distance weighting and peer explainability payloads implemented in Milestones 4.1 and 4.2.
+
+The experimental evaluation workflow may tune and compare:
+
+- the number of neighbors `k`,
+- distance-weighting and text/metadata feature-block weights,
+- target transformations such as `log1p(target_rate)`, and
+- the KNN baseline against a limited offline comparison model when useful for analysis.
+
+These experiments support evidence-based tuning but do not expand the production scope to a collection of unrelated model families. Any alternative model is an evaluation reference only; production inference remains KNN/IDW so that peer explanations, partition routing, latency targets, and the existing API contract stay consistent.
+
+The dependent variable remains `target_rate` in KES/hour. The independent variables remain the 53-D hybrid coordinate (`50` text dimensions plus `3` normalized metadata dimensions), together with the selected KNN configuration.
+
+---
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
