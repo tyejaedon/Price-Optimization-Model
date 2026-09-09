@@ -1,0 +1,66 @@
+name: NLP and Feature Engineering Workstream
+description: Text preprocessing, vectorization, scaling, and coordinate fusion work
+title: "[NLP/Features] "
+labels:
+  - project:feature-track
+  - machine-learning
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for milestones covering NLP, dimensionality reduction, and feature fusion.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 2: Semantic NLP & Dimensionality Reduction Pipeline"
+        - "Milestone 3: Bilateral Arbitrage Scaler & Coordinate Fusion"
+      description: Select the milestone this issue belongs to.
+    validations:
+      required: true
+  - type: dropdown
+    id: workstream_label
+    attributes:
+      label: Primary workstream label
+      options:
+        - nlp
+        - preprocessing
+        - feature-engineering
+        - machine-learning
+      description: Add this as an additional label after creating the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: What feature or fix is needed and why?
+    validations:
+      required: true
+  - type: textarea
+    id: implementation_plan
+    attributes:
+      label: Implementation plan
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Output vector shape is (50,) or (53,) as applicable
+        - [ ] Artifacts can be serialized and loaded
+    validations:
+      required: true
+  - type: textarea
+    id: perf
+    attributes:
+      label: Performance notes (optional)
+      description: Add timing constraints if relevant.
+      placeholder: transform() latency target, memory profile, etc.
+

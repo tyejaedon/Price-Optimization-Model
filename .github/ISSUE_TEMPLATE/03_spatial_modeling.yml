@@ -1,0 +1,59 @@
+name: Spatial Modeling and Regression Workstream
+description: KD-Tree indexing, nearest-neighbor retrieval, and IDW prediction tasks
+title: "[Spatial/Model] "
+labels:
+  - project:feature-track
+  - machine-learning
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for partitioned KD-Tree, retrieval behavior, and explainable rate prediction logic.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 4: Partitioned Spatial Indexing & IDW Regression"
+        - "Milestone 6: Master Pipeline Training, Validation & Auditing"
+      description: Select the milestone this issue belongs to.
+    validations:
+      required: true
+  - type: dropdown
+    id: label_hint
+    attributes:
+      label: Secondary label to add
+      options:
+        - spatial
+        - algorithms
+        - evaluation
+      description: Add the selected label after creating the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      placeholder: Describe expected retrieval/prediction behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: technical_tasks
+    attributes:
+      label: Technical tasks
+      placeholder: |
+        - [ ] Build/adjust partitioning
+        - [ ] Validate fallback behavior
+        - [ ] Validate IDW weighting and edge cases
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Similarity scores stay in (0, 1]
+        - [ ] Exact-match case is numerically stable
+    validations:
+      required: true
+

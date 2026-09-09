@@ -1,0 +1,101 @@
+name: CI Checks
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - master
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-integrity:
+    name: Repository Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure Data directory is not tracked in changes
+        shell: bash
+        run: |
+          if git ls-files | grep -E '^Data/'; then
+            echo "::error::Tracked files detected under Data/. Data assets must stay out of version control."
+            exit 1
+          fi
+          echo "No tracked files under Data/."
+
+      - name: Check for large tracked files (>5 MB)
+        shell: bash
+        run: |
+          LIMIT=$((5 * 1024 * 1024))
+          LARGE_FOUND=0
+          while IFS= read -r FILE; do
+            if [ -f "$FILE" ]; then
+              SIZE=$(wc -c < "$FILE")
+              if [ "$SIZE" -gt "$LIMIT" ]; then
+                echo "::error::Large tracked file detected: $FILE ($SIZE bytes)"
+                LARGE_FOUND=1
+              fi
+            fi
+          done < <(git ls-files)
+
+          if [ "$LARGE_FOUND" -ne 0 ]; then
+            exit 1
+          fi
+
+  python-sanity:
+    name: Python Sanity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile Python sources if present
+        shell: bash
+        run: |
+          TARGETS=()
+          [ -d src ] && TARGETS+=(src)
+          [ -d Src ] && TARGETS+=(Src)
+
+          if [ "${#TARGETS[@]}" -eq 0 ]; then
+            echo "No source directory found (src/ or Src/). Skipping compile check."
+            exit 0
+          fi
+
+          python -m compileall "${TARGETS[@]}"
+
+      - name: Install test dependencies when requirements exists
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt || true
+          fi
+          python -m pip install pytest
+
+      - name: Run pytest when tests exist
+        shell: bash
+        run: |
+          if compgen -G "tests/test_*.py" > /dev/null; then
+            pytest tests -q
+            exit $?
+          fi
+
+          if compgen -G "Test/test_*.py" > /dev/null; then
+            pytest Test -q
+            exit $?
+          fi
+
+          echo "No pytest-discoverable tests found in tests/ or Test/. Skipping test run."
+

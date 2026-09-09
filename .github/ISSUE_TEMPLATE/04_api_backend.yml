@@ -1,0 +1,60 @@
+name: API and Backend Workstream
+description: FastAPI contracts, endpoints, startup loading, and runtime behavior
+title: "[API] "
+labels:
+  - project:feature-track
+  - api
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for schema contracts, endpoint behavior, startup loading, and service errors.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 7: Production ASGI API Service (FastAPI)"
+        - "Milestone 8: Automated Verification, Latency Profiling & MLOps"
+      description: Select the milestone this issue belongs to.
+    validations:
+      required: true
+  - type: dropdown
+    id: backend_label
+    attributes:
+      label: Secondary label to add
+      options:
+        - schemas
+        - backend
+        - performance
+      description: Add the selected label after creating the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: endpoint_scope
+    attributes:
+      label: Endpoint or component scope
+      placeholder: "POST /api/v1/optimize-price, GET /health, startup event, DTO validation, etc."
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation tasks
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Invalid payloads return 422
+        - [ ] Health endpoint reports readiness
+        - [ ] Endpoint latency target is measured
+    validations:
+      required: true
+

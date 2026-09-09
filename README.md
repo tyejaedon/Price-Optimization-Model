@@ -60,6 +60,7 @@ The engine uses a **4-step pipeline**:
 | `Data/Processed/` | Cleaned or transformed datasets ready for downstream analysis |
 | `Docs/` | Project documentation, diagrams, and design artifacts |
 | `Docs/Blueprint.md` | Project blueprint and planning document |
+| `Docs/Project_Milestones_and_Issues.md` | Detailed milestone roadmap and GitHub issue breakdown |
 | `Docs/Architecture/` | Architecture diagrams and technical design references |
 | `Docs/Architecture/Class/` | Class diagrams for API gateway, domain, ML pipeline, and mobile modules |
 | `Docs/Architecture/Conceptual Framework/` | High-level conceptual framework assets |
@@ -68,6 +69,15 @@ The engine uses a **4-step pipeline**:
 | `Docs/Architecture/ML Pipeline/` | Machine learning pipeline diagrams |
 | `Docs/Architecture/System Arch/` | Overall system architecture diagrams |
 | `Docs/Architecture/Use case/` | Use-case diagrams |
+| `.github/ISSUE_TEMPLATE/` | GitHub issue forms aligned to project workstreams |
+| `.github/pull_request_template.md` | PR checklist tied to milestone and issue workflow |
+| `.github/copilot-instructions.md` | Agent instructions for issue-linked branching and PR governance |
+| `.github/agents/` | Workflow governance agent docs and skill packs |
+| `.github/workflows/pr-governance.yml` | PR policy gates: draft-first, branch-issue linkage, issue closure format |
+| `.github/workflows/ci-checks.yml` | CI integrity checks for repository safety and Python sanity |
+| `scripts/bootstrap-workflow.ps1` | Prompts for issue/branch type, creates compliant branch, and opens draft PR with milestone/labels |
+| `scripts/ready-pr.ps1` | Verifies required checks and transitions draft PRs to Ready for Review |
+| `CONTRIBUTING.md` | Contributor process, label map, and milestone mapping guide |
 | `Src/` | Source code directory for implementation modules |
 | `Test/` | Test directory for validation and QA assets |
 | `Readme.md` | Project overview, setup guidance, and usage documentation |

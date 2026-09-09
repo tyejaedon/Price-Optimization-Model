@@ -1,0 +1,61 @@
+name: Testing, QA, and Performance Workstream
+description: Unit tests, regression checks, profiling, and stability validation
+title: "[QA/Perf] "
+labels:
+  - project:feature-track
+  - testing
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for test coverage, invariance checks, and profiling work.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 8: Automated Verification, Latency Profiling & MLOps"
+        - "Milestone 6: Master Pipeline Training, Validation & Auditing"
+      description: Select the milestone this issue belongs to.
+    validations:
+      required: true
+  - type: dropdown
+    id: qa_label
+    attributes:
+      label: Secondary label to add
+      options:
+        - qa
+        - performance
+        - benchmarking
+        - evaluation
+      description: Add the selected label after creating the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: test_scope
+    attributes:
+      label: Test scope
+      placeholder: Unit, integration, regression, load, or latency scenario.
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Test and profiling plan
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Test suite passes
+        - [ ] Required metric thresholds are met
+        - [ ] Results are documented
+    validations:
+      required: true
+

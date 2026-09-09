@@ -1,192 +1,164 @@
-**Here’s the **full README.md** with everything converted into tables for consistency — including the repository structure, system architecture tiers, and the 4‑step pipeline.
+# Price Optimization Model Blueprint
 
-```markdown
-# Dynamic Price Optimizer for Technical Mentors & Consultants
+## Purpose
 
-An intelligent pricing recommendation engine designed for independent consultants, technical mentors, and digital freelancers in emerging markets like Kenya.  
+This blueprint translates the project vision, README, and architecture diagrams into an executable engineering plan for the **Price Optimization Model Feature Track**.
 
-It analyzes qualitative skills from profile text, balances cross-border purchasing power, finds real market comparisons, and adds localized mobile money (M-Pesa) fee protection so practitioners never underquote or lose profit to transaction costs.
+The system is intended to recommend fair, market-aware consulting rates for technical mentors and freelancers by combining:
 
----
-
-## The Problem
-
-Freelancers and mentors in emerging economies face a tough rate-setting challenge:
-
-- **The Cross-Border Dilemma**: If you quote international clients using local rates, you leave substantial money on the table. If you quote static US rates ($100+/hr), you price out local and regional African clients.  
-- **Guesswork Pricing**: Most independent professionals guess their hourly rates arbitrarily, leading to prolonged haggling, undercharging, or imposter syndrome.  
-- **Hidden Fee Leakage**: For domestic micro-consulting paid via mobile money (like Safaricom M-Pesa), withdrawal and transfer fees directly chip away at your net take-home earnings if not calculated into the quote upfront.  
+- semantic analysis of profile and skill text,
+- macroeconomic purchasing-power adjustments,
+- nearest-neighbor peer pricing retrieval, and
+- localized M-Pesa fee protection for Kenyan engagements.
 
 ---
 
-## How It Works
+## Product Objective
 
-The engine uses a **4-step pipeline**:
+Build a pricing recommendation platform that can:
 
-| Step | Input | Process | Output |
-|------|-------|---------|--------|
-| **1. NLP Capability Analysis** | Profile Bio & Skills | TF-IDF + SVD dimensionality reduction | 50-dimensional skill vector |
-| **2. Cross-Border Parity Adjustment** | Mentor & Client Country | World Bank PPP & cost-of-living scaling | Balanced international/local rate |
-| **3. Peer Cluster Lookup** | Industry Category | KD-Tree nearest-neighbor search (k=5) | Average of top 5 peer rates |
-| **4. Additive Margin Protection** | M-Pesa Fee Schedule | Safaricom tariff calculator | Final quoted rate with fee protection |
-
-### M-Pesa Margin Protection Formula
-\[
-\text{Final Quoted Rate} = \text{Base Recommended Rate} + \text{M-Pesa Transfer Fee}
-\]
+1. ingest multi-source freelance and macroeconomic datasets,
+2. transform free-form profile text into dense machine-learning features,
+3. estimate a base rate from similar peer records,
+4. adjust rate recommendations for cross-border parity, and
+5. return a production-ready quote through a FastAPI inference service.
 
 ---
 
-## System Architecture
+## Architecture Inputs Considered
 
-| Tier | Technology Stack | Key Components |
-|------|------------------|----------------|
-| **Tier 1: Client Mobile App** | Android / Kotlin | Jetpack Compose UI (country selectors, skill inputs), PricingViewModel, hardware-backed encrypted storage |
-| **Tier 2: Cloud Ingestion API** | FastAPI / ASGI | Non-blocking async endpoints, Pydantic V2 validation, Firebase JWT authentication |
-| **Tier 3: Core Analytical & ML Pipeline** | Scikit-Learn | NLP tokenizer & dimensionality reducer (TF-IDF + SVD), PPP parity scaler, KD-Tree nearest-neighbor search (k=5), Safaricom M-Pesa tariff calculator |
-| **Tier 4: Persistence & Storage** | Firebase / Cloud Firestore | Firebase authentication (sessions & tokens), Firestore NoSQL (audit logs, peer nodes, reference lookups) |
+The following design artifacts inform implementation sequencing and issue design:
 
----
-
-## Repository Structure
-
-| Path / File              | Purpose                                                                 |
-|---------------------------|-------------------------------------------------------------------------|
-| `artifacts/`             | Saved ML models (`.joblib` files)                                       |
-| `data/raw/`              | Local source datasets (Upwork, World Bank, Numbeo)                      |
-| `data/processed/`        | Cleaned Parquet corpus & lookup tables                                  |
-| `src/config.py`          | Hyperparameters, fee bands, and paths                                   |
-| `src/ingest_multisource.py` | Merges & cleans raw CSV datasets                                    |
-| `src/nlp_pipeline.py`    | Cleans text & extracts SVD skill vectors                                |
-| `src/macro_arbitrage.py` | Cross-border PPP & cost-of-living scaler                                |
-| `src/spatial_engine.py`  | KD-Tree spatial indexer & rate predictor                                |
-| `src/tariff_evaluator.py`| Safaricom M-Pesa tariff fee calculator                                  |
-| `src/train_pipeline.py`  | 70/15/15 model training & evaluation                                    |
-| `src/serve.py`           | FastAPI production inference server                                     |
-| `tests/`                 | Unit tests for NLP, parity, and spatial matching                        |
-| `requirements.txt`       | Pinned Python dependencies                                              |
-| `README.md`              | Project overview and documentation                                      |
+| Artifact | Planning Use |
+| --- | --- |
+| `README.md` | Product story, pipeline explanation, API contract, and repository overview |
+| `Docs/Architecture/System Arch/` | Defines the 4-tier system boundary: client, API, ML core, and persistence |
+| `Docs/Architecture/ML Pipeline/` | Defines the sequential analytical flow from ingestion to pricing output |
+| `Docs/Architecture/Class/` | Suggests major implementation modules and service boundaries |
+| `Docs/Architecture/ERD/` | Informs persistence entities and auditability requirements |
+| `Docs/Architecture/Database Schema/` | Supports future storage, logs, and model artifact organization |
+| `Docs/Architecture/Use case/` | Captures end-user interactions and inference workflows |
+| `Docs/Architecture/Conceptual Framework/` | Provides conceptual alignment between research goals and technical execution |
 
 ---
 
-## Quickstart & Setup
+## Core Delivery Streams
 
-### Prerequisites
-- Python: 3.11 or higher  
-- Java SDK: 17+ (if building the Android client)  
-- Android Studio: Hedgehog (2023.1.1) or newer  
-
-### 1. Installation
-```bash
-git clone https://github.com/your-username/dynamic-pricing-engine.git
-cd dynamic-pricing-engine
-
-python3 -m venv venv
-source venv/bin/activate       # On Windows: venv\Scripts\activate
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Download required NLTK lexical corpora
-python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
-```
-
-### 2. Prepare Data & Build Corpus
-```bash
-python -m src.ingest_multisource
-```
-
-### 3. Train the Model
-```bash
-python -m src.train_pipeline
-```
-
-### 4. Start the Inference Server
-```bash
-uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
-```
+| Stream | Scope | Primary Outputs |
+| --- | --- | --- |
+| Data Engineering | Raw dataset discovery, cleaning, currency harmonization, parquet export | `macro_lookup_table.json`, harmonized marketplace corpus |
+| NLP & Feature Engineering | Text cleaning, TF-IDF, SVD, metadata scaling, coordinate fusion | vectorizer, reducer, scaler artifacts |
+| Spatial Pricing Engine | KD-Tree partitioning, IDW regression, peer explainability | prediction-ready pricing engine |
+| Financial Rules | M-Pesa surcharge logic and domestic margin protection | tariff evaluator module |
+| API & Integration | DTOs, inference orchestration, health checks, error handling | FastAPI service |
+| Quality & Operations | tests, latency profiling, audit summaries, issue tracking | CI-ready verification baseline |
 
 ---
 
-## API Reference
+## Implementation Principles
 
-### Get a Rate Recommendation
-**POST** `/api/v1/optimize-price`
-
-Request:
-```json
-{
-  "raw_description": "Senior Android engineer specializing in Kotlin coroutines, Jetpack Compose UI architecture, and clean MVVM modularization. Mentored 15+ junior developers in TDD.",
-  "selected_industry": "SOFTWARE_ENG",
-  "mentor_country": "KE",
-  "client_country": "US",
-  "competitiveness_score": 0.65,
-  "market_saturation_score": 0.45
-}
-```
-
-Response:
-```json
-{
-  "base_predicted_rate": 4700.0,
-  "mpesa_tariff_surcharge": 108.0,
-  "final_quoted_rate": 4808.0,
-  "currency": "KES",
-  "bilateral_arbitrage_factor": 0.51,
-  "nearest_neighbors": [
-    {
-      "peer_index": 1402,
-      "distance": 0.214,
-      "verified_rate": 4900.0,
-      "similarity_score": 0.823
-    },
-    {
-      "peer_index": 891,
-      "distance": 0.289,
-      "verified_rate": 4650.0,
-      "similarity_score": 0.775
-    }
-  ]
-}
-```
+| Principle | Blueprint Decision |
+| --- | --- |
+| Reproducibility | Every derived artifact must be regenerable from files in `Data/` |
+| Separation of concerns | Each pipeline stage is implemented in an isolated module with explicit inputs/outputs |
+| Explainability | Predictions must include nearest-neighbor evidence and surcharge transparency |
+| Safety | Unknown country metadata should fall back to safe defaults instead of crashing |
+| Performance | API inference should target low-latency local execution suitable for mobile-backed flows |
+| Auditability | Training summaries, validation metrics, and runtime readiness checks must be persisted |
 
 ---
 
-## Health Check
-**GET** `/health`
-```json
-{
-  "status": "HEALTHY",
-  "models_loaded": true
-}
-```
+## Target Module Plan
+
+| Module | Responsibility |
+| --- | --- |
+| `src/ingest_multisource.py` | File discovery, source parsing, macro lookup extraction, and corpus export |
+| `src/nlp_pipeline.py` | Text normalization, TF-IDF vectorization, Truncated SVD, artifact persistence |
+| `src/macro_arbitrage.py` | Bilateral parity factor computation, metadata scaling, and coordinate fusion helpers |
+| `src/spatial_engine.py` | Industry-partitioned KD-Tree search and inverse-distance rate regression |
+| `src/tariff_evaluator.py` | Safaricom M-Pesa surcharge calculation and quote augmentation |
+| `src/train_pipeline.py` | Train/validation/test orchestration, evaluation, benchmarking, and artifact export |
+| `src/serve.py` | FastAPI application, DTO validation, startup loading, prediction and health routes |
+| `tests/test_pipeline.py` | End-to-end mathematical and pipeline invariance checks |
+
+> Note: the repository currently contains `Src/` and `Test/` directories, while the planned implementation modules are documented using the conventional Python naming pattern `src/` and `tests/`. Standardizing this layout should be handled early during implementation.
 
 ---
 
-## Running Automated Tests
-```bash
-pytest tests/ -v
-```
+## Milestone Roadmap
+
+| Milestone | Goal | Key Outputs |
+| --- | --- | --- |
+| Milestone 1 | Build multi-source data ingestion and macroeconomic harmonization | processed macro lookup + harmonized corpus |
+| Milestone 2 | Deliver semantic NLP cleaning, TF-IDF, and SVD feature extraction | vectorizer and reducer artifacts |
+| Milestone 3 | Implement bilateral arbitrage scaling and metadata fusion | scaler artifact + 53D feature vectors |
+| Milestone 4 | Build partitioned spatial indexing and IDW regression | KD-Tree artifacts + peer explainability |
+| Milestone 5 | Add M-Pesa fee protection for domestic Kenyan pricing | tariff evaluator logic |
+| Milestone 6 | Train, validate, benchmark, and serialize the master model pipeline | training summary + production artifacts |
+| Milestone 7 | Serve the pipeline via FastAPI with validated contracts | `/health` + `/api/v1/optimize-price` |
+| Milestone 8 | Verify correctness, latency, and operational readiness | pytest suite + profiling report |
+
+Detailed issue definitions for each milestone live in `Docs/Project_Milestones_and_Issues.md`.
 
 ---
 
-## Academic Attribution
-Developed as an academic thesis project at the **School of Computing and Engineering Sciences, Strathmore University, Nairobi, Kenya**.
+## Delivery Gates
 
-```bibtex
-@thesis{munyua2026dynamicpricing,
-  author    = {Munyua, Jaedon Jeremiel},
-  title     = {A Content-Based Dynamic Price Optimization Framework for Professional Mentorship Services in the Freelance Economy},
-  school    = {School of Computing and Engineering Sciences, Strathmore University},
-  year      = {2026},
-  address   = {Nairobi, Kenya},
-  type      = {Undergraduate Thesis}
-}
-```
+| Gate | Exit Criteria |
+| --- | --- |
+| Data Readiness | Macro lookup and harmonized corpus are generated with no critical nulls |
+| Feature Readiness | Text and metadata features are deterministic, persisted, and reloadable |
+| Model Readiness | Validation metrics beat baseline and satisfy target quality thresholds |
+| API Readiness | FastAPI service loads artifacts on startup and returns valid structured JSON |
+| Production Readiness | Tests pass, latency targets are measured, and runtime failure modes are documented |
 
 ---
 
-## License
-Distributed under the **MIT License**.
-```
+## Risks and Mitigations
 
----**
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
+| Sparse or inconsistent raw datasets | Weak model quality | Add filtering rules, fallback defaults, and validation reports in ingestion |
+| Country-code mismatch across sources | Bad parity calculations | Centralize ISO normalization in Milestone 1 |
+| Domain imbalance by industry | Poor peer matching in niche partitions | Apply partition fallback strategy in the spatial engine |
+| Excessive feature drift from noisy text | Unstable predictions | Standardize NLP preprocessing and audit explained variance |
+| Latency regression at inference time | Mobile usability degradation | Benchmark transform/search steps separately in Milestone 8 |
+| Repository drift between docs and code | Planning confusion | Keep the roadmap doc and GitHub tracker synchronized |
+
+---
+
+## Definition of Done for the Feature Track
+
+The feature track is considered complete when all of the following are true:
+
+- all eight milestones are closed,
+- every planned module exists and is test-covered,
+- the training pipeline writes reloadable artifacts,
+- the API serves valid recommendations and health state,
+- automated tests pass consistently, and
+- the documentation reflects the implemented architecture rather than only the intended design.
+
+---
+
+## GitHub Planning Convention
+
+The GitHub execution plan should use:
+
+- milestone titles aligned to the roadmap above,
+- issue titles prefixed by milestone identifiers such as `M1.1`, `M2.2`, etc.,
+- domain labels for data, NLP, ML, API, testing, and performance,
+- acceptance criteria inside each issue body, and
+- a shared planning label for the **Price Optimization Model Feature Track**.
+
+---
+
+## Immediate Next Priority
+
+Because the repository currently has design assets and datasets but no implementation modules, the first engineering focus should be:
+
+1. source file discovery,
+2. macroeconomic lookup extraction,
+3. marketplace dataset harmonization, and
+4. processed corpus export.
+
+That work unlocks all later NLP, model training, API, and verification milestones.
