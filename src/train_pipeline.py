@@ -3,11 +3,13 @@ import json
 import os
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, cast
 
 try:
     import numpy as np
     import pandas as pd
+    from sklearn.metrics import mean_squared_error, r2_score
     from sklearn.model_selection import train_test_split
 except ImportError as exc:
     raise RuntimeError("Missing training-pipeline dependencies. Install from requirements.txt") from exc
@@ -26,10 +28,14 @@ from src.macro_arbitrage import (
     fuse_coordinate_batches,
 )
 from src.nlp_pipeline import TextFeatureReducer
+from src.spatial_engine import DomainPartitionedKDTreeIndexer
 
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
 DEFAULT_ARTIFACT_DIR = "artifacts"
 DEFAULT_RANDOM_STATE = 42
+DEFAULT_TRAINING_SUMMARY_ARTIFACT = "training_summary.json"
+DEFAULT_IDW_NEIGHBORS = 5
+DEFAULT_QUALITY_GATE_R2 = 0.75
 
 REQUIRED_COLUMNS = (
     "raw_description",
@@ -208,6 +214,53 @@ def _distribution(frame: pd.DataFrame) -> Dict[str, float]:
     return {key: round(value / total, 6) for key, value in sorted(counts.items())}
 
 
+def _rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(mean_squared_error(y_true, y_pred) ** 0.5)
+
+
+def _metric_summary(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    return {
+        "rmse": round(_rmse(y_true, y_pred), 6),
+        "r2": round(float(r2_score(y_true, y_pred)), 6),
+    }
+
+
+def _build_category_mean_baseline(train_frame: pd.DataFrame) -> Tuple[Dict[str, float], float]:
+    grouped = train_frame.groupby("industry_partition")["target_rate"].mean()
+    means = {str(k): float(v) for k, v in grouped.to_dict().items()}
+    global_mean = float(train_frame["target_rate"].mean())
+    return means, global_mean
+
+
+def _predict_category_mean_baseline(
+    frame: pd.DataFrame,
+    partition_means: Dict[str, float],
+    global_mean: float,
+) -> np.ndarray:
+    return np.array(
+        [float(partition_means.get(str(partition), global_mean)) for partition in frame["industry_partition"].tolist()],
+        dtype=float,
+    )
+
+
+def _predict_idw(
+    indexer: DomainPartitionedKDTreeIndexer,
+    feature_matrix: np.ndarray,
+    partitions: List[str],
+    k_neighbors: int,
+) -> np.ndarray:
+    predictions: List[float] = []
+    for row_number, partition in enumerate(partitions):
+        prediction = indexer.predict_base_rate(
+            query_vector=feature_matrix[row_number],
+            requested_partition=partition,
+            k=k_neighbors,
+            allow_fallback=True,
+        )
+        predictions.append(float(prediction["base_predicted_rate"]))
+    return np.asarray(predictions, dtype=float)
+
+
 def orchestrate_training(
     harmonized_parquet_path: str,
     macro_lookup_path: str,
@@ -276,6 +329,158 @@ def orchestrate_training(
     }
 
 
+def evaluate_and_serialize_training(
+    harmonized_parquet_path: str,
+    macro_lookup_path: str,
+    train_ratio: float = 0.70,
+    validation_ratio: float = 0.15,
+    test_ratio: float = 0.15,
+    random_state: int = DEFAULT_RANDOM_STATE,
+    n_components: int = TEXT_VECTOR_DIMENSIONS,
+    max_features: int = 12000,
+    alpha: float = BILATERAL_ALPHA,
+    artifact_dir: str = DEFAULT_ARTIFACT_DIR,
+    k_neighbors: int = DEFAULT_IDW_NEIGHBORS,
+    quality_gate_r2: float = DEFAULT_QUALITY_GATE_R2,
+    enforce_quality_gate: bool = True,
+) -> Dict[str, Any]:
+    frame = load_harmonized_parquet(harmonized_parquet_path)
+    split_data = build_stratified_splits(
+        frame,
+        train_ratio=train_ratio,
+        validation_ratio=validation_ratio,
+        test_ratio=test_ratio,
+        random_state=random_state,
+    )
+
+    split_ids = {
+        "train": set(split_data.train["record_id"].tolist()),
+        "validation": set(split_data.validation["record_id"].tolist()),
+        "test": set(split_data.test["record_id"].tolist()),
+    }
+    has_overlap = bool(
+        (split_ids["train"] & split_ids["validation"])
+        or (split_ids["train"] & split_ids["test"])
+        or (split_ids["validation"] & split_ids["test"])
+    )
+
+    os.makedirs(artifact_dir, exist_ok=True)
+    matrices = _fit_feature_matrices(
+        split_data=split_data,
+        macro_lookup_path=macro_lookup_path,
+        n_components=n_components,
+        max_features=max_features,
+        alpha=alpha,
+        artifact_dir=artifact_dir,
+        save_artifacts=True,
+    )
+
+    idw_indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=1)
+    train_record_indices = np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist()
+    idw_indexer.fit(
+        hybrid_vectors=matrices.x_train,
+        industry_partitions=[str(v) for v in split_data.train["industry_partition"].tolist()],
+        record_indices=train_record_indices,
+        verified_rates=matrices.y_train.tolist(),
+    )
+    idw_indexer.save_artifacts(artifact_dir)
+
+    frozen_indexer = DomainPartitionedKDTreeIndexer.load_artifacts(artifact_dir)
+    validation_predictions = _predict_idw(
+        frozen_indexer,
+        matrices.x_validation,
+        [str(v) for v in split_data.validation["industry_partition"].tolist()],
+        k_neighbors=max(1, int(k_neighbors)),
+    )
+    test_predictions = _predict_idw(
+        frozen_indexer,
+        matrices.x_test,
+        [str(v) for v in split_data.test["industry_partition"].tolist()],
+        k_neighbors=max(1, int(k_neighbors)),
+    )
+
+    partition_means, global_mean = _build_category_mean_baseline(split_data.train)
+    baseline_validation_predictions = _predict_category_mean_baseline(split_data.validation, partition_means, global_mean)
+    baseline_test_predictions = _predict_category_mean_baseline(split_data.test, partition_means, global_mean)
+
+    model_validation_metrics = _metric_summary(matrices.y_validation, validation_predictions)
+    model_test_metrics = _metric_summary(matrices.y_test, test_predictions)
+    baseline_validation_metrics = _metric_summary(matrices.y_validation, baseline_validation_predictions)
+    baseline_test_metrics = _metric_summary(matrices.y_test, baseline_test_predictions)
+
+    outperforms_baseline = bool(
+        model_validation_metrics["rmse"] < baseline_validation_metrics["rmse"]
+        and model_validation_metrics["r2"] > baseline_validation_metrics["r2"]
+        and model_test_metrics["rmse"] < baseline_test_metrics["rmse"]
+        and model_test_metrics["r2"] > baseline_test_metrics["r2"]
+    )
+    quality_gate_passed = bool(model_validation_metrics["r2"] >= float(quality_gate_r2))
+
+    summary = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "input_rows": int(len(frame)),
+        "split_rows": {
+            "train": int(len(split_data.train)),
+            "validation": int(len(split_data.validation)),
+            "test": int(len(split_data.test)),
+        },
+        "split_distributions": {
+            "train": _distribution(split_data.train),
+            "validation": _distribution(split_data.validation),
+            "test": _distribution(split_data.test),
+        },
+        "has_split_overlap": has_overlap,
+        "feature_shapes": {
+            "x_train": [int(v) for v in matrices.x_train.shape],
+            "x_validation": [int(v) for v in matrices.x_validation.shape],
+            "x_test": [int(v) for v in matrices.x_test.shape],
+            "y_train": int(matrices.y_train.shape[0]),
+            "y_validation": int(matrices.y_validation.shape[0]),
+            "y_test": int(matrices.y_test.shape[0]),
+        },
+        "model_metrics": {
+            "validation": model_validation_metrics,
+            "test": model_test_metrics,
+        },
+        "baseline_metrics": {
+            "validation": baseline_validation_metrics,
+            "test": baseline_test_metrics,
+        },
+        "baseline_comparison": {
+            "model_outperforms_baseline": outperforms_baseline,
+        },
+        "quality_gate": {
+            "metric": "validation_r2",
+            "threshold": float(quality_gate_r2),
+            "passed": quality_gate_passed,
+        },
+        "pipeline_config": {
+            "k_neighbors": int(max(1, int(k_neighbors))),
+            "n_components": int(n_components),
+            "max_features": int(max_features),
+            "alpha": float(alpha),
+            "random_state": int(random_state),
+        },
+        "artifact_dir": artifact_dir,
+        "training_summary_path": os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT),
+        "harmonized_parquet_path": harmonized_parquet_path,
+        "macro_lookup_path": macro_lookup_path,
+    }
+
+    summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2, sort_keys=True)
+
+    if enforce_quality_gate and not quality_gate_passed:
+        raise RuntimeError(
+            f"Quality gate failed: validation R2 {model_validation_metrics['r2']} is below threshold {quality_gate_r2}."
+        )
+    if not outperforms_baseline:
+        raise RuntimeError("Model did not outperform category-mean baseline on validation and test metrics.")
+
+    return summary
+
+
 def _ensure_demo_inputs(raw_dir: str, macro_lookup_path: str, harmonized_parquet_path: str) -> Tuple[str, str]:
     resolved_macro_lookup = macro_lookup_path
     resolved_parquet = harmonized_parquet_path
@@ -291,7 +496,8 @@ def _ensure_demo_inputs(raw_dir: str, macro_lookup_path: str, harmonized_parquet
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="M6.1 train/validation/test orchestration pipeline")
+    parser = argparse.ArgumentParser(description="M6.1/M6.2 training and evaluation pipeline")
+    parser.add_argument("--mode", choices=("orchestrate", "evaluate"), default="orchestrate")
     parser.add_argument("--raw-dir", default=os.path.join("data", "raw"), help="Raw data directory used for demo fallbacks")
     parser.add_argument("--harmonized-parquet", default=DEFAULT_HARMONIZED_PARQUET, help="Input harmonized parquet path")
     parser.add_argument("--macro-lookup", default=DEFAULT_MACRO_LOOKUP, help="Macro lookup JSON path")
@@ -303,6 +509,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-components", type=int, default=TEXT_VECTOR_DIMENSIONS)
     parser.add_argument("--max-features", type=int, default=12000)
     parser.add_argument("--alpha", type=float, default=BILATERAL_ALPHA)
+    parser.add_argument("--k-neighbors", type=int, default=DEFAULT_IDW_NEIGHBORS)
+    parser.add_argument("--quality-gate-r2", type=float, default=DEFAULT_QUALITY_GATE_R2)
+    parser.add_argument("--no-enforce-quality-gate", action="store_true")
     parser.add_argument("--no-save-artifacts", action="store_true", help="Disable artifact persistence")
     return parser.parse_args()
 
@@ -325,19 +534,36 @@ def main() -> None:
         harmonized_parquet_path=harmonized_parquet_path,
     )
 
-    payload = orchestrate_training(
-        harmonized_parquet_path=harmonized_parquet_path,
-        macro_lookup_path=macro_lookup_path,
-        train_ratio=args.train_ratio,
-        validation_ratio=args.validation_ratio,
-        test_ratio=args.test_ratio,
-        random_state=args.random_state,
-        n_components=args.n_components,
-        max_features=args.max_features,
-        alpha=args.alpha,
-        artifact_dir=args.artifact_dir,
-        save_artifacts=not args.no_save_artifacts,
-    )
+    if args.mode == "evaluate":
+        payload = evaluate_and_serialize_training(
+            harmonized_parquet_path=harmonized_parquet_path,
+            macro_lookup_path=macro_lookup_path,
+            train_ratio=args.train_ratio,
+            validation_ratio=args.validation_ratio,
+            test_ratio=args.test_ratio,
+            random_state=args.random_state,
+            n_components=args.n_components,
+            max_features=args.max_features,
+            alpha=args.alpha,
+            artifact_dir=args.artifact_dir,
+            k_neighbors=args.k_neighbors,
+            quality_gate_r2=args.quality_gate_r2,
+            enforce_quality_gate=not args.no_enforce_quality_gate,
+        )
+    else:
+        payload = orchestrate_training(
+            harmonized_parquet_path=harmonized_parquet_path,
+            macro_lookup_path=macro_lookup_path,
+            train_ratio=args.train_ratio,
+            validation_ratio=args.validation_ratio,
+            test_ratio=args.test_ratio,
+            random_state=args.random_state,
+            n_components=args.n_components,
+            max_features=args.max_features,
+            alpha=args.alpha,
+            artifact_dir=args.artifact_dir,
+            save_artifacts=not args.no_save_artifacts,
+        )
     payload["harmonized_parquet_path"] = harmonized_parquet_path
     payload["macro_lookup_path"] = macro_lookup_path
     print(json.dumps(payload, indent=2))
