@@ -9,6 +9,132 @@ from statistics import median
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 PPP_SERIES_CODE = "PA.NUS.PPP"
+USD_TO_KES_RATE_ANCHOR = 130.0
+MIN_DESCRIPTION_LENGTH = 40
+MIN_ACCEPTED_HOURLY_RATE_KES = 500.0
+MAX_ACCEPTED_HOURLY_RATE_KES = 35000.0
+DEFAULT_MACRO_OUTPUT = os.path.join("data", "processed", "macro_lookup_table.json")
+DEFAULT_HARMONIZED_OUTPUT = os.path.join("data", "processed", "harmonized_marketplace_corpus.csv")
+
+SUPPORTED_INDUSTRY_PARTITIONS = (
+    "data_ai",
+    "web_backend",
+    "mobile",
+    "devops_cloud",
+    "design_creative",
+    "product_management",
+    "digital_marketing",
+    "general_tech",
+)
+
+INDUSTRY_KEYWORDS = {
+    "data_ai": (
+        "data scientist",
+        "data science",
+        "machine learning",
+        "deep learning",
+        "artificial intelligence",
+        "nlp",
+        "llm",
+        "computer vision",
+        "power bi",
+        "tableau",
+        "analytics",
+        "data analysis",
+        "data analyst",
+        "statistics",
+        "sql",
+        "predictive",
+    ),
+    "web_backend": (
+        "full stack",
+        "fullstack",
+        "backend",
+        "front end",
+        "frontend",
+        "web development",
+        "web app",
+        "react",
+        "angular",
+        "vue",
+        "node",
+        "django",
+        "flask",
+        "wordpress",
+        "shopify",
+        "javascript",
+        "typescript",
+        "api",
+    ),
+    "mobile": (
+        "android",
+        "ios",
+        "flutter",
+        "react native",
+        "mobile app",
+        "swift",
+        "kotlin",
+        "xamarin",
+    ),
+    "devops_cloud": (
+        "devops",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "kubernetes",
+        "docker",
+        "terraform",
+        "ci/cd",
+        "jenkins",
+        "github actions",
+        "nginx",
+        "linux",
+        "microsoft azure",
+    ),
+    "design_creative": (
+        "graphic design",
+        "logo",
+        "brand",
+        "adobe",
+        "photoshop",
+        "illustrator",
+        "video editing",
+        "youtube",
+        "ui",
+        "ux",
+        "figma",
+        "motion design",
+        "branding",
+        "creative",
+    ),
+    "product_management": (
+        "product manager",
+        "product management",
+        "project manager",
+        "project management",
+        "scrum",
+        "agile",
+        "roadmap",
+        "stakeholder",
+        "user story",
+        "jira",
+    ),
+    "digital_marketing": (
+        "seo",
+        "google ads",
+        "facebook ads",
+        "social media",
+        "media buyer",
+        "marketing",
+        "email marketing",
+        "lead generation",
+        "campaign",
+        "instagram",
+        "search engine optimization",
+        "content marketing",
+    ),
+}
 
 # Target set from M1.1 acceptance criteria.
 TARGET_ISO2_TO_ISO3 = {
@@ -107,6 +233,223 @@ def _safe_float(value: str) -> Optional[float]:
         return float(normalized)
     except ValueError:
         return None
+
+
+def _safe_float_any(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if value is None:
+        return None
+
+    text_value = str(value).strip().replace(",", "").replace("$", "")
+    if text_value.endswith("%"):
+        text_value = text_value[:-1]
+
+    return _safe_float(text_value)
+
+
+def _normalize_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    normalized = str(value or "").strip().lower()
+    return normalized in {"true", "1", "yes", "y"}
+
+
+def _normalize_text(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
+def map_industry_partition(text: str) -> str:
+    """Map free-form marketplace text to a supported domain partition."""
+    normalized = _normalize_text(text).lower()
+    if not normalized:
+        return "general_tech"
+
+    for partition, keywords in INDUSTRY_KEYWORDS.items():
+        if any(keyword in normalized for keyword in keywords):
+            return partition
+
+    return "general_tech"
+
+
+def _extract_hourly_rate_from_upwork_jobs(row: Dict[str, Any]) -> Optional[float]:
+    if not _normalize_bool(row.get("is_hourly")):
+        return None
+
+    low_rate = _safe_float_any(row.get("hourly_low"))
+    high_rate = _safe_float_any(row.get("hourly_high"))
+
+    if low_rate is not None and high_rate is not None:
+        return (low_rate + high_rate) / 2.0
+
+    if low_rate is not None:
+        return low_rate
+
+    if high_rate is not None:
+        return high_rate
+
+    return None
+
+
+def parse_upwork_jobs_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse the Upwork jobs scrape and keep hourly-only records."""
+    rows: List[Dict[str, Any]] = []
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            hourly_rate_usd = _extract_hourly_rate_from_upwork_jobs(row)
+            if hourly_rate_usd is None:
+                continue
+
+            title = _normalize_text(row.get("title"))
+            description = _normalize_text(row.get("description"))
+            text_blob = f"{title} {description}".strip()
+            rows.append(
+                {
+                    "source_dataset": "upwork_jobs",
+                    "job_title": title,
+                    "raw_description": description,
+                    "source_country": _normalize_text(row.get("country")),
+                    "hourly_rate_usd": hourly_rate_usd,
+                    "industry_partition": map_industry_partition(text_blob),
+                }
+            )
+
+    return rows
+
+
+def parse_data_scientist_upwork_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse freelancer profile records with explicit hourlyRate values."""
+    rows: List[Dict[str, Any]] = []
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            hourly_rate_usd = _safe_float_any(row.get("hourlyRate"))
+            if hourly_rate_usd is None:
+                continue
+
+            title = _normalize_text(row.get("title"))
+            description = _normalize_text(row.get("description"))
+            skills = _normalize_text(row.get("skills"))
+            text_blob = f"{title} {skills} {description}".strip()
+            rows.append(
+                {
+                    "source_dataset": "upwork_data_scientists",
+                    "job_title": title,
+                    "raw_description": description,
+                    "source_country": _normalize_text(row.get("country")),
+                    "hourly_rate_usd": hourly_rate_usd,
+                    "industry_partition": map_industry_partition(text_blob),
+                }
+            )
+
+    return rows
+
+
+def harmonize_marketplace_corpus(
+    raw_data_dir: str,
+    usd_to_kes_rate_anchor: float = USD_TO_KES_RATE_ANCHOR,
+    min_description_length: int = MIN_DESCRIPTION_LENGTH,
+    min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
+    max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
+) -> List[Dict[str, Any]]:
+    """Build a filtered, currency-harmonized freelance marketplace corpus in KES/hour."""
+    upwork_jobs_root = os.path.join(raw_data_dir, "upwork-jobs.csv")
+    upwork_profiles_root = os.path.join(raw_data_dir, "Data_Scientist_Upwork")
+
+    upwork_jobs_csv = find_file_in_dir(upwork_jobs_root, name_contains="upwork-jobs")
+    upwork_profiles_csv = find_file_in_dir(upwork_profiles_root, name_contains="upwork_data_scientists")
+
+    staged = parse_upwork_jobs_dataset(upwork_jobs_csv)
+    staged.extend(parse_data_scientist_upwork_dataset(upwork_profiles_csv))
+
+    records: List[Dict[str, Any]] = []
+    for row in staged:
+        description = _normalize_text(row.get("raw_description"))
+        if len(description) < min_description_length:
+            continue
+
+        industry_partition = _normalize_text(row.get("industry_partition"))
+        if not industry_partition:
+            continue
+
+        hourly_rate_usd = _safe_float_any(row.get("hourly_rate_usd"))
+        if hourly_rate_usd is None or hourly_rate_usd <= 0:
+            continue
+
+        hourly_rate_kes = hourly_rate_usd * float(usd_to_kes_rate_anchor)
+        if hourly_rate_kes < min_hourly_rate_kes or hourly_rate_kes > max_hourly_rate_kes:
+            continue
+
+        records.append(
+            {
+                "source_dataset": row["source_dataset"],
+                "job_title": _normalize_text(row.get("job_title")),
+                "raw_description": description,
+                "source_country": _normalize_text(row.get("source_country")),
+                "industry_partition": industry_partition,
+                "hourly_rate": round(hourly_rate_kes, 2),
+                "hourly_rate_usd": round(hourly_rate_usd, 2),
+                "currency": "KES",
+                "usd_to_kes_rate_anchor": float(usd_to_kes_rate_anchor),
+            }
+        )
+
+    return records
+
+
+def preview_harmonized_records(records: List[Dict[str, Any]], limit: int = 5) -> str:
+    """Return a small JSON preview for CLI inspection."""
+    if limit <= 0:
+        limit = 5
+
+    preview_payload = {
+        "record_count": len(records),
+        "preview": records[:limit],
+    }
+    return json.dumps(preview_payload, indent=2, ensure_ascii=False)
+
+
+def export_harmonized_records(records: List[Dict[str, Any]], output_path: str) -> None:
+    """Export harmonized marketplace rows to JSON or CSV based on file extension."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    _, ext = os.path.splitext(output_path)
+    normalized_ext = ext.lower()
+
+    if normalized_ext == ".json":
+        payload = {
+            "metadata": {
+                "currency": "KES",
+                "record_count": len(records),
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            },
+            "records": records,
+        }
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        return
+
+    fieldnames = [
+        "source_dataset",
+        "job_title",
+        "raw_description",
+        "source_country",
+        "industry_partition",
+        "hourly_rate",
+        "hourly_rate_usd",
+        "currency",
+        "usd_to_kes_rate_anchor",
+    ]
+    with open(output_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in records:
+            writer.writerow(row)
 
 
 def _year_columns(fieldnames: Iterable[str]) -> List[Tuple[int, str]]:
@@ -329,14 +672,50 @@ def get_macro_record(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build macroeconomic lookup table from raw data files.")
     parser.add_argument(
+        "--mode",
+        choices=("macro_lookup", "harmonize_corpus"),
+        default="macro_lookup",
+        help="Execution mode: build macro lookup (M1.1) or harmonize marketplace corpus (M1.2).",
+    )
+    parser.add_argument(
         "--raw-dir",
         default=os.path.join("data", "raw"),
         help="Root directory containing raw CSV datasets.",
     )
     parser.add_argument(
         "--output",
-        default=os.path.join("data", "processed", "macro_lookup_table.json"),
-        help="Output path for the generated macro lookup JSON.",
+        default=DEFAULT_MACRO_OUTPUT,
+        help="Output path for generated artifact (macro lookup or harmonized corpus export).",
+    )
+    parser.add_argument(
+        "--preview-limit",
+        type=int,
+        default=0,
+        help="When mode is harmonize_corpus, print a preview of up to N records.",
+    )
+    parser.add_argument(
+        "--usd-to-kes-rate",
+        type=float,
+        default=USD_TO_KES_RATE_ANCHOR,
+        help="USD to KES conversion anchor used for harmonization.",
+    )
+    parser.add_argument(
+        "--min-description-length",
+        type=int,
+        default=MIN_DESCRIPTION_LENGTH,
+        help="Minimum description length for retained harmonized rows.",
+    )
+    parser.add_argument(
+        "--min-hourly-kes",
+        type=float,
+        default=MIN_ACCEPTED_HOURLY_RATE_KES,
+        help="Minimum accepted hourly rate in KES.",
+    )
+    parser.add_argument(
+        "--max-hourly-kes",
+        type=float,
+        default=MAX_ACCEPTED_HOURLY_RATE_KES,
+        help="Maximum accepted hourly rate in KES.",
     )
     return parser.parse_args()
 
@@ -344,6 +723,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     resolved_raw_dir = _resolve_input_dir(args.raw_dir)
+
+    if args.mode == "harmonize_corpus":
+        output_arg = args.output
+        if output_arg == DEFAULT_MACRO_OUTPUT:
+            output_arg = DEFAULT_HARMONIZED_OUTPUT
+        resolved_output_path = _resolve_output_path(output_arg)
+
+        records = harmonize_marketplace_corpus(
+            raw_data_dir=resolved_raw_dir,
+            usd_to_kes_rate_anchor=args.usd_to_kes_rate,
+            min_description_length=args.min_description_length,
+            min_hourly_rate_kes=args.min_hourly_kes,
+            max_hourly_rate_kes=args.max_hourly_kes,
+        )
+        export_harmonized_records(records, resolved_output_path)
+
+        if args.preview_limit > 0:
+            print(preview_harmonized_records(records, args.preview_limit))
+
+        print(f"Wrote {len(records)} harmonized marketplace records to {resolved_output_path}")
+        return
+
     resolved_output_path = _resolve_output_path(args.output)
 
     payload = build_macro_lookup(raw_data_dir=resolved_raw_dir, output_path=resolved_output_path)

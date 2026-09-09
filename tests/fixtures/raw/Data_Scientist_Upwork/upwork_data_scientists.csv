@@ -1,0 +1,6 @@
+country,description,hourlyRate,jobSuccess,locality,name,skills,title,totalHours,totalJobs
+Kenya,"Experienced data scientist focused on machine learning experimentation, robust evaluation, and stakeholder insights delivery.",50,96%,Nairobi,Jane M.,Python|Machine Learning|SQL|Power BI,Data Scientist,1200,48
+Uganda,"Junior analyst",30,88%,Kampala,Alex T.,Excel|Reporting,Data Analyst,100,8
+India,"Senior AI consultant with deep learning delivery and architecture guidance for enterprise teams.",400,99%,Bengaluru,Ravi K.,Python|Deep Learning|MLOps,AI Consultant,3400,102
+Tanzania,"BI engineer helping clients build reliable dashboards and clean transformations for decision making.",,91%,Dar es Salaam,Asha P.,Power BI|SQL|ETL,BI Engineer,700,35
+

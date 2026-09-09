@@ -110,6 +110,12 @@ python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
 python -m src.ingest_multisource
 ```
 
+### 2b. Preview and export M1.2 harmonized marketplace records
+```bash
+python -m src.ingest_multisource --mode harmonize_corpus --preview-limit 5
+python -m src.ingest_multisource --mode harmonize_corpus --output data/processed/harmonized_marketplace_corpus.csv
+```
+
 ### 3. Train the Model
 ```bash
 python -m src.train_pipeline
