@@ -111,14 +111,16 @@ jobs:
 
       - name: Run pytest when tests exist
         shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           if compgen -G "tests/test_*.py" > /dev/null; then
-            pytest tests -q
+            python -m pytest tests -q
             exit $?
           fi
 
           if compgen -G "Test/test_*.py" > /dev/null; then
-            pytest Test -q
+            python -m pytest Test -q
             exit $?
           fi
 

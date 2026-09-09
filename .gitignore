@@ -1,2 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
 # Ignore local datasets and derived data artifacts
+/data/
 /Data/
+
+# JetBrains IDE local project files
+.idea/
+
