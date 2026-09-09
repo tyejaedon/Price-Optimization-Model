@@ -145,6 +145,9 @@ python -m src.macro_arbitrage --mode fuse_demo --artifact-dir artifacts --mentor
 ### 2h. Run M4.2 IDW regression + peer explainability demo
 ```bash
 python -m src.spatial_engine --mode idw_demo --artifact-dir artifacts --requested-partition product_management --min-partition-size 2 --k 3
+### 2h. Run M5.1 M-Pesa tariff evaluator demo
+```bash
+python -m src.tariff_evaluator --base-rate 4500 --mentor-country KE --show-bands
 ```
 
 ### 3. Train the Model
@@ -180,8 +183,8 @@ Response:
 ```json
 {
   "base_predicted_rate": 4700.0,
-  "mpesa_tariff_surcharge": 108.0,
-  "final_quoted_rate": 4808.0,
+  "mpesa_tariff_surcharge": 55.0,
+  "final_quoted_rate": 4755.0,
   "currency": "KES",
   "bilateral_arbitrage_factor": 0.51,
   "nearest_neighbors": [
