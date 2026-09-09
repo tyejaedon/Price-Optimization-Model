@@ -6,6 +6,8 @@ __pycache__/
 # Ignore local datasets and derived data artifacts
 /data/
 /Data/
+/artifacts/
+/reports/
 
 # JetBrains IDE local project files
 .idea/

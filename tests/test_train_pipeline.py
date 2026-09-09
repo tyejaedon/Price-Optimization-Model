@@ -6,7 +6,14 @@ from pathlib import Path
 import pandas as pd
 
 from src.ingest_multisource import build_macro_lookup
-from src.train_pipeline import build_stratified_splits, load_harmonized_parquet, orchestrate_training
+from src.experiment_reporting import run_experiment_report
+from src.train_pipeline import (
+    DEFAULT_TRAINING_SUMMARY_ARTIFACT,
+    build_stratified_splits,
+    evaluate_and_serialize_training,
+    load_harmonized_parquet,
+    orchestrate_training,
+)
 
 
 class TrainPipelineTests(unittest.TestCase):
@@ -34,17 +41,26 @@ class TrainPipelineTests(unittest.TestCase):
         row_id = 0
         for partition, count, base_rate in partitions:
             for i in range(count):
+                bucket = i % 6
+                bucket_token = self._alpha_token(bucket)
                 tok_a = self._alpha_token(row_id)
                 tok_b = self._alpha_token(row_id + 200)
                 tok_c = self._alpha_token(row_id + 400)
+                bilateral = 1.0 + (bucket * 0.06)
+                saturation = (count / 180.0) + (bucket * 0.002)
+                density = (count / 90.0) + (bucket * 0.015)
+                target_rate = base_rate + float(bucket) * 320.0
                 rows.append(
                     {
-                        "raw_description": f"{partition} mentoring python analytics {tok_a} {tok_b} {tok_c}",
+                        "raw_description": (
+                            f"{partition} mentoring python analytics skill{bucket_token} "
+                            f"cluster{bucket_token} {tok_a} {tok_b} {tok_c}"
+                        ),
                         "industry_partition": partition,
-                        "bilateral_arbitrage_factor": 1.0 + (i % 7) * 0.03,
-                        "market_saturation_score": (count / 180.0),
-                        "industry_relative_density": count / 90.0,
-                        "harmonized_hourly_rate": base_rate + float(i % 15) * 50.0,
+                        "bilateral_arbitrage_factor": bilateral,
+                        "market_saturation_score": saturation,
+                        "industry_relative_density": density,
+                        "harmonized_hourly_rate": target_rate,
                         "hourly_rate": base_rate,
                     }
                 )
@@ -115,6 +131,73 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "tfidf_vectorizer.joblib")))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "svd_reducer.joblib")))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "metadata_scaler.joblib")))
+
+    def test_evaluation_writes_metrics_and_training_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+
+            payload = evaluate_and_serialize_training(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                artifact_dir=artifact_dir,
+                quality_gate_r2=0.0,
+                enforce_quality_gate=True,
+            )
+
+            self.assertIn("model_metrics", payload)
+            self.assertIn("validation", payload["model_metrics"])
+            self.assertIn("test", payload["model_metrics"])
+            self.assertIn("baseline_metrics", payload)
+            self.assertIn("baseline_comparison", payload)
+            self.assertIn("quality_gate", payload)
+            self.assertFalse(payload["has_split_overlap"])
+
+            summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
+            self.assertTrue(os.path.exists(summary_path))
+            self.assertTrue(os.path.exists(os.path.join(artifact_dir, "industry_kdtrees.joblib")))
+
+    def test_quality_gate_is_enforced_programmatically(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+
+            with self.assertRaisesRegex(RuntimeError, "Quality gate failed"):
+                evaluate_and_serialize_training(
+                    harmonized_parquet_path=parquet_path,
+                    macro_lookup_path=macro_lookup_path,
+                    artifact_dir=artifact_dir,
+                    quality_gate_r2=1.01,
+                    enforce_quality_gate=True,
+                )
+
+    def test_experiment_report_writes_tuning_tables_and_diagrams(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "model_evaluation")
+
+            payload = run_experiment_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_values=(1, 3),
+            )
+
+            expected_files = {
+                "hyperparameter_results.csv",
+                "independent_variable_summary.csv",
+                "dependent_variable_summary.csv",
+                "experiment_report.md",
+                "experiment_report.json",
+                "hyperparameter_trends.png",
+                "model_progress.png",
+                "variable_effects.png",
+            }
+            self.assertTrue(expected_files.issubset(set(os.listdir(report_dir))))
+            self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
+            self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
+            self.assertIn("Hyperparameter results", Path(report_dir, "experiment_report.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

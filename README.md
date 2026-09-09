@@ -142,7 +142,12 @@ python -m src.macro_arbitrage --mode fit_demo --artifact-dir artifacts --mentor-
 python -m src.macro_arbitrage --mode fuse_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
 ```
 
-### 2h. Run M5.1 M-Pesa tariff evaluator demo
+### 2h. Run M4.2 IDW regression + peer explainability demo
+```bash
+python -m src.spatial_engine --mode idw_demo --artifact-dir artifacts --requested-partition product_management --min-partition-size 2 --k 3
+```
+
+### 2i. Run M5.1 M-Pesa tariff evaluator demo
 ```bash
 python -m src.tariff_evaluator --base-rate 4500 --mentor-country KE --show-bands
 ```
@@ -150,6 +155,16 @@ python -m src.tariff_evaluator --base-rate 4500 --mentor-country KE --show-bands
 ### 3. Train the Model
 ```bash
 python -m src.train_pipeline
+```
+
+### 3b. Run M6.2 evaluation + training summary export
+```bash
+python -m src.train_pipeline --mode evaluate --artifact-dir artifacts --quality-gate-r2 0.75 --no-enforce-quality-gate
+```
+
+### 3c. Generate M6.2 tuning diagrams, tables, and report
+```powershell
+python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
 ```
 
 ### 4. Start the Inference Server
