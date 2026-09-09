@@ -306,6 +306,20 @@ Milestone 8: Automated Verification, Latency Profiling & MLOps
 - Depends on `M4.2` and `M6.1`
 - Blocks `M7.2`
 
+### M6.2 Experimental Scope Decision: Retain KNN for Production
+
+Because of the scope of this feature track, production inference will continue to use the KNN-style peer pricing approach delivered in `M4.1` and `M4.2`: domain-partitioned KD-Tree retrieval with inverse-distance weighting and peer explainability.
+
+The experimental workflow should focus on tuning the KNN approach rather than introducing a broad collection of production model families. Recommended experiments are:
+
+- sweep `k_neighbors`,
+- tune distance weighting and text/metadata block weights,
+- evaluate raw versus `log1p(target_rate)` transformations,
+- compare validation/test RMSE, MAE, median absolute error, and `R^2`, and
+- use a category-mean model as the required baseline comparator.
+
+Alternative regressors may be used as offline reference points in the report, but they are not production deliverables for this milestone. The production independent variables remain the 53-D hybrid coordinate, and the dependent variable remains `target_rate` in KES/hour.
+
 ---
 
 ## Milestone 7: Production ASGI API Service (FastAPI)
