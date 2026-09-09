@@ -1,0 +1,8 @@
+title,link,description,published_date,is_hourly,hourly_low,hourly_high,budget,country
+Backend API Engineer,https://example.com/job1,Build and maintain backend APIs with Node and React integration for a SaaS application.,2026-01-05,True,20,30,,United States
+Fixed Price Data Entry,https://example.com/job2,Simple spreadsheet cleanup task with fixed budget only.,2026-01-06,False,,,200,Kenya
+Low Rate Tester,https://example.com/job3,Hourly testing support for a product team with repetitive manual checks and reports.,2026-01-07,True,1,2,,Kenya
+High Rate Architect,https://example.com/job4,Enterprise cloud architecture consulting with long detailed architecture sessions and planning.,2026-01-08,True,500,600,,Germany
+Short Desc Dev,https://example.com/job5,Too short desc,2026-01-09,True,10,12,,Canada
+Media Buyer Specialist,https://example.com/job6,Run Facebook Ads and social media campaigns with weekly optimization and reporting plans.,2026-01-10,True,8,10,,United Kingdom
+

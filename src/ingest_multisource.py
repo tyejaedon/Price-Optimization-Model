@@ -9,6 +9,87 @@ from statistics import median
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 PPP_SERIES_CODE = "PA.NUS.PPP"
+USD_TO_KES_RATE_ANCHOR = 130.0
+MIN_DESCRIPTION_LENGTH = 40
+MIN_ACCEPTED_HOURLY_RATE_KES = 500.0
+MAX_ACCEPTED_HOURLY_RATE_KES = 35000.0
+
+SUPPORTED_INDUSTRY_PARTITIONS = (
+    "data_ai",
+    "web_backend",
+    "mobile",
+    "devops_cloud",
+    "design_creative",
+    "product_management",
+    "digital_marketing",
+    "general_tech",
+)
+
+INDUSTRY_KEYWORDS = {
+    "data_ai": (
+        "data scientist",
+        "data science",
+        "machine learning",
+        "deep learning",
+        "artificial intelligence",
+        "nlp",
+        "analytics",
+        "power bi",
+    ),
+    "web_backend": (
+        "full stack",
+        "backend",
+        "front end",
+        "frontend",
+        "react",
+        "node",
+        "django",
+        "api",
+    ),
+    "mobile": (
+        "android",
+        "ios",
+        "flutter",
+        "react native",
+        "mobile app",
+        "swift",
+        "kotlin",
+    ),
+    "devops_cloud": (
+        "devops",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "kubernetes",
+        "docker",
+        "terraform",
+    ),
+    "design_creative": (
+        "ui",
+        "ux",
+        "figma",
+        "graphic design",
+        "motion design",
+        "branding",
+    ),
+    "product_management": (
+        "product manager",
+        "scrum",
+        "agile",
+        "roadmap",
+        "stakeholder",
+        "project manager",
+    ),
+    "digital_marketing": (
+        "seo",
+        "google ads",
+        "facebook ads",
+        "social media",
+        "media buyer",
+        "marketing",
+    ),
+}
 
 # Target set from M1.1 acceptance criteria.
 TARGET_ISO2_TO_ISO3 = {
@@ -107,6 +188,171 @@ def _safe_float(value: str) -> Optional[float]:
         return float(normalized)
     except ValueError:
         return None
+
+
+def _safe_float_any(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if value is None:
+        return None
+
+    text_value = str(value).strip().replace(",", "").replace("$", "")
+    if text_value.endswith("%"):
+        text_value = text_value[:-1]
+
+    return _safe_float(text_value)
+
+
+def _normalize_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    normalized = str(value or "").strip().lower()
+    return normalized in {"true", "1", "yes", "y"}
+
+
+def _normalize_text(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
+def map_industry_partition(text: str) -> str:
+    """Map free-form marketplace text to a supported domain partition."""
+    normalized = _normalize_text(text).lower()
+    if not normalized:
+        return "general_tech"
+
+    for partition, keywords in INDUSTRY_KEYWORDS.items():
+        if any(keyword in normalized for keyword in keywords):
+            return partition
+
+    return "general_tech"
+
+
+def _extract_hourly_rate_from_upwork_jobs(row: Dict[str, Any]) -> Optional[float]:
+    if not _normalize_bool(row.get("is_hourly")):
+        return None
+
+    low_rate = _safe_float_any(row.get("hourly_low"))
+    high_rate = _safe_float_any(row.get("hourly_high"))
+
+    if low_rate is not None and high_rate is not None:
+        return (low_rate + high_rate) / 2.0
+
+    if low_rate is not None:
+        return low_rate
+
+    if high_rate is not None:
+        return high_rate
+
+    return None
+
+
+def parse_upwork_jobs_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse the Upwork jobs scrape and keep hourly-only records."""
+    rows: List[Dict[str, Any]] = []
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            hourly_rate_usd = _extract_hourly_rate_from_upwork_jobs(row)
+            if hourly_rate_usd is None:
+                continue
+
+            title = _normalize_text(row.get("title"))
+            description = _normalize_text(row.get("description"))
+            text_blob = f"{title} {description}".strip()
+            rows.append(
+                {
+                    "source_dataset": "upwork_jobs",
+                    "job_title": title,
+                    "raw_description": description,
+                    "source_country": _normalize_text(row.get("country")),
+                    "hourly_rate_usd": hourly_rate_usd,
+                    "industry_partition": map_industry_partition(text_blob),
+                }
+            )
+
+    return rows
+
+
+def parse_data_scientist_upwork_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse freelancer profile records with explicit hourlyRate values."""
+    rows: List[Dict[str, Any]] = []
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            hourly_rate_usd = _safe_float_any(row.get("hourlyRate"))
+            if hourly_rate_usd is None:
+                continue
+
+            title = _normalize_text(row.get("title"))
+            description = _normalize_text(row.get("description"))
+            skills = _normalize_text(row.get("skills"))
+            text_blob = f"{title} {skills} {description}".strip()
+            rows.append(
+                {
+                    "source_dataset": "upwork_data_scientists",
+                    "job_title": title,
+                    "raw_description": description,
+                    "source_country": _normalize_text(row.get("country")),
+                    "hourly_rate_usd": hourly_rate_usd,
+                    "industry_partition": map_industry_partition(text_blob),
+                }
+            )
+
+    return rows
+
+
+def harmonize_marketplace_corpus(
+    raw_data_dir: str,
+    usd_to_kes_rate_anchor: float = USD_TO_KES_RATE_ANCHOR,
+    min_description_length: int = MIN_DESCRIPTION_LENGTH,
+    min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
+    max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
+) -> List[Dict[str, Any]]:
+    """Build a filtered, currency-harmonized freelance marketplace corpus in KES/hour."""
+    upwork_jobs_root = os.path.join(raw_data_dir, "upwork-jobs.csv")
+    upwork_profiles_root = os.path.join(raw_data_dir, "Data_Scientist_Upwork")
+
+    upwork_jobs_csv = find_file_in_dir(upwork_jobs_root, name_contains="upwork-jobs")
+    upwork_profiles_csv = find_file_in_dir(upwork_profiles_root, name_contains="upwork_data_scientists")
+
+    staged = parse_upwork_jobs_dataset(upwork_jobs_csv)
+    staged.extend(parse_data_scientist_upwork_dataset(upwork_profiles_csv))
+
+    records: List[Dict[str, Any]] = []
+    for row in staged:
+        description = _normalize_text(row.get("raw_description"))
+        if len(description) < min_description_length:
+            continue
+
+        industry_partition = _normalize_text(row.get("industry_partition"))
+        if not industry_partition:
+            continue
+
+        hourly_rate_usd = _safe_float_any(row.get("hourly_rate_usd"))
+        if hourly_rate_usd is None or hourly_rate_usd <= 0:
+            continue
+
+        hourly_rate_kes = hourly_rate_usd * float(usd_to_kes_rate_anchor)
+        if hourly_rate_kes < min_hourly_rate_kes or hourly_rate_kes > max_hourly_rate_kes:
+            continue
+
+        records.append(
+            {
+                "source_dataset": row["source_dataset"],
+                "job_title": _normalize_text(row.get("job_title")),
+                "raw_description": description,
+                "source_country": _normalize_text(row.get("source_country")),
+                "industry_partition": industry_partition,
+                "hourly_rate": round(hourly_rate_kes, 2),
+                "hourly_rate_usd": round(hourly_rate_usd, 2),
+                "currency": "KES",
+                "usd_to_kes_rate_anchor": float(usd_to_kes_rate_anchor),
+            }
+        )
+
+    return records
 
 
 def _year_columns(fieldnames: Iterable[str]) -> List[Tuple[int, str]]:
