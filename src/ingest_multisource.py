@@ -4,6 +4,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from statistics import median
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
@@ -47,6 +48,32 @@ COST_INDEX_COUNTRY_TO_ISO2 = {
 }
 
 YEAR_PATTERN = re.compile(r"(\d{4})")
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+
+
+def _resolve_input_dir(path_value: str) -> str:
+    """Resolve input directories from either CWD or repository root."""
+    if os.path.isabs(path_value):
+        return path_value
+
+    cwd_candidate = os.path.abspath(path_value)
+    if os.path.isdir(cwd_candidate):
+        return cwd_candidate
+
+    project_candidate = os.path.abspath(os.path.join(PROJECT_ROOT, path_value))
+    return project_candidate
+
+
+def _resolve_output_path(path_value: str) -> str:
+    """Resolve output paths from either CWD or repository root."""
+    if os.path.isabs(path_value):
+        return path_value
+
+    parent = os.path.dirname(path_value)
+    if parent and os.path.isdir(os.path.abspath(parent)):
+        return os.path.abspath(path_value)
+
+    return os.path.abspath(os.path.join(PROJECT_ROOT, path_value))
 
 
 def find_file_in_dir(root_dir: str, name_contains: str, extension: str = ".csv") -> str:
@@ -316,10 +343,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    payload = build_macro_lookup(raw_data_dir=args.raw_dir, output_path=args.output)
+    resolved_raw_dir = _resolve_input_dir(args.raw_dir)
+    resolved_output_path = _resolve_output_path(args.output)
+
+    payload = build_macro_lookup(raw_data_dir=resolved_raw_dir, output_path=resolved_output_path)
     records = cast(Dict[str, Dict[str, Any]], payload.get("records", {}))
     print(
-        f"Wrote {len(records)} macro records to {os.path.abspath(args.output)}"
+        f"Wrote {len(records)} macro records to {resolved_output_path}"
     )
 
 
