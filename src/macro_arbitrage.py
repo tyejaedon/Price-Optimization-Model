@@ -20,6 +20,7 @@ from src.ingest_multisource import (
     load_macro_lookup_table,
     map_country_to_iso2,
 )
+from src.nlp_pipeline import TextFeatureReducer
 
 DEFAULT_FEATURE_NAMES: Tuple[str, str, str] = (
     "bilateral_arbitrage_factor",
@@ -31,6 +32,9 @@ DEFAULT_SCALER_ARTIFACT = "metadata_scaler.joblib"
 DEFAULT_SCALER_METADATA = "metadata_scaler_metadata.json"
 DEFAULT_MACRO_LOOKUP = os.path.join("data", "processed", "macro_lookup_table.json")
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
+TEXT_VECTOR_DIMENSIONS = 50
+METADATA_VECTOR_DIMENSIONS = 3
+HYBRID_VECTOR_DIMENSIONS = TEXT_VECTOR_DIMENSIONS + METADATA_VECTOR_DIMENSIONS
 
 
 class ContinuousMetadataNormalizer:
@@ -75,8 +79,7 @@ class ContinuousMetadataNormalizer:
         return vector.reshape(1, -1)
 
     def _record_to_row(self, record: Dict[str, Any]) -> List[float]:
-        row = [float(record.get(feature_name, 0.0) or 0.0) for feature_name in self.feature_names]
-        return row
+        return [float(record.get(feature_name, 0.0) or 0.0) for feature_name in self.feature_names]
 
     def fit(self, records: Sequence[Dict[str, Any]]) -> None:
         matrix = np.array([self._record_to_row(record) for record in records], dtype=float)
@@ -166,6 +169,94 @@ class ContinuousMetadataNormalizer:
         return instance
 
 
+def _coerce_feature_vector(vector: Any, expected_size: int, vector_name: str) -> np.ndarray:
+    array = np.asarray(vector, dtype=float)
+    if array.ndim == 2:
+        if array.shape[0] != 1:
+            raise ValueError(f"{vector_name} must be a 1-D vector or single-row matrix; got shape {array.shape}.")
+        array = array.reshape(-1)
+    elif array.ndim != 1:
+        raise ValueError(f"{vector_name} must be 1-D; got shape {array.shape}.")
+
+    if array.size != expected_size:
+        raise ValueError(f"{vector_name} must contain exactly {expected_size} values; got {array.size}.")
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{vector_name} contains non-finite values.")
+
+    return array.astype(float, copy=False)
+
+
+def fuse_coordinates(dense_text_vector: Any, normalized_metadata: Any) -> np.ndarray:
+    """Concatenate a 50-D text vector and 3-D normalized metadata into an immutable 53-D vector."""
+    text_array = _coerce_feature_vector(dense_text_vector, TEXT_VECTOR_DIMENSIONS, "dense_text_vector")
+    metadata_array = _coerce_feature_vector(normalized_metadata, METADATA_VECTOR_DIMENSIONS, "normalized_metadata")
+
+    fused = np.concatenate([text_array, metadata_array]).astype(float, copy=False)
+    fused.setflags(write=False)
+    return fused
+
+
+def fuse_coordinate_batches(text_vectors: Any, metadata_vectors: Any) -> np.ndarray:
+    """Fuse aligned text and metadata matrices row-wise into immutable hybrid coordinates."""
+    text_matrix = np.asarray(text_vectors, dtype=float)
+    metadata_matrix = np.asarray(metadata_vectors, dtype=float)
+
+    if text_matrix.ndim != 2:
+        raise ValueError(f"text_vectors must be a 2-D matrix; got shape {text_matrix.shape}.")
+    if metadata_matrix.ndim != 2:
+        raise ValueError(f"metadata_vectors must be a 2-D matrix; got shape {metadata_matrix.shape}.")
+    if text_matrix.shape[1] != TEXT_VECTOR_DIMENSIONS:
+        raise ValueError(f"text_vectors must have {TEXT_VECTOR_DIMENSIONS} columns; got {text_matrix.shape[1]}.")
+    if metadata_matrix.shape[1] != METADATA_VECTOR_DIMENSIONS:
+        raise ValueError(
+            f"metadata_vectors must have {METADATA_VECTOR_DIMENSIONS} columns; got {metadata_matrix.shape[1]}."
+        )
+    if text_matrix.shape[0] != metadata_matrix.shape[0]:
+        raise ValueError(
+            f"text_vectors and metadata_vectors must have the same row count; got {text_matrix.shape[0]} and {metadata_matrix.shape[0]}."
+        )
+    if not np.all(np.isfinite(text_matrix)):
+        raise ValueError("text_vectors contains non-finite values.")
+    if not np.all(np.isfinite(metadata_matrix)):
+        raise ValueError("metadata_vectors contains non-finite values.")
+
+    fused = np.concatenate([text_matrix, metadata_matrix], axis=1)
+    fused.setflags(write=False)
+    return fused
+
+
+def _build_text_demo_corpus(row_count: int = 90) -> List[str]:
+    alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+    def alpha_token(index: int) -> str:
+        base = len(alphabet)
+        chars: List[str] = []
+        value = index
+        while True:
+            chars.append(alphabet[value % base])
+            value //= base
+            if value == 0:
+                break
+        return "tok" + "".join(chars)
+
+    return [
+        " ".join(
+            [
+                "data",
+                "science",
+                "machine",
+                "learning",
+                "python",
+                "analytics",
+                alpha_token(i),
+                alpha_token(i + 200),
+                alpha_token(i + 400),
+            ]
+        )
+        for i in range(max(60, row_count))
+    ]
+
+
 def _ensure_demo_artifacts(raw_dir: str, macro_lookup_path: str, harmonized_parquet_path: str) -> Tuple[str, str]:
     macro_path = macro_lookup_path
     parquet_path = harmonized_parquet_path
@@ -182,7 +273,7 @@ def _ensure_demo_artifacts(raw_dir: str, macro_lookup_path: str, harmonized_parq
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Fit and use the continuous metadata normalizer.")
-    parser.add_argument("--mode", choices=("fit_demo", "transform_demo"), default="fit_demo")
+    parser.add_argument("--mode", choices=("fit_demo", "transform_demo", "fuse_demo"), default="fit_demo")
     parser.add_argument("--raw-dir", default=os.path.join("data", "raw"), help="Raw data directory")
     parser.add_argument("--macro-lookup", default=DEFAULT_MACRO_LOOKUP, help="Macro lookup JSON path")
     parser.add_argument(
@@ -205,6 +296,7 @@ def main() -> None:
     macro_lookup_path = args.macro_lookup
     harmonized_parquet_path = args.harmonized_parquet
     os.makedirs(args.artifact_dir, exist_ok=True)
+
     if macro_lookup_path == DEFAULT_MACRO_LOOKUP and not os.path.exists(macro_lookup_path):
         macro_lookup_path = os.path.join(args.artifact_dir, "demo_macro_lookup_table.json")
     if harmonized_parquet_path == DEFAULT_HARMONIZED_PARQUET and not os.path.exists(harmonized_parquet_path):
@@ -244,6 +336,22 @@ def main() -> None:
         "macro_lookup_path": macro_lookup_path,
         "harmonized_parquet_path": harmonized_parquet_path,
     }
+
+    if args.mode == "fuse_demo":
+        text_reducer = TextFeatureReducer(n_components=TEXT_VECTOR_DIMENSIONS, max_features=12000)
+        demo_corpus = _build_text_demo_corpus()
+        text_reducer.fit_transform(demo_corpus)
+        dense_text_vector = text_reducer.transform([demo_corpus[0]])
+        fused_vector = fuse_coordinates(dense_text_vector, scaled_live_vector)
+        payload.update(
+            {
+                "dense_text_vector_shape": [int(dense_text_vector.shape[0]), int(dense_text_vector.shape[1])],
+                "fused_vector_shape": [int(fused_vector.shape[0])],
+                "fused_vector_preview": [round(float(value), 6) for value in fused_vector[:6]],
+                "hybrid_vector_dimensions": HYBRID_VECTOR_DIMENSIONS,
+            }
+        )
+
     print(json.dumps(payload, indent=2))
 
 
