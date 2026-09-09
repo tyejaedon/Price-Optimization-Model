@@ -20,6 +20,7 @@ DEFAULT_LEAF_SIZE = 40
 DEFAULT_MIN_PARTITION_SIZE = 5
 DEFAULT_QUERY_NEIGHBORS = 5
 DEFAULT_FALLBACK_PARTITION = "general_tech"
+DEFAULT_IDW_EPSILON = 1e-9
 
 
 def _normalize_partition(partition: Any) -> str:
@@ -62,6 +63,17 @@ def _coerce_query_vector(query_vector: Any) -> np.ndarray:
     return vector.astype(float, copy=False)
 
 
+def _coerce_rate_vector(verified_rates: Sequence[float], expected_rows: int) -> np.ndarray:
+    rates = np.asarray(verified_rates, dtype=float).reshape(-1)
+    if rates.size != expected_rows:
+        raise ValueError(
+            f"verified_rates must align with hybrid_vectors rows; got {rates.size} rates for {expected_rows} rows."
+        )
+    if not np.all(np.isfinite(rates)):
+        raise ValueError("verified_rates contains non-finite values.")
+    return rates.astype(float, copy=False)
+
+
 class DomainPartitionedKDTreeIndexer:
     """Build and query domain-specific KD-Tree indices over fused hybrid coordinates."""
 
@@ -76,6 +88,7 @@ class DomainPartitionedKDTreeIndexer:
         self.fallback_partition = _normalize_partition(fallback_partition)
         self.partition_trees: Dict[str, KDTree] = {}
         self.partition_row_indices: Dict[str, np.ndarray] = {}
+        self.partition_verified_rates: Dict[str, np.ndarray] = {}
         self.partition_counts: Dict[str, int] = {}
         self.hybrid_dimensions = HYBRID_VECTOR_DIMENSIONS
         self.fitted = False
@@ -85,6 +98,7 @@ class DomainPartitionedKDTreeIndexer:
         hybrid_vectors: Any,
         industry_partitions: Sequence[str],
         record_indices: Optional[Sequence[int]] = None,
+        verified_rates: Optional[Sequence[float]] = None,
     ) -> None:
         matrix = _coerce_hybrid_matrix(hybrid_vectors)
         if len(industry_partitions) != matrix.shape[0]:
@@ -101,24 +115,32 @@ class DomainPartitionedKDTreeIndexer:
                 )
             resolved_indices = np.asarray(record_indices, dtype=int)
 
+        resolved_rates = _coerce_rate_vector(verified_rates, matrix.shape[0]) if verified_rates is not None else None
+
         grouped_vectors: Dict[str, List[np.ndarray]] = {}
         grouped_indices: Dict[str, List[int]] = {}
+        grouped_rates: Dict[str, List[float]] = {}
         for row_number, partition in enumerate(industry_partitions):
             normalized_partition = _normalize_partition(partition)
             grouped_vectors.setdefault(normalized_partition, []).append(matrix[row_number])
             grouped_indices.setdefault(normalized_partition, []).append(int(resolved_indices[row_number]))
+            if resolved_rates is not None:
+                grouped_rates.setdefault(normalized_partition, []).append(float(resolved_rates[row_number]))
 
         if not grouped_vectors:
             raise ValueError("At least one active partition is required to fit the KD-Tree indexer.")
 
         self.partition_trees = {}
         self.partition_row_indices = {}
+        self.partition_verified_rates = {}
         self.partition_counts = {}
 
         for partition, rows in grouped_vectors.items():
             partition_matrix = np.vstack(rows)
             self.partition_trees[partition] = KDTree(partition_matrix, leaf_size=self.leaf_size)
             self.partition_row_indices[partition] = np.asarray(grouped_indices[partition], dtype=int)
+            if resolved_rates is not None:
+                self.partition_verified_rates[partition] = np.asarray(grouped_rates[partition], dtype=float)
             self.partition_counts[partition] = int(partition_matrix.shape[0])
 
         self.fitted = True
@@ -196,6 +218,58 @@ class DomainPartitionedKDTreeIndexer:
 
         raise KeyError(f"No KD-Tree exists for requested partition '{requested}' and no fallback partition is available.")
 
+    def _query_partition_tree(
+        self,
+        query_vector: np.ndarray,
+        requested_partition: str,
+        k: int = DEFAULT_QUERY_NEIGHBORS,
+        allow_fallback: bool = True,
+    ) -> Dict[str, Any]:
+        route = self.resolve_query_partition(requested_partition=requested_partition, k=k, allow_fallback=allow_fallback)
+        routed_partition = str(route["routed_partition"])
+
+        tree = self.partition_trees[routed_partition]
+        partition_row_indices = self.partition_row_indices[routed_partition]
+        neighbor_count = min(max(1, int(k)), self.partition_counts[routed_partition])
+
+        distances, local_indices = tree.query(query_vector.reshape(1, -1), k=neighbor_count, return_distance=True)
+        local_index_array = np.asarray(local_indices[0], dtype=int)
+        distance_array = np.asarray(distances[0], dtype=float)
+        global_indices = partition_row_indices[local_index_array]
+        return {
+            **route,
+            "neighbor_count": int(neighbor_count),
+            "local_neighbor_positions": [int(index) for index in local_index_array.tolist()],
+            "neighbor_indices": [int(index) for index in global_indices.tolist()],
+            "distances": [float(value) for value in distance_array.tolist()],
+        }
+
+    @staticmethod
+    def compute_inverse_distance_weights(distances: Sequence[float], epsilon: float = DEFAULT_IDW_EPSILON) -> np.ndarray:
+        distance_array = np.asarray(distances, dtype=float).reshape(-1)
+        if distance_array.size == 0:
+            raise ValueError("distances cannot be empty.")
+        if not np.all(np.isfinite(distance_array)):
+            raise ValueError("distances contains non-finite values.")
+        if np.any(distance_array < 0.0):
+            raise ValueError("distances cannot contain negative values.")
+
+        effective_epsilon = max(float(epsilon), 1e-12)
+        exact_match_mask = distance_array <= effective_epsilon
+        if np.any(exact_match_mask):
+            weights = np.zeros_like(distance_array, dtype=float)
+            weights[exact_match_mask] = 1.0 / float(np.count_nonzero(exact_match_mask))
+            return weights
+
+        inverse_distances = 1.0 / np.maximum(distance_array, effective_epsilon)
+        total_weight = float(np.sum(inverse_distances))
+        return (inverse_distances / total_weight).astype(float, copy=False)
+
+    @staticmethod
+    def distance_to_similarity_score(distance: float) -> float:
+        safe_distance = max(0.0, float(distance))
+        return 1.0 / (1.0 + safe_distance)
+
     def query(
         self,
         query_vector: Any,
@@ -207,24 +281,68 @@ class DomainPartitionedKDTreeIndexer:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before query().")
 
         resolved_query = _coerce_query_vector(query_vector)
-        route = self.resolve_query_partition(requested_partition=requested_partition, k=k, allow_fallback=allow_fallback)
-        routed_partition = str(route["routed_partition"])
+        result = self._query_partition_tree(
+            query_vector=resolved_query,
+            requested_partition=requested_partition,
+            k=k,
+            allow_fallback=allow_fallback,
+        )
+        result.pop("local_neighbor_positions", None)
+        return result
 
-        tree = self.partition_trees[routed_partition]
-        partition_row_indices = self.partition_row_indices[routed_partition]
-        neighbor_count = min(max(1, int(k)), self.partition_counts[routed_partition])
+    def predict_base_rate(
+        self,
+        query_vector: Any,
+        requested_partition: str,
+        k: int = DEFAULT_QUERY_NEIGHBORS,
+        allow_fallback: bool = True,
+        epsilon: float = DEFAULT_IDW_EPSILON,
+    ) -> Dict[str, Any]:
+        if not self.fitted:
+            raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before predict_base_rate().")
+        if not self.partition_verified_rates:
+            raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted with verified_rates before predict_base_rate().")
 
-        distances, local_indices = tree.query(resolved_query.reshape(1, -1), k=neighbor_count, return_distance=True)
-        local_index_array = local_indices[0]
-        distance_array = distances[0]
-        global_indices = partition_row_indices[local_index_array]
+        resolved_query = _coerce_query_vector(query_vector)
+        result = self._query_partition_tree(
+            query_vector=resolved_query,
+            requested_partition=requested_partition,
+            k=k,
+            allow_fallback=allow_fallback,
+        )
+        routed_partition = str(result["routed_partition"])
+        local_neighbor_positions = np.asarray(result["local_neighbor_positions"], dtype=int)
+        distance_array = np.asarray(result["distances"], dtype=float)
+        verified_rates = self.partition_verified_rates[routed_partition][local_neighbor_positions]
+        idw_weights = self.compute_inverse_distance_weights(distance_array, epsilon=epsilon)
+        weighted_rate = float(np.dot(verified_rates, idw_weights))
 
-        return {
-            **route,
-            "neighbor_count": int(neighbor_count),
-            "neighbor_indices": [int(index) for index in global_indices.tolist()],
-            "distances": [float(value) for value in distance_array.tolist()],
-        }
+        nearest_neighbors: List[Dict[str, Any]] = []
+        for peer_index, verified_rate, distance, weight in zip(
+            result["neighbor_indices"],
+            verified_rates.tolist(),
+            distance_array.tolist(),
+            idw_weights.tolist(),
+        ):
+            nearest_neighbors.append(
+                {
+                    "peer_index": int(peer_index),
+                    "distance": round(float(distance), 6),
+                    "verified_rate": round(float(verified_rate), 2),
+                    "similarity_score": round(self.distance_to_similarity_score(float(distance)), 6),
+                    "idw_weight": round(float(weight), 6),
+                }
+            )
+
+        result.pop("local_neighbor_positions", None)
+        result.update(
+            {
+                "k_neighbors_used": int(len(nearest_neighbors)),
+                "base_predicted_rate": round(weighted_rate, 2),
+                "nearest_neighbors": nearest_neighbors,
+            }
+        )
+        return result
 
     def save_artifacts(self, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> None:
         if not self.fitted:
@@ -240,6 +358,7 @@ class DomainPartitionedKDTreeIndexer:
             "fallback_partition": self.fallback_partition,
             "partition_trees": self.partition_trees,
             "partition_row_indices": self.partition_row_indices,
+            "partition_verified_rates": self.partition_verified_rates,
             "partition_counts": self.partition_counts,
             "hybrid_dimensions": self.hybrid_dimensions,
         }
@@ -251,6 +370,7 @@ class DomainPartitionedKDTreeIndexer:
             "fallback_partition": self.fallback_partition,
             "hybrid_dimensions": self.hybrid_dimensions,
             "active_partitions": list(self.active_partitions()),
+            "has_verified_rates": bool(self.partition_verified_rates),
             "partition_counts": {partition: int(count) for partition, count in self.partition_counts.items()},
         }
         with open(metadata_path, "w", encoding="utf-8") as f:
@@ -271,13 +391,19 @@ class DomainPartitionedKDTreeIndexer:
             str(partition): np.asarray(indices, dtype=int)
             for partition, indices in dict(payload.get("partition_row_indices", {})).items()
         }
-        instance.partition_counts = {str(partition): int(count) for partition, count in dict(payload.get("partition_counts", {})).items()}
+        instance.partition_verified_rates = {
+            str(partition): np.asarray(rates, dtype=float)
+            for partition, rates in dict(payload.get("partition_verified_rates", {})).items()
+        }
+        instance.partition_counts = {
+            str(partition): int(count) for partition, count in dict(payload.get("partition_counts", {})).items()
+        }
         instance.hybrid_dimensions = int(payload.get("hybrid_dimensions", HYBRID_VECTOR_DIMENSIONS))
         instance.fitted = True
         return instance
 
 
-def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray]:
+def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
     partitions = [
         "data_ai",
         "data_ai",
@@ -298,6 +424,7 @@ def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray]:
     }
 
     rows: List[np.ndarray] = []
+    verified_rates: List[float] = []
     for row_number, partition in enumerate(partitions):
         base = centers[partition] + (row_number % 3) * 0.1
         vector = np.zeros(HYBRID_VECTOR_DIMENSIONS, dtype=float)
@@ -306,15 +433,16 @@ def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray]:
         vector[2] = base / 20.0
         vector[-3:] = np.array([base / 30.0, base / 40.0, base / 50.0], dtype=float)
         rows.append(vector)
+        verified_rates.append(round(2500.0 + (base * 120.0), 2))
 
     matrix = np.vstack(rows)
     query_vector = matrix[-1].copy()
-    return matrix, partitions, query_vector
+    return matrix, partitions, np.asarray(verified_rates, dtype=float), query_vector
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build and query domain-partitioned KD-Tree indices.")
-    parser.add_argument("--mode", choices=("fit_demo", "query_demo"), default="query_demo")
+    parser.add_argument("--mode", choices=("fit_demo", "query_demo", "idw_demo"), default="query_demo")
     parser.add_argument("--artifact-dir", default=DEFAULT_ARTIFACT_DIR, help="Directory for saved KD-Tree artifacts")
     parser.add_argument("--leaf-size", type=int, default=DEFAULT_LEAF_SIZE, help="KD-Tree leaf size")
     parser.add_argument(
@@ -334,13 +462,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    matrix, partitions, query_vector = _build_demo_training_data()
+    matrix, partitions, verified_rates, query_vector = _build_demo_training_data()
 
     indexer = DomainPartitionedKDTreeIndexer(
         leaf_size=args.leaf_size,
         minimum_partition_size=args.min_partition_size,
     )
-    indexer.fit(matrix, partitions)
+    indexer.fit(matrix, partitions, verified_rates=verified_rates)
     indexer.save_artifacts(args.artifact_dir)
     restored = DomainPartitionedKDTreeIndexer.load_artifacts(args.artifact_dir)
 
@@ -361,11 +489,17 @@ def main() -> None:
             k=args.k,
             allow_fallback=True,
         )
+    if args.mode == "idw_demo":
+        payload["prediction_result"] = restored.predict_base_rate(
+            query_vector=query_vector,
+            requested_partition=args.requested_partition,
+            k=args.k,
+            allow_fallback=True,
+        )
 
     print(json.dumps(payload, indent=2))
 
 
 if __name__ == "__main__":
     main()
-
 
