@@ -142,6 +142,11 @@ python -m src.macro_arbitrage --mode fit_demo --artifact-dir artifacts --mentor-
 python -m src.macro_arbitrage --mode fuse_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
 ```
 
+### 2h. Run M4.2 IDW regression + peer explainability demo
+```bash
+python -m src.spatial_engine --mode idw_demo --artifact-dir artifacts --requested-partition product_management --min-partition-size 2 --k 3
+```
+
 ### 3. Train the Model
 ```bash
 python -m src.train_pipeline
