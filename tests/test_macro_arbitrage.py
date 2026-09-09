@@ -10,7 +10,11 @@ from src.ingest_multisource import (
     build_macro_lookup,
     export_harmonized_records_parquet,
 )
-from src.macro_arbitrage import ContinuousMetadataNormalizer
+from src.macro_arbitrage import (
+    HYBRID_VECTOR_DIMENSIONS,
+    ContinuousMetadataNormalizer,
+    fuse_coordinates,
+)
 
 
 class ContinuousMetadataNormalizerTests(unittest.TestCase):
@@ -76,7 +80,37 @@ class ContinuousMetadataNormalizerTests(unittest.TestCase):
             self.assertEqual(round(float(domestic[0][0]), 6), 1.0)
             self.assertGreater(float(export[0][0]), 1.0)
 
+    def test_fuse_coordinates_returns_immutable_53d_vector(self) -> None:
+        text_vector = np.linspace(0.0, 1.0, 50)
+        metadata_vector = np.array([0.2, 0.4, 0.6], dtype=float)
+
+        fused = fuse_coordinates(text_vector, metadata_vector)
+
+        self.assertEqual(fused.shape, (HYBRID_VECTOR_DIMENSIONS,))
+        self.assertFalse(fused.flags.writeable)
+        np.testing.assert_allclose(fused[:50], text_vector)
+        np.testing.assert_allclose(fused[-3:], metadata_vector)
+
+    def test_fuse_coordinates_rejects_malformed_input(self) -> None:
+        with self.assertRaisesRegex(ValueError, "dense_text_vector"):
+            fuse_coordinates(np.ones(49), np.array([0.2, 0.3, 0.4]))
+
+        with self.assertRaisesRegex(ValueError, "normalized_metadata"):
+            fuse_coordinates(np.ones(50), np.array([0.2, 0.3]))
+
+        with self.assertRaisesRegex(ValueError, "non-finite"):
+            fuse_coordinates(np.ones(50), np.array([0.2, np.nan, 0.4]))
+
+    def test_fuse_coordinates_stable_for_identical_inputs(self) -> None:
+        text_vector = np.arange(50, dtype=float).reshape(1, 50) / 100.0
+        metadata_vector = np.array([[0.15, 0.35, 0.55]], dtype=float)
+
+        first = fuse_coordinates(text_vector, metadata_vector)
+        second = fuse_coordinates(text_vector, metadata_vector)
+
+        self.assertEqual(first.shape, (53,))
+        np.testing.assert_allclose(first, second, atol=1e-12)
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -1,4 +1,4 @@
- Dynamic Price Optimizer for Technical Mentors & Consultants
+# Dynamic Price Optimizer for Technical Mentors & Consultants
 
 An intelligent pricing recommendation engine designed for independent consultants, technical mentors, and digital freelancers in emerging markets like Kenya.  
 
@@ -132,6 +132,16 @@ python -m src.nlp_pipeline --text "Senior backend engineer with 8 years of API p
 python -m src.nlp_pipeline --mode fit_demo --n-components 50 --max-features 12000 --artifact-dir artifacts
 ```
 
+### 2f. Run M3.1 metadata scaler demo
+```bash
+python -m src.macro_arbitrage --mode fit_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
+```
+
+### 2g. Run M3.2 hybrid coordinate fusion demo
+```bash
+python -m src.macro_arbitrage --mode fuse_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
+```
+
 ### 3. Train the Model
 ```bash
 python -m src.train_pipeline
@@ -226,3 +236,4 @@ Developed as an academic thesis project at the **School of Computing and Enginee
 Distributed under the **MIT License**.
 
 ---
+
