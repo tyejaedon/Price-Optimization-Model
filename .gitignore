@@ -1,2 +1,9 @@
 # Ignore local datasets and derived data artifacts
 /Data/
+
+# Python cache and local environment artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
