@@ -35,6 +35,7 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
             "general_tech",
             "product_management",
         ]
+        self.verified_rates = [1200.0, 1300.0, 1400.0, 4100.0, 4200.0, 4300.0, 6100.0, 6200.0, 6300.0, 8000.0]
 
     @staticmethod
     def _make_vector(seed: float) -> np.ndarray:
@@ -110,6 +111,66 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, str(HYBRID_VECTOR_DIMENSIONS)):
             indexer.fit(np.ones((3, HYBRID_VECTOR_DIMENSIONS - 1)), ["data_ai", "data_ai", "data_ai"])
+
+    def test_predict_base_rate_returns_peer_payload_schema(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates)
+
+        result = indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+
+        self.assertEqual(result["requested_partition"], "web_backend")
+        self.assertEqual(result["routed_partition"], "web_backend")
+        self.assertEqual(result["k_neighbors_used"], 3)
+        self.assertEqual(len(result["nearest_neighbors"]), 3)
+        self.assertEqual(result["base_predicted_rate"], 4200.0)
+        first_peer = result["nearest_neighbors"][0]
+        self.assertEqual(set(first_peer.keys()), {"peer_index", "distance", "verified_rate", "similarity_score", "idw_weight"})
+        self.assertEqual(first_peer["peer_index"], 4)
+        self.assertEqual(first_peer["verified_rate"], 4200.0)
+
+    def test_exact_match_prediction_is_stable_and_division_safe(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates)
+
+        first = indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+        second = indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+
+        self.assertEqual(first["base_predicted_rate"], 4200.0)
+        self.assertEqual(second["base_predicted_rate"], 4200.0)
+        self.assertEqual(first["nearest_neighbors"][0]["distance"], 0.0)
+        self.assertEqual(first["nearest_neighbors"][0]["similarity_score"], 1.0)
+        self.assertEqual(first["nearest_neighbors"][0]["idw_weight"], 1.0)
+
+    def test_similarity_scores_stay_bounded(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates)
+
+        result = indexer.predict_base_rate(self.hybrid_vectors[9], requested_partition="product_management", k=2)
+
+        self.assertTrue(result["fallback_triggered"])
+        for peer in result["nearest_neighbors"]:
+            self.assertGreater(peer["similarity_score"], 0.0)
+            self.assertLessEqual(peer["similarity_score"], 1.0)
+
+    def test_predict_base_rate_requires_verified_rates(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions)
+
+        with self.assertRaisesRegex(RuntimeError, "verified_rates"):
+            indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+
+    def test_save_and_load_artifacts_preserve_prediction_results(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates)
+        baseline = indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            indexer.save_artifacts(tmp_dir)
+            restored = DomainPartitionedKDTreeIndexer.load_artifacts(tmp_dir)
+            reloaded = restored.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3)
+
+        self.assertEqual(baseline["base_predicted_rate"], reloaded["base_predicted_rate"])
+        self.assertEqual(baseline["nearest_neighbors"], reloaded["nearest_neighbors"])
 
 
 if __name__ == "__main__":
