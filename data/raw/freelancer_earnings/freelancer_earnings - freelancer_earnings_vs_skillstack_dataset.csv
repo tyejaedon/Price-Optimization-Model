@@ -1,0 +1,501 @@
+freelancer_id,category,primary_skills,years_experience,experience_level,region,country,education,hourly_rate_usd,annual_income_usd,primary_platform
+FL0001,AI/ML Engineering,"Computer Vision, TensorFlow, Data Science",1.6,junior,Middle East,Israel,Master,66.41,"$58,873.61",Direct Client
+FL0002,Backend Development,"PHP, Ruby, Go",8.3,senior,Middle East,UAE,Bootcamp,112.79,"$108,183.05",Freelancer
+FL0003,UI/UX Design,"Sketch, Wireframing, Adobe XD",3.6,mid,North America,US,Self-taught,94.21,"$88,681.22",Freelancer
+FL0004,DevOps,"Kubernetes, Terraform, AWS",2.3,mid,North America,US,Self-taught,118.87,"$109,229.42",Upwork
+FL0005,DevOps,"Azure, Docker, Kubernetes",8.8,senior,Latin America,Mexico,Self-taught,82.76,"$66,298.22",LinkedIn
+FL0006,UI/UX Design,"Adobe XD, Figma, Wireframing",12.8,senior,Latin America,Brazil,Self-taught,58.91,"$58,312.95",Direct Client
+FL0007,DevOps,"CI/CD, Terraform, Kubernetes",2.3,mid,North America,US,Master,131.91,"$139,912.28",Upwork
+FL0008,Full Stack,"MongoDB, REST API, React",4.8,mid,Western Europe,Germany,Bachelor,125.75,"$114,757.64",LinkedIn
+FL0009,DevOps,"CI/CD, Terraform, Docker",4.8,mid,Eastern Europe,Ukraine,Self-taught,58.37,"$49,020.74",Direct Client
+FL0010,AI/ML Engineering,"PyTorch, NLP, Computer Vision",6.2,senior,North America,US,Bachelor,267.34,"$237,488.69",Upwork
+FL0011,Cybersecurity,"Penetration Testing, Cryptography, Network Security",5.8,senior,Asia Pacific,Japan,Bachelor,152.25,"$161,072.14",Freelancer
+FL0012,Mobile Development,"Android, React Native, iOS",4.9,mid,North America,Canada,Bachelor,93.84,"$78,037.18",Direct Client
+FL0013,Data Engineering,"Python, Spark, BigQuery",6.9,senior,Asia Pacific,Japan,Bachelor,156.78,"$148,466.19",Fiverr
+FL0014,DevOps,"Kubernetes, Azure, CI/CD",6.1,senior,Africa,South Africa,Self-taught,56.71,"$52,643.94",Upwork
+FL0015,Cybersecurity,"Cryptography, Security Audit, Penetration Testing",5.9,senior,Latin America,Colombia,Bachelor,74.4,"$70,362.43",Direct Client
+FL0016,Cybersecurity,"Cryptography, Network Security, Security Audit",10.5,senior,Eastern Europe,Romania,Self-taught,98.3,"$95,361.79",Fiverr
+FL0017,Cybersecurity,"Penetration Testing, Network Security, Security Audit",7.7,senior,Latin America,Argentina,Bachelor,84.89,"$76,787.41",Upwork
+FL0018,Data Engineering,"SQL, Data Warehousing, BigQuery",8.8,senior,Middle East,Israel,Master,142.12,"$121,520.68",Other
+FL0019,Web Development,"Node.js, HTML/CSS, React",3.2,mid,Asia Pacific,Philippines,Bachelor,26.89,"$24,810.05",Freelancer
+FL0020,DevOps,"AWS, Azure, Kubernetes",5.5,senior,Western Europe,Germany,Bachelor,191.55,"$158,111.41",Upwork
+FL0021,Cybersecurity,"Cryptography, Network Security, Penetration Testing",5.3,senior,North America,US,Bootcamp,237.95,"$193,798.71",Direct Client
+FL0022,Mobile Development,"Kotlin, Flutter, React Native",4.6,mid,Asia Pacific,India,Bachelor,29.67,"$30,355.44",Fiverr
+FL0023,Blockchain,"Ethereum, Smart Contracts, Solidity",5.1,senior,Middle East,UAE,Bachelor,134.35,"$142,705.39",Fiverr
+FL0024,Data Engineering,"Python, BigQuery, SQL",5.4,senior,Latin America,Brazil,Master,75.1,"$70,563.56",Upwork
+FL0025,AI/ML Engineering,"Python, Data Science, PyTorch",10,senior,Africa,Nigeria,Master,64.64,"$69,223.84",LinkedIn
+FL0026,AI/ML Engineering,"Python, NLP, Data Science",3.9,mid,Latin America,Argentina,Bachelor,86,"$84,578.99",Toptal
+FL0027,Cybersecurity,"Network Security, Cryptography, Penetration Testing",6.1,senior,Africa,Nigeria,Bachelor,63.95,"$52,208.80",Upwork
+FL0028,Cybersecurity,"Cryptography, Penetration Testing, Network Security",10,senior,Western Europe,Germany,Self-taught,179.35,"$166,325.21",Direct Client
+FL0029,Blockchain,"Smart Contracts, Ethereum, Web3",2.5,mid,Africa,South Africa,Bachelor,54.31,"$50,249.54",Fiverr
+FL0030,Cybersecurity,"Penetration Testing, Cryptography, Network Security",4.3,mid,Middle East,Israel,Self-taught,115.95,"$95,799.37",Freelancer
+FL0031,Cybersecurity,"Security Audit, Network Security, Cryptography",6.1,senior,Western Europe,UK,Self-taught,244.75,"$200,982.24",Freelancer
+FL0032,UI/UX Design,"User Research, Figma, Wireframing",3,mid,Western Europe,UK,Self-taught,79.23,"$78,886.63",Upwork
+FL0033,Web Development,"Node.js, HTML/CSS, Angular",3.5,mid,Western Europe,Germany,Master,93.99,"$100,649.28",Toptal
+FL0034,Web Development,"Vue.js, HTML/CSS, Node.js",6.6,senior,Eastern Europe,Romania,Bootcamp,86.7,"$93,381.02",Direct Client
+FL0035,Web Development,"React, Vue.js, JavaScript",3.4,mid,Asia Pacific,Philippines,Master,29.19,"$27,262.87",Direct Client
+FL0036,Mobile Development,"Android, Kotlin, React Native",0.9,junior,Western Europe,Germany,Bachelor,67.97,"$65,642.12",Direct Client
+FL0037,Blockchain,"Web3, Ethereum, DeFi",6.5,senior,Western Europe,France,Bachelor,192.04,"$160,890.82",Fiverr
+FL0038,DevOps,"AWS, Azure, CI/CD",5.8,senior,Eastern Europe,Poland,Bachelor,103.66,"$101,706.57",Direct Client
+FL0039,Cybersecurity,"Penetration Testing, Network Security, Cryptography",4.7,mid,Middle East,Israel,Self-taught,111.4,"$94,072.63",Freelancer
+FL0040,Full Stack,"React, MongoDB, REST API",2.4,mid,Africa,South Africa,Bachelor,41.09,"$43,624.88",Upwork
+FL0041,Blockchain,"DeFi, Solidity, Smart Contracts",10.9,senior,Africa,Nigeria,Self-taught,67.4,"$64,305.59",Freelancer
+FL0042,AI/ML Engineering,"NLP, Data Science, Python",7.2,senior,Middle East,UAE,PhD,194.4,"$196,095.44",Fiverr
+FL0043,Mobile Development,"Kotlin, Flutter, React Native",5,mid,Middle East,Israel,Bachelor,93.77,"$83,278.46",Toptal
+FL0044,Mobile Development,"Flutter, iOS, React Native",8.3,senior,Africa,South Africa,Bachelor,62.08,"$58,275.24",Direct Client
+FL0045,Data Engineering,"Data Warehousing, BigQuery, ETL",6.9,senior,Middle East,Israel,PhD,118.98,"$111,569.19",Freelancer
+FL0046,Blockchain,"Smart Contracts, DeFi, Ethereum",7.4,senior,Middle East,Israel,Bachelor,167.73,"$168,806.32",Fiverr
+FL0047,Web Development,"HTML/CSS, React, Node.js",3.6,mid,Africa,South Africa,Self-taught,38.45,"$37,375.91",LinkedIn
+FL0048,UI/UX Design,"User Research, Wireframing, Prototyping",11.1,senior,Middle East,UAE,Bachelor,111.81,"$109,536.38",Freelancer
+FL0049,Cybersecurity,"Security Audit, Cryptography, Network Security",4.8,mid,Asia Pacific,Japan,Bachelor,122.76,"$103,373.13",Direct Client
+FL0050,Mobile Development,"React Native, Flutter, Kotlin",4.7,mid,Africa,South Africa,Bootcamp,43.96,"$45,476.43",Upwork
+FL0051,UI/UX Design,"Figma, Adobe XD, Sketch",1.9,junior,Eastern Europe,Romania,Master,27.83,"$22,434.50",Direct Client
+FL0052,Blockchain,"Web3, Solidity, Ethereum",8.5,senior,Eastern Europe,Ukraine,Master,102.41,"$87,309.60",LinkedIn
+FL0053,Mobile Development,"React Native, iOS, Flutter",3.3,mid,Western Europe,Germany,Bachelor,94.2,"$77,722.96",Direct Client
+FL0054,Data Engineering,"Spark, BigQuery, ETL",13,senior,North America,Canada,Master,147.19,"$158,180.58",LinkedIn
+FL0055,Web Development,"Angular, JavaScript, Node.js",7.8,senior,Latin America,Brazil,Self-taught,50.77,"$54,682.35",Upwork
+FL0056,AI/ML Engineering,"Computer Vision, Data Science, PyTorch",4.4,mid,Western Europe,UK,Bachelor,158.67,"$159,780.90",Toptal
+FL0057,Full Stack,"React, PostgreSQL, REST API",2.5,mid,Middle East,Israel,Master,89.42,"$77,436.19",Direct Client
+FL0058,AI/ML Engineering,"Python, Data Science, Computer Vision",5.4,senior,Eastern Europe,Romania,Master,104.15,"$97,771.58",LinkedIn
+FL0059,Full Stack,"PostgreSQL, React, Node.js",5.9,senior,Middle East,UAE,Bootcamp,114.74,"$104,537.47",Fiverr
+FL0060,Web Development,"React, Angular, HTML/CSS",11.5,senior,Western Europe,France,Self-taught,134.29,"$134,129.18",Fiverr
+FL0061,Data Engineering,"Data Warehousing, Spark, ETL",2.9,mid,Eastern Europe,Ukraine,Bachelor,62.65,"$56,560.66",Fiverr
+FL0062,DevOps,"Azure, Docker, AWS",13.5,senior,Asia Pacific,China,Self-taught,68.38,"$72,004.74",LinkedIn
+FL0063,Full Stack,"GraphQL, React, Node.js",3.2,mid,Middle East,Israel,Bachelor,96.33,"$77,497.02",Fiverr
+FL0064,Web Development,"Vue.js, JavaScript, React",7.9,senior,Asia Pacific,Philippines,Master,34.26,"$27,891.13",LinkedIn
+FL0065,Full Stack,"GraphQL, REST API, Node.js",2.8,mid,Africa,South Africa,Master,40.92,"$40,544.58",Freelancer
+FL0066,Cybersecurity,"Cryptography, Penetration Testing, Security Audit",2.3,mid,Western Europe,UK,Bachelor,144.26,"$123,235.91",Freelancer
+FL0067,Full Stack,"GraphQL, PostgreSQL, MongoDB",2.2,mid,Western Europe,Switzerland,Bachelor,145.47,"$121,298.82",Direct Client
+FL0068,Data Engineering,"BigQuery, ETL, Spark",4,mid,North America,US,Master,131.34,"$136,235.58",Direct Client
+FL0069,Web Development,"HTML/CSS, JavaScript, React",4.9,mid,Africa,Nigeria,Bachelor,30.3,"$27,780.26",Direct Client
+FL0070,Full Stack,"PostgreSQL, React, Node.js",4.8,mid,Middle East,UAE,Bachelor,83.77,"$82,961.58",LinkedIn
+FL0071,Backend Development,"Ruby, Go, Python",4.7,mid,Latin America,Colombia,Master,44.29,"$44,568.46",Direct Client
+FL0072,Blockchain,"Ethereum, Solidity, DeFi",7.8,senior,Middle East,UAE,Bachelor,154.23,"$141,653.86",Freelancer
+FL0073,Blockchain,"Smart Contracts, Solidity, Ethereum",4.4,mid,Middle East,UAE,Master,121.67,"$111,183.25",Upwork
+FL0074,Mobile Development,"Kotlin, Swift, React Native",3.2,mid,Africa,South Africa,Bachelor,40.03,"$39,311.50",Toptal
+FL0075,Blockchain,"Ethereum, Smart Contracts, Solidity",9.2,senior,Middle East,Israel,Self-taught,163.86,"$152,415.49",Upwork
+FL0076,Blockchain,"Ethereum, Web3, Solidity",4.8,mid,Western Europe,Germany,Master,137.01,"$140,068.54",LinkedIn
+FL0077,Data Engineering,"Spark, ETL, Data Warehousing",7.5,senior,Eastern Europe,Ukraine,PhD,83.05,"$79,089.14",Direct Client
+FL0078,Data Engineering,"BigQuery, Python, ETL",2.8,mid,Latin America,Brazil,Master,52.28,"$42,769.74",Direct Client
+FL0079,Mobile Development,"Kotlin, Flutter, React Native",7,senior,Middle East,Israel,Master,112.27,"$98,486.42",Upwork
+FL0080,Cybersecurity,"Penetration Testing, Network Security, Security Audit",6.3,senior,Latin America,Brazil,Bachelor,90.18,"$74,824.01",Freelancer
+FL0081,DevOps,"Docker, AWS, Terraform",2.9,mid,Africa,South Africa,Self-taught,51.26,"$43,551.72",Direct Client
+FL0082,UI/UX Design,"Figma, User Research, Sketch",3.9,mid,Middle East,Israel,Bachelor,70.41,"$66,855.82",Direct Client
+FL0083,Backend Development,"Ruby, C#, PHP",6.2,senior,Africa,South Africa,Master,60.78,"$65,368.46",Freelancer
+FL0084,Data Engineering,"Data Warehousing, ETL, Python",11.8,senior,Eastern Europe,Ukraine,Master,94.48,"$93,971.27",Toptal
+FL0085,Cybersecurity,"Network Security, Cryptography, Security Audit",3.7,mid,Western Europe,Switzerland,Self-taught,151.13,"$148,269.00",Upwork
+FL0086,Web Development,"Node.js, JavaScript, Vue.js",12.4,senior,Eastern Europe,Poland,Bachelor,77.81,"$69,340.02",Other
+FL0087,DevOps,"AWS, Terraform, Kubernetes",0.7,junior,Eastern Europe,Poland,Self-taught,33.81,"$28,225.74",Direct Client
+FL0088,DevOps,"AWS, CI/CD, Azure",4.1,mid,Eastern Europe,Ukraine,Bootcamp,57.9,"$53,722.40",Freelancer
+FL0089,AI/ML Engineering,"Computer Vision, PyTorch, Data Science",8.1,senior,Eastern Europe,Romania,PhD,129.47,"$118,184.87",Direct Client
+FL0090,AI/ML Engineering,"PyTorch, NLP, Data Science",3.6,mid,Asia Pacific,Philippines,Bachelor,50.26,"$53,654.15",Toptal
+FL0091,Cybersecurity,"Network Security, Penetration Testing, Cryptography",2.9,mid,Middle East,Israel,Bachelor,113.06,"$98,995.08",Freelancer
+FL0092,Mobile Development,"React Native, Kotlin, Swift",9.7,senior,Africa,South Africa,Master,60.35,"$54,894.75",Direct Client
+FL0093,UI/UX Design,"Figma, Adobe XD, Prototyping",10.6,senior,Middle East,Israel,Master,104.22,"$89,341.73",Direct Client
+FL0094,UI/UX Design,"Prototyping, Figma, User Research",3.1,mid,Eastern Europe,Romania,Self-taught,47.91,"$46,935.56",Direct Client
+FL0095,UI/UX Design,"Figma, Wireframing, Adobe XD",8,senior,Asia Pacific,India,Self-taught,35.66,"$30,393.93",Direct Client
+FL0096,Cybersecurity,"Network Security, Penetration Testing, Cryptography",5.6,senior,Eastern Europe,Poland,Bachelor,104.67,"$92,019.65",Upwork
+FL0097,Web Development,"Node.js, Vue.js, HTML/CSS",7.7,senior,North America,US,Self-taught,151.11,"$135,034.92",Freelancer
+FL0098,Backend Development,"Java, C#, Python",6.8,senior,Africa,Nigeria,Self-taught,42.17,"$36,033.72",Freelancer
+FL0099,AI/ML Engineering,"NLP, TensorFlow, Computer Vision",4.4,mid,Western Europe,UK,PhD,150.44,"$131,892.43",Upwork
+FL0100,Blockchain,"Web3, Solidity, Ethereum",4.4,mid,Middle East,Israel,Bachelor,142.83,"$130,455.59",Direct Client
+FL0101,Cybersecurity,"Cryptography, Network Security, Security Audit",9,senior,Western Europe,Germany,Bachelor,179.85,"$178,810.00",Other
+FL0102,Mobile Development,"Flutter, Swift, React Native",8.1,senior,Latin America,Colombia,Bootcamp,62.8,"$59,135.95",Freelancer
+FL0103,DevOps,"Azure, CI/CD, Docker",5.8,senior,Western Europe,France,Master,178.27,"$152,082.87",Upwork
+FL0104,Backend Development,"Java, C#, Go",3.5,mid,Middle East,Israel,Master,83.05,"$80,138.43",Upwork
+FL0105,AI/ML Engineering,"Python, PyTorch, Computer Vision",9.3,senior,Africa,South Africa,Bachelor,92.89,"$80,812.78",LinkedIn
+FL0106,Full Stack,"MongoDB, GraphQL, PostgreSQL",10.3,senior,Latin America,Mexico,Bachelor,59.33,"$62,148.83",Upwork
+FL0107,Cybersecurity,"Cryptography, Network Security, Security Audit",9,senior,Western Europe,Germany,Bachelor,218.41,"$202,540.80",Fiverr
+FL0108,DevOps,"Kubernetes, Docker, CI/CD",3.6,mid,Asia Pacific,China,Self-taught,42.23,"$40,779.35",Toptal
+FL0109,Blockchain,"Smart Contracts, Ethereum, Web3",1.7,junior,Asia Pacific,Australia,Bachelor,105.6,"$94,684.86",Direct Client
+FL0110,Data Engineering,"ETL, BigQuery, SQL",3.3,mid,Africa,Nigeria,PhD,41.67,"$36,814.53",Direct Client
+FL0111,AI/ML Engineering,"Computer Vision, PyTorch, NLP",14,senior,Middle East,UAE,Bachelor,185.45,"$166,624.56",Direct Client
+FL0112,Data Engineering,"Data Warehousing, Spark, Python",9,senior,Asia Pacific,Philippines,PhD,59.72,"$54,617.01",Direct Client
+FL0113,AI/ML Engineering,"Data Science, Computer Vision, PyTorch",8.7,senior,Middle East,UAE,Master,169.4,"$158,214.97",Direct Client
+FL0114,Backend Development,"Go, Python, C#",6.5,senior,Asia Pacific,China,Master,48.5,"$45,535.68",Direct Client
+FL0115,AI/ML Engineering,"NLP, Data Science, TensorFlow",3.3,mid,Asia Pacific,Philippines,Master,46.23,"$42,849.20",Fiverr
+FL0116,Mobile Development,"Kotlin, React Native, Android",6.2,senior,North America,US,Bootcamp,202.53,"$199,894.16",Direct Client
+FL0117,Data Engineering,"BigQuery, ETL, SQL",8.3,senior,Latin America,Argentina,PhD,87.55,"$93,088.08",Direct Client
+FL0118,UI/UX Design,"Sketch, Wireframing, Prototyping",7.9,senior,Western Europe,France,Master,125.9,"$124,066.49",Freelancer
+FL0119,Web Development,"Angular, Node.js, React",11.6,senior,Eastern Europe,Romania,Bachelor,71.48,"$64,395.34",Toptal
+FL0120,Full Stack,"PostgreSQL, GraphQL, Node.js",7.7,senior,Asia Pacific,Australia,Bootcamp,174.41,"$140,385.59",Direct Client
+FL0121,Blockchain,"Web3, Ethereum, Smart Contracts",3.8,mid,Middle East,UAE,Bachelor,119.55,"$119,184.47",Upwork
+FL0122,UI/UX Design,"Figma, Wireframing, Sketch",4.5,mid,Eastern Europe,Romania,Bachelor,44.03,"$42,441.84",LinkedIn
+FL0123,DevOps,"Docker, Kubernetes, CI/CD",3.2,mid,Western Europe,UK,Bachelor,93.75,"$75,628.66",Upwork
+FL0124,Cybersecurity,"Penetration Testing, Cryptography, Security Audit",4.3,mid,Middle East,Israel,Master,103.96,"$90,733.09",Upwork
+FL0125,Data Engineering,"Python, SQL, Spark",4.9,mid,North America,US,Bachelor,121.94,"$112,237.52",Direct Client
+FL0126,UI/UX Design,"Figma, Adobe XD, Prototyping",2.4,mid,Latin America,Brazil,Bootcamp,36.04,"$31,440.73",Upwork
+FL0127,Data Engineering,"SQL, Python, ETL",10.3,senior,North America,US,Master,214.45,"$211,400.85",Upwork
+FL0128,Full Stack,"PostgreSQL, REST API, Node.js",4.2,mid,North America,Canada,Master,96.78,"$89,137.55",Toptal
+FL0129,Full Stack,"REST API, GraphQL, Node.js",6.4,senior,Eastern Europe,Ukraine,Bachelor,78.33,"$68,594.73",Direct Client
+FL0130,Blockchain,"Smart Contracts, Solidity, Ethereum",7.2,senior,Eastern Europe,Romania,Self-taught,102.44,"$91,057.87",Direct Client
+FL0131,Mobile Development,"Flutter, Kotlin, React Native",7.7,senior,Western Europe,Switzerland,Bachelor,234.55,"$236,454.27",Upwork
+FL0132,Web Development,"Vue.js, React, Angular",6.9,senior,Western Europe,France,Self-taught,132.28,"$117,698.86",Toptal
+FL0133,UI/UX Design,"Adobe XD, Prototyping, Figma",1.3,junior,Eastern Europe,Poland,Self-taught,27.93,"$28,907.22",Direct Client
+FL0134,UI/UX Design,"Sketch, Wireframing, Prototyping",6.3,senior,Eastern Europe,Romania,Bachelor,69.81,"$60,504.90",Direct Client
+FL0135,DevOps,"Azure, Kubernetes, CI/CD",12.4,senior,Africa,South Africa,Self-taught,62.2,"$61,748.52",Toptal
+FL0136,Blockchain,"DeFi, Ethereum, Smart Contracts",2.9,mid,Middle East,UAE,Bachelor,99.83,"$89,945.72",Upwork
+FL0137,Blockchain,"Solidity, Smart Contracts, Web3",3.2,mid,Latin America,Argentina,Bachelor,74.95,"$60,968.96",Toptal
+FL0138,UI/UX Design,"Adobe XD, Prototyping, Wireframing",6.8,senior,Eastern Europe,Ukraine,Master,64.56,"$56,312.46",Upwork
+FL0139,Web Development,"Node.js, React, HTML/CSS",6.3,senior,Eastern Europe,Romania,Master,71.57,"$68,780.79",Upwork
+FL0140,DevOps,"Terraform, Azure, AWS",8.9,senior,Eastern Europe,Ukraine,Bootcamp,94.03,"$85,306.67",Direct Client
+FL0141,Cybersecurity,"Cryptography, Penetration Testing, Security Audit",10.6,senior,Asia Pacific,Australia,Self-taught,230.4,"$199,891.21",Freelancer
+FL0142,Web Development,"React, Angular, Node.js",3.9,mid,Eastern Europe,Romania,Bachelor,41.08,"$43,828.52",Direct Client
+FL0143,Full Stack,"REST API, GraphQL, React",5.9,senior,Western Europe,UK,Master,180.43,"$166,147.71",Upwork
+FL0144,UI/UX Design,"Sketch, Wireframing, User Research",5.6,senior,Middle East,Israel,Self-taught,94.16,"$86,763.28",Fiverr
+FL0145,Backend Development,"Java, Go, Python",5.5,senior,Western Europe,Switzerland,Bootcamp,196.2,"$197,000.64",LinkedIn
+FL0146,AI/ML Engineering,"Computer Vision, Python, TensorFlow",4.2,mid,Asia Pacific,Australia,Master,185.38,"$177,275.42",Toptal
+FL0147,Web Development,"Angular, JavaScript, Node.js",9.7,senior,Latin America,Colombia,Master,51.21,"$42,900.62",Upwork
+FL0148,Data Engineering,"Python, BigQuery, ETL",7.8,senior,North America,US,PhD,194.34,"$171,937.48",Upwork
+FL0149,DevOps,"CI/CD, Terraform, Azure",3.4,mid,Middle East,Israel,Bachelor,100.22,"$100,805.46",Upwork
+FL0150,Data Engineering,"BigQuery, ETL, Spark",1.9,junior,North America,US,Master,72.16,"$69,586.56",Toptal
+FL0151,Cybersecurity,"Security Audit, Cryptography, Network Security",4.1,mid,Western Europe,Switzerland,Bachelor,160.46,"$148,209.73",Toptal
+FL0152,Full Stack,"REST API, MongoDB, GraphQL",3.9,mid,Eastern Europe,Ukraine,Bachelor,48.88,"$51,457.55",Direct Client
+FL0153,Cybersecurity,"Network Security, Security Audit, Penetration Testing",1.6,junior,Latin America,Colombia,Master,34.56,"$27,632.50",Freelancer
+FL0154,AI/ML Engineering,"Python, NLP, PyTorch",2.8,mid,Western Europe,France,Bachelor,119.68,"$120,163.54",Freelancer
+FL0155,Backend Development,"Ruby, C#, Python",3.4,mid,Latin America,Brazil,Master,47.13,"$46,398.50",Upwork
+FL0156,Full Stack,"REST API, React, Node.js",5,mid,Asia Pacific,Australia,Self-taught,116.88,"$94,330.39",Other
+FL0157,Web Development,"React, JavaScript, Vue.js",12.7,senior,Middle East,UAE,Self-taught,110.07,"$99,564.72",Freelancer
+FL0158,DevOps,"Kubernetes, Terraform, AWS",3.9,mid,Latin America,Argentina,Master,61.18,"$52,711.84",Upwork
+FL0159,UI/UX Design,"Adobe XD, Wireframing, Sketch",5.1,senior,North America,US,Bachelor,133.36,"$134,532.39",Upwork
+FL0160,Blockchain,"Ethereum, Web3, Solidity",8.8,senior,Africa,Nigeria,Self-taught,68.7,"$66,136.05",Upwork
+FL0161,Blockchain,"DeFi, Web3, Smart Contracts",7.1,senior,North America,US,Self-taught,232.19,"$246,290.18",Other
+FL0162,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",5.2,senior,Asia Pacific,Philippines,Bootcamp,73.34,"$61,645.29",Direct Client
+FL0163,DevOps,"Terraform, CI/CD, Docker",3.1,mid,Eastern Europe,Poland,Bachelor,63.88,"$64,083.07",Upwork
+FL0164,UI/UX Design,"User Research, Prototyping, Adobe XD",5.9,senior,Latin America,Mexico,Self-taught,59.12,"$62,028.65",Freelancer
+FL0165,AI/ML Engineering,"Computer Vision, Data Science, Python",9.9,senior,Latin America,Colombia,Master,91.02,"$77,470.57",Direct Client
+FL0166,Web Development,"Angular, JavaScript, React",6.8,senior,Middle East,UAE,Self-taught,94.08,"$92,317.15",LinkedIn
+FL0167,Data Engineering,"ETL, Data Warehousing, Python",5.7,senior,Middle East,Israel,Bachelor,155.61,"$131,118.54",Direct Client
+FL0168,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",4,mid,North America,Canada,Self-taught,125.63,"$121,909.25",Other
+FL0169,Mobile Development,"Flutter, Swift, Kotlin",8.4,senior,Africa,Nigeria,Bachelor,52.6,"$50,635.51",Fiverr
+FL0170,DevOps,"Kubernetes, CI/CD, Terraform",0.9,junior,Eastern Europe,Romania,Bachelor,33.79,"$33,996.52",LinkedIn
+FL0171,Web Development,"React, HTML/CSS, JavaScript",8.9,senior,North America,Canada,Master,130.73,"$108,141.50",Toptal
+FL0172,AI/ML Engineering,"Computer Vision, Data Science, PyTorch",6.6,senior,Eastern Europe,Poland,Master,139.81,"$145,323.72",Upwork
+FL0173,Cybersecurity,"Cryptography, Penetration Testing, Security Audit",0.9,junior,Middle East,UAE,Bachelor,59.88,"$59,147.91",LinkedIn
+FL0174,Data Engineering,"SQL, ETL, Data Warehousing",8.6,senior,Eastern Europe,Romania,Master,94.45,"$78,234.60",Upwork
+FL0175,Blockchain,"Web3, Smart Contracts, DeFi",7,senior,Asia Pacific,Japan,Self-taught,162.85,"$167,723.28",Fiverr
+FL0176,Full Stack,"Node.js, GraphQL, MongoDB",4.5,mid,Western Europe,Switzerland,Bachelor,163.34,"$146,692.42",Direct Client
+FL0177,UI/UX Design,"Figma, User Research, Wireframing",11.9,senior,Africa,South Africa,Self-taught,49.17,"$41,669.68",Direct Client
+FL0178,Data Engineering,"SQL, ETL, BigQuery",1.2,junior,Asia Pacific,China,Bachelor,25.2,"$20,257.53",Direct Client
+FL0179,Blockchain,"Smart Contracts, Web3, Solidity",10.4,senior,Asia Pacific,India,Bachelor,54.37,"$52,428.90",Direct Client
+FL0180,DevOps,"Kubernetes, CI/CD, AWS",12,senior,Eastern Europe,Ukraine,Bachelor,95.05,"$79,610.09",Direct Client
+FL0181,Blockchain,"Ethereum, Solidity, DeFi",4.9,mid,North America,Canada,Bachelor,149.64,"$138,492.44",Direct Client
+FL0182,Full Stack,"REST API, GraphQL, Node.js",10.3,senior,North America,US,Self-taught,163.12,"$149,602.69",Freelancer
+FL0183,Backend Development,"Java, Go, C#",6.7,senior,North America,Canada,Self-taught,141.4,"$142,707.47",Direct Client
+FL0184,Blockchain,"DeFi, Ethereum, Smart Contracts",6.4,senior,Africa,Nigeria,Master,63.28,"$62,742.82",Direct Client
+FL0185,DevOps,"Azure, Docker, Terraform",9.3,senior,Middle East,UAE,Bachelor,132.33,"$127,609.83",Upwork
+FL0186,Web Development,"JavaScript, React, Angular",6.3,senior,Africa,Nigeria,Master,37.4,"$31,747.62",LinkedIn
+FL0187,Full Stack,"Node.js, REST API, React",9.1,senior,Latin America,Colombia,Bachelor,73.67,"$74,219.29",Upwork
+FL0188,Full Stack,"GraphQL, PostgreSQL, Node.js",3.2,mid,Asia Pacific,Philippines,Bachelor,39.37,"$32,715.02",Direct Client
+FL0189,Data Engineering,"ETL, Spark, Data Warehousing",9.8,senior,Western Europe,UK,Bachelor,177.79,"$162,447.56",Freelancer
+FL0190,Web Development,"HTML/CSS, Angular, React",5.8,senior,Eastern Europe,Poland,Bachelor,67.9,"$55,803.18",Freelancer
+FL0191,Blockchain,"Web3, DeFi, Smart Contracts",10,senior,Western Europe,Switzerland,Bootcamp,273.13,"$227,993.07",Upwork
+FL0192,Blockchain,"DeFi, Web3, Smart Contracts",4.5,mid,Middle East,Israel,Master,137.04,"$122,195.09",Freelancer
+FL0193,Backend Development,"Python, Ruby, C#",7.4,senior,Latin America,Argentina,Bachelor,75.49,"$66,391.49",Direct Client
+FL0194,AI/ML Engineering,"TensorFlow, Python, Data Science",12.4,senior,Latin America,Argentina,Bachelor,105.77,"$102,110.66",Direct Client
+FL0195,Cybersecurity,"Penetration Testing, Security Audit, Network Security",10,senior,Middle East,UAE,Master,128.16,"$131,837.23",Direct Client
+FL0196,DevOps,"Terraform, CI/CD, Azure",8.4,senior,Eastern Europe,Ukraine,Self-taught,85.89,"$74,875.05",Direct Client
+FL0197,AI/ML Engineering,"TensorFlow, Computer Vision, NLP",1.8,junior,Eastern Europe,Poland,Bachelor,46.65,"$46,011.25",Upwork
+FL0198,AI/ML Engineering,"PyTorch, NLP, Data Science",4.4,mid,North America,US,PhD,130.32,"$137,175.25",Toptal
+FL0199,Cybersecurity,"Security Audit, Penetration Testing, Cryptography",4.4,mid,Africa,South Africa,Bachelor,42.98,"$42,139.64",Upwork
+FL0200,Full Stack,"Node.js, REST API, MongoDB",2.5,mid,Western Europe,Switzerland,Self-taught,144.1,"$142,843.95",Direct Client
+FL0201,DevOps,"Terraform, CI/CD, AWS",6.7,senior,Eastern Europe,Poland,Master,107.9,"$86,811.08",LinkedIn
+FL0202,Web Development,"Angular, JavaScript, HTML/CSS",3.5,mid,Middle East,UAE,Master,78.24,"$68,727.28",Upwork
+FL0203,Web Development,"Node.js, React, JavaScript",12.6,senior,Middle East,UAE,Self-taught,110.92,"$111,716.34",Upwork
+FL0204,Backend Development,"Ruby, Go, Python",7,senior,Western Europe,France,Master,126.58,"$122,828.41",Direct Client
+FL0205,Web Development,"React, JavaScript, HTML/CSS",0.7,junior,Africa,South Africa,Bootcamp,21.19,"$19,867.83",Direct Client
+FL0206,Blockchain,"Ethereum, Smart Contracts, Web3",9.4,senior,Africa,Nigeria,Self-taught,61.54,"$59,276.31",Freelancer
+FL0207,DevOps,"AWS, CI/CD, Kubernetes",8.8,senior,Western Europe,Switzerland,Bachelor,195.91,"$162,466.26",Upwork
+FL0208,Cybersecurity,"Cryptography, Penetration Testing, Security Audit",5,mid,Eastern Europe,Romania,Self-taught,68.21,"$71,949.75",Freelancer
+FL0209,Web Development,"Angular, Node.js, JavaScript",4.2,mid,Latin America,Brazil,Bachelor,38.08,"$33,775.69",Freelancer
+FL0210,Backend Development,"Java, PHP, Ruby",8.9,senior,Middle East,UAE,Bachelor,105.37,"$89,805.25",Direct Client
+FL0211,Web Development,"Node.js, React, Angular",5.9,senior,Western Europe,Germany,Self-taught,116.83,"$101,535.15",Upwork
+FL0212,AI/ML Engineering,"Computer Vision, TensorFlow, Data Science",8.3,senior,Western Europe,UK,Master,215.59,"$227,028.83",Upwork
+FL0213,Backend Development,"PHP, Ruby, C#",5.1,senior,North America,US,Self-taught,165,"$154,473.16",LinkedIn
+FL0214,Blockchain,"Ethereum, Smart Contracts, Web3",10.6,senior,Latin America,Argentina,Bootcamp,106.04,"$105,640.86",Direct Client
+FL0215,Cybersecurity,"Network Security, Penetration Testing, Cryptography",5.5,senior,Africa,South Africa,Self-taught,82.26,"$79,229.43",Toptal
+FL0216,Data Engineering,"Python, Spark, ETL",7.6,senior,Western Europe,Switzerland,Bachelor,247.88,"$254,329.62",Upwork
+FL0217,Cybersecurity,"Cryptography, Security Audit, Penetration Testing",7.3,senior,Africa,Nigeria,Master,54.34,"$45,427.84",Freelancer
+FL0218,Mobile Development,"Flutter, iOS, Android",5.2,senior,Eastern Europe,Romania,Self-taught,91.07,"$91,295.47",Upwork
+FL0219,Cybersecurity,"Security Audit, Penetration Testing, Cryptography",4.4,mid,Asia Pacific,Australia,Bachelor,157.77,"$136,296.37",Direct Client
+FL0220,Web Development,"HTML/CSS, JavaScript, Angular",9.7,senior,Eastern Europe,Ukraine,Master,63.46,"$59,638.79",Freelancer
+FL0221,Backend Development,"Go, C#, Python",9.6,senior,Asia Pacific,Australia,Self-taught,165.23,"$157,444.99",Fiverr
+FL0222,DevOps,"AWS, CI/CD, Terraform",2.5,mid,Middle East,Israel,Master,96.84,"$80,693.91",Upwork
+FL0223,Mobile Development,"Android, iOS, Flutter",5.6,senior,Africa,Nigeria,Master,41.98,"$37,095.93",Toptal
+FL0224,DevOps,"Kubernetes, AWS, Docker",9.8,senior,Middle East,Israel,Bachelor,139.11,"$122,955.78",Fiverr
+FL0225,UI/UX Design,"Prototyping, Adobe XD, Sketch",2.6,mid,Western Europe,France,Master,70.23,"$68,369.02",LinkedIn
+FL0226,Full Stack,"PostgreSQL, REST API, Node.js",8.6,senior,Latin America,Argentina,Bootcamp,75.39,"$65,772.98",Fiverr
+FL0227,Data Engineering,"Python, Spark, SQL",5.9,senior,Latin America,Colombia,Master,79.58,"$70,477.13",Direct Client
+FL0228,Mobile Development,"React Native, Swift, Flutter",10.3,senior,Latin America,Colombia,Bachelor,70.44,"$74,736.56",Upwork
+FL0229,Web Development,"HTML/CSS, Node.js, JavaScript",12.2,senior,Middle East,Israel,Master,119.84,"$109,359.19",Upwork
+FL0230,Blockchain,"Smart Contracts, Solidity, DeFi",10.9,senior,Africa,South Africa,Bachelor,80.73,"$77,337.96",Freelancer
+FL0231,Cybersecurity,"Cryptography, Security Audit, Network Security",5.1,senior,Western Europe,Germany,Self-taught,209.74,"$178,054.45",Upwork
+FL0232,Web Development,"HTML/CSS, Vue.js, React",6.5,senior,Western Europe,Switzerland,Master,181.66,"$164,994.12",Direct Client
+FL0233,Backend Development,"PHP, C#, Python",3.6,mid,Africa,Nigeria,Bootcamp,32.96,"$34,202.29",Other
+FL0234,Cybersecurity,"Security Audit, Penetration Testing, Network Security",10.7,senior,North America,US,Self-taught,215.75,"$183,844.69",Fiverr
+FL0235,Mobile Development,"Swift, Kotlin, Flutter",4.2,mid,Western Europe,Switzerland,Bachelor,140.09,"$151,155.95",Direct Client
+FL0236,Backend Development,"Java, Python, Ruby",1.2,junior,Eastern Europe,Ukraine,Bachelor,26.4,"$27,359.67",LinkedIn
+FL0237,Data Engineering,"Data Warehousing, SQL, ETL",5.9,senior,Africa,Nigeria,PhD,53.31,"$51,224.23",LinkedIn
+FL0238,Web Development,"Angular, Vue.js, Node.js",4.9,mid,Eastern Europe,Ukraine,Self-taught,45.56,"$41,121.00",Freelancer
+FL0239,DevOps,"Terraform, Azure, CI/CD",2.4,mid,Eastern Europe,Poland,Master,64.29,"$59,529.13",Freelancer
+FL0240,UI/UX Design,"Adobe XD, Sketch, User Research",8.6,senior,Western Europe,Switzerland,Self-taught,174.44,"$142,376.40",Toptal
+FL0241,Web Development,"Node.js, Angular, React",5.2,senior,Western Europe,Switzerland,Master,181.63,"$156,265.67",Fiverr
+FL0242,DevOps,"AWS, Terraform, Kubernetes",6.9,senior,Western Europe,Germany,Bachelor,174.7,"$164,856.28",Freelancer
+FL0243,Full Stack,"MongoDB, REST API, Node.js",1.8,junior,Africa,South Africa,Bachelor,22.24,"$23,291.22",Upwork
+FL0244,Mobile Development,"Kotlin, iOS, Android",7.8,senior,Latin America,Brazil,Self-taught,71.82,"$74,727.93",Upwork
+FL0245,AI/ML Engineering,"Computer Vision, NLP, Python",10.9,senior,Eastern Europe,Romania,Bachelor,107.01,"$106,255.76",Direct Client
+FL0246,Cybersecurity,"Penetration Testing, Cryptography, Network Security",2,junior,Africa,Nigeria,Bachelor,28.15,"$28,868.61",Freelancer
+FL0247,Full Stack,"PostgreSQL, REST API, GraphQL",2.7,mid,Asia Pacific,India,Self-taught,31.04,"$28,785.89",Direct Client
+FL0248,Full Stack,"Node.js, REST API, GraphQL",5.6,senior,North America,Canada,Self-taught,129.41,"$131,115.54",Upwork
+FL0249,Data Engineering,"ETL, BigQuery, Spark",3.6,mid,Middle East,UAE,PhD,89.02,"$71,134.50",Direct Client
+FL0250,UI/UX Design,"Prototyping, Sketch, Wireframing",1.1,junior,Western Europe,UK,Bachelor,46.89,"$40,564.45",Direct Client
+FL0251,DevOps,"CI/CD, AWS, Terraform",3.9,mid,Asia Pacific,China,Bachelor,42.66,"$43,293.41",Direct Client
+FL0252,AI/ML Engineering,"Computer Vision, NLP, TensorFlow",11.3,senior,Middle East,Israel,Master,161.68,"$167,984.68",Freelancer
+FL0253,DevOps,"Azure, AWS, Terraform",3.4,mid,Asia Pacific,India,Master,26.12,"$23,901.31",Direct Client
+FL0254,UI/UX Design,"Wireframing, Sketch, Prototyping",8.3,senior,North America,Canada,Bachelor,127.96,"$113,365.07",LinkedIn
+FL0255,Data Engineering,"Data Warehousing, BigQuery, SQL",4.2,mid,Africa,South Africa,Master,52.65,"$44,217.34",Direct Client
+FL0256,Backend Development,"Go, C#, Ruby",1,junior,Western Europe,Switzerland,Self-taught,69.73,"$55,734.91",Toptal
+FL0257,Full Stack,"PostgreSQL, Node.js, React",6.5,senior,Middle East,UAE,Bootcamp,115.49,"$92,374.60",Direct Client
+FL0258,Full Stack,"REST API, React, GraphQL",9.2,senior,Asia Pacific,Australia,Bachelor,159.06,"$133,538.80",Direct Client
+FL0259,AI/ML Engineering,"TensorFlow, NLP, Computer Vision",1.5,junior,Latin America,Colombia,Master,34.06,"$32,329.03",Direct Client
+FL0260,Backend Development,"Ruby, Go, PHP",3.4,mid,Eastern Europe,Ukraine,Master,45.55,"$49,035.33",Toptal
+FL0261,Cybersecurity,"Network Security, Cryptography, Penetration Testing",5.4,senior,Africa,Nigeria,Bootcamp,60.97,"$62,824.97",Fiverr
+FL0262,Full Stack,"GraphQL, React, Node.js",6.5,senior,Africa,Nigeria,Bachelor,53.27,"$53,909.19",LinkedIn
+FL0263,UI/UX Design,"Figma, User Research, Wireframing",12,senior,North America,US,Bachelor,156.27,"$153,245.42",LinkedIn
+FL0264,Cybersecurity,"Penetration Testing, Security Audit, Cryptography",8.5,senior,Asia Pacific,Australia,Master,200.47,"$176,809.00",Other
+FL0265,Data Engineering,"BigQuery, Spark, Python",4.4,mid,Middle East,Israel,Master,101.02,"$105,475.37",Upwork
+FL0266,AI/ML Engineering,"Data Science, NLP, Python",3.5,mid,Latin America,Argentina,Master,70.8,"$71,629.96",Toptal
+FL0267,Cybersecurity,"Network Security, Security Audit, Cryptography",7,senior,Middle East,UAE,Master,143.44,"$139,697.21",Direct Client
+FL0268,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",5,mid,North America,US,Master,133.84,"$118,008.15",Direct Client
+FL0269,AI/ML Engineering,"Data Science, NLP, PyTorch",11.5,senior,Asia Pacific,Australia,PhD,281.47,"$275,012.36",Freelancer
+FL0270,Cybersecurity,"Security Audit, Penetration Testing, Cryptography",7.6,senior,North America,Canada,Master,166.07,"$175,596.31",Direct Client
+FL0271,DevOps,"Azure, Kubernetes, CI/CD",7.5,senior,Latin America,Brazil,Self-taught,80.21,"$74,632.98",Toptal
+FL0272,Data Engineering,"ETL, SQL, Data Warehousing",5,mid,Eastern Europe,Romania,Master,58.93,"$51,587.27",Upwork
+FL0273,Web Development,"Vue.js, JavaScript, React",1.1,junior,Middle East,UAE,Self-taught,38.74,"$34,888.74",Toptal
+FL0274,Data Engineering,"Spark, SQL, Data Warehousing",6.1,senior,Middle East,Israel,PhD,164.5,"$168,303.10",Upwork
+FL0275,Cybersecurity,"Security Audit, Cryptography, Network Security",10.2,senior,Eastern Europe,Romania,Bachelor,109.68,"$115,914.41",Direct Client
+FL0276,Backend Development,"PHP, Java, Go",1.4,junior,Africa,Nigeria,Bachelor,17.28,"$16,236.64",Direct Client
+FL0277,Backend Development,"C#, Java, Ruby",3.9,mid,Latin America,Mexico,Bachelor,48.9,"$39,615.44",Direct Client
+FL0278,Web Development,"Angular, React, Node.js",11.3,senior,Latin America,Argentina,Bachelor,63.68,"$56,840.96",Toptal
+FL0279,DevOps,"Terraform, AWS, Docker",5.2,senior,North America,Canada,Self-taught,155.91,"$150,594.79",Freelancer
+FL0280,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",12.2,senior,Western Europe,Germany,Master,196,"$209,987.78",Other
+FL0281,Cybersecurity,"Network Security, Penetration Testing, Security Audit",11.9,senior,Latin America,Brazil,Master,80.24,"$86,117.72",Toptal
+FL0282,Web Development,"HTML/CSS, Angular, Node.js",2.8,mid,Latin America,Colombia,Self-taught,39.1,"$41,064.07",LinkedIn
+FL0283,Cybersecurity,"Security Audit, Penetration Testing, Cryptography",5.6,senior,Africa,South Africa,Self-taught,84.52,"$77,117.43",Direct Client
+FL0284,Blockchain,"Solidity, Smart Contracts, DeFi",3.1,mid,Eastern Europe,Ukraine,Self-taught,79.77,"$85,551.05",Direct Client
+FL0285,Full Stack,"Node.js, MongoDB, React",2.7,mid,Africa,South Africa,Bachelor,37.51,"$33,955.53",Direct Client
+FL0286,Data Engineering,"ETL, SQL, Data Warehousing",4.9,mid,Africa,Nigeria,Bachelor,33.62,"$27,270.04",Fiverr
+FL0287,AI/ML Engineering,"Computer Vision, Python, Data Science",4.1,mid,North America,US,Bachelor,131,"$115,529.37",Fiverr
+FL0288,AI/ML Engineering,"Computer Vision, NLP, Data Science",5.1,senior,North America,Canada,Master,221.19,"$189,946.53",Freelancer
+FL0289,Full Stack,"React, PostgreSQL, GraphQL",5.7,senior,Middle East,Israel,Master,119.26,"$97,173.23",Upwork
+FL0290,Data Engineering,"SQL, BigQuery, Spark",4,mid,Eastern Europe,Ukraine,Bachelor,67.35,"$66,839.75",Freelancer
+FL0291,AI/ML Engineering,"TensorFlow, NLP, Data Science",8.4,senior,Asia Pacific,India,Bachelor,62.35,"$56,812.27",Freelancer
+FL0292,Web Development,"Vue.js, React, JavaScript",3.4,mid,Asia Pacific,China,Self-taught,36.01,"$29,680.04",Fiverr
+FL0293,UI/UX Design,"Figma, Sketch, Prototyping",7.9,senior,Eastern Europe,Ukraine,Self-taught,58.83,"$47,846.13",LinkedIn
+FL0294,Cybersecurity,"Penetration Testing, Security Audit, Cryptography",6.2,senior,Eastern Europe,Poland,Self-taught,97.41,"$92,722.99",Direct Client
+FL0295,Full Stack,"GraphQL, MongoDB, REST API",5.8,senior,Eastern Europe,Ukraine,Self-taught,71.7,"$58,127.91",Upwork
+FL0296,AI/ML Engineering,"Python, NLP, PyTorch",3.7,mid,Middle East,Israel,Master,117.16,"$96,550.12",Direct Client
+FL0297,Blockchain,"Ethereum, Smart Contracts, Web3",9.5,senior,Latin America,Brazil,Bachelor,85.84,"$89,217.61",Upwork
+FL0298,UI/UX Design,"Sketch, Adobe XD, Prototyping",9.1,senior,Western Europe,UK,Bootcamp,126.1,"$128,683.83",Direct Client
+FL0299,Backend Development,"Go, Python, Ruby",7.1,senior,Middle East,Israel,Bachelor,127.17,"$121,525.79",Upwork
+FL0300,AI/ML Engineering,"Computer Vision, Python, Data Science",8.3,senior,Western Europe,France,Master,193.82,"$157,162.22",Direct Client
+FL0301,Full Stack,"PostgreSQL, React, REST API",3.3,mid,Africa,Nigeria,Master,33.66,"$34,473.26",LinkedIn
+FL0302,Cybersecurity,"Security Audit, Penetration Testing, Cryptography",4.8,mid,Eastern Europe,Ukraine,Master,58.36,"$55,771.48",Freelancer
+FL0303,Mobile Development,"Flutter, Android, Swift",4.1,mid,Eastern Europe,Romania,Self-taught,54.08,"$57,780.74",Direct Client
+FL0304,UI/UX Design,"Wireframing, Sketch, Prototyping",9.8,senior,Africa,South Africa,Bachelor,46.49,"$44,328.35",Fiverr
+FL0305,UI/UX Design,"User Research, Figma, Wireframing",2.9,mid,North America,Canada,Bootcamp,73.1,"$69,908.30",Upwork
+FL0306,Cybersecurity,"Penetration Testing, Network Security, Security Audit",3.9,mid,Asia Pacific,India,Bachelor,37.32,"$34,623.00",Upwork
+FL0307,Data Engineering,"SQL, Python, BigQuery",9.5,senior,Middle East,Israel,Master,128.07,"$116,261.58",Direct Client
+FL0308,DevOps,"Terraform, Azure, CI/CD",1.2,junior,Middle East,UAE,Master,63.19,"$61,203.07",Toptal
+FL0309,Backend Development,"Java, Python, C#",4.1,mid,North America,Canada,Master,84.54,"$85,238.39",LinkedIn
+FL0310,Cybersecurity,"Security Audit, Cryptography, Network Security",4.8,mid,Africa,South Africa,Master,51.73,"$47,886.06",Direct Client
+FL0311,Web Development,"Vue.js, Angular, HTML/CSS",5.9,senior,Eastern Europe,Poland,Bachelor,71.01,"$58,563.34",Toptal
+FL0312,Web Development,"Angular, JavaScript, Vue.js",5.5,senior,Latin America,Brazil,Bachelor,53.82,"$54,584.35",Upwork
+FL0313,Backend Development,"Python, C#, Java",5.5,senior,North America,Canada,Self-taught,133.4,"$133,157.87",Direct Client
+FL0314,Web Development,"JavaScript, Vue.js, Node.js",11.3,senior,North America,US,Bachelor,144.86,"$144,565.49",Upwork
+FL0315,AI/ML Engineering,"Python, Data Science, TensorFlow",5.4,senior,Asia Pacific,China,PhD,81.22,"$79,891.07",Toptal
+FL0316,Cybersecurity,"Network Security, Penetration Testing, Cryptography",6.2,senior,Middle East,UAE,Self-taught,178.12,"$186,657.17",Fiverr
+FL0317,Blockchain,"DeFi, Solidity, Web3",12.3,senior,Eastern Europe,Ukraine,Master,99.74,"$103,168.69",Freelancer
+FL0318,Mobile Development,"iOS, Kotlin, Android",5.4,senior,Asia Pacific,China,Master,53.36,"$47,157.05",Toptal
+FL0319,UI/UX Design,"User Research, Adobe XD, Prototyping",0.5,junior,Asia Pacific,Australia,Master,62.39,"$66,008.05",Fiverr
+FL0320,Mobile Development,"Swift, Flutter, iOS",7.3,senior,Latin America,Colombia,Bootcamp,70.6,"$56,613.49",LinkedIn
+FL0321,AI/ML Engineering,"TensorFlow, NLP, Computer Vision",5.7,senior,Africa,Nigeria,Bachelor,71.15,"$68,021.74",Toptal
+FL0322,Backend Development,"Go, PHP, Python",3,mid,North America,US,Bachelor,98.28,"$88,430.44",Upwork
+FL0323,Backend Development,"C#, Go, Java",12.7,senior,Latin America,Argentina,Master,88.7,"$94,288.44",Upwork
+FL0324,Backend Development,"Ruby, Python, Java",0.7,junior,Middle East,UAE,Bachelor,38.95,"$31,220.95",Toptal
+FL0325,Cybersecurity,"Cryptography, Network Security, Penetration Testing",3.4,mid,Africa,Nigeria,Master,30.75,"$28,559.20",Toptal
+FL0326,Cybersecurity,"Cryptography, Network Security, Security Audit",2.7,mid,Latin America,Mexico,Bachelor,59.33,"$60,575.03",Fiverr
+FL0327,Blockchain,"Ethereum, Web3, Smart Contracts",3.5,mid,Latin America,Mexico,Master,62.18,"$61,391.29",Direct Client
+FL0328,Full Stack,"React, MongoDB, GraphQL",7.6,senior,Western Europe,UK,Bachelor,139.18,"$138,761.17",Fiverr
+FL0329,Mobile Development,"iOS, Swift, Kotlin",6.6,senior,Asia Pacific,Australia,Bachelor,167.95,"$172,121.50",Direct Client
+FL0330,Full Stack,"Node.js, MongoDB, PostgreSQL",3.1,mid,Western Europe,France,Self-taught,82.73,"$86,179.93",Toptal
+FL0331,UI/UX Design,"User Research, Figma, Sketch",5.9,senior,Asia Pacific,China,Self-taught,48.72,"$50,420.03",Other
+FL0332,UI/UX Design,"Sketch, Prototyping, Adobe XD",5.7,senior,Latin America,Colombia,Bachelor,49.75,"$47,743.03",Freelancer
+FL0333,DevOps,"Docker, AWS, Azure",3.2,mid,Asia Pacific,Japan,Master,105.13,"$102,348.30",Direct Client
+FL0334,DevOps,"Kubernetes, Azure, CI/CD",0.7,junior,Middle East,UAE,Self-taught,60.95,"$55,451.70",Upwork
+FL0335,Web Development,"JavaScript, React, Node.js",2.2,mid,Western Europe,France,Self-taught,79.51,"$82,327.03",LinkedIn
+FL0336,Full Stack,"PostgreSQL, MongoDB, GraphQL",6.1,senior,Western Europe,Germany,Self-taught,157.54,"$131,779.01",Direct Client
+FL0337,AI/ML Engineering,"NLP, TensorFlow, Python",2.5,mid,Asia Pacific,Philippines,Bachelor,44.62,"$46,530.92",Direct Client
+FL0338,DevOps,"Azure, AWS, Terraform",0.6,junior,Middle East,Israel,Bachelor,66.08,"$66,374.86",Direct Client
+FL0339,Full Stack,"GraphQL, PostgreSQL, Node.js",6.9,senior,Middle East,Israel,Master,123.28,"$118,890.41",LinkedIn
+FL0340,DevOps,"Docker, Kubernetes, Azure",8.1,senior,Asia Pacific,India,Bachelor,57.11,"$54,811.60",Freelancer
+FL0341,Blockchain,"Smart Contracts, Web3, Ethereum",6.7,senior,Western Europe,Switzerland,Bachelor,233.39,"$220,331.62",Direct Client
+FL0342,UI/UX Design,"Wireframing, User Research, Figma",1.5,junior,Africa,South Africa,Bachelor,20.5,"$18,318.80",Fiverr
+FL0343,Backend Development,"C#, Java, Python",6.6,senior,Africa,South Africa,Bachelor,51.8,"$49,673.89",Toptal
+FL0344,Blockchain,"Smart Contracts, DeFi, Solidity",4.8,mid,North America,Canada,Bachelor,152.49,"$131,368.85",Upwork
+FL0345,Web Development,"HTML/CSS, Vue.js, Angular",1.2,junior,Africa,South Africa,Bootcamp,17.73,"$18,077.51",Upwork
+FL0346,Backend Development,"Go, PHP, Ruby",9.7,senior,North America,US,Bootcamp,174.79,"$147,110.24",Upwork
+FL0347,Web Development,"HTML/CSS, JavaScript, React",9.3,senior,North America,Canada,Master,123.78,"$116,711.69",Freelancer
+FL0348,DevOps,"Docker, Terraform, Kubernetes",6,senior,Middle East,UAE,Master,119.37,"$116,230.65",Direct Client
+FL0349,Data Engineering,"ETL, Data Warehousing, SQL",10.2,senior,Africa,South Africa,Bachelor,77.78,"$64,266.94",Direct Client
+FL0350,Cybersecurity,"Penetration Testing, Network Security, Security Audit",3.8,mid,Western Europe,Germany,Self-taught,126.69,"$126,312.42",Upwork
+FL0351,DevOps,"Kubernetes, CI/CD, Terraform",2.4,mid,Latin America,Brazil,Master,45.15,"$39,258.53",Direct Client
+FL0352,Blockchain,"Solidity, Ethereum, Web3",1.9,junior,North America,US,Master,95.83,"$89,856.16",Fiverr
+FL0353,Blockchain,"Solidity, Ethereum, Smart Contracts",3.4,mid,Eastern Europe,Ukraine,Self-taught,72.01,"$68,427.92",Direct Client
+FL0354,Data Engineering,"ETL, Spark, Python",6.3,senior,Eastern Europe,Poland,Bachelor,91.42,"$77,995.67",Direct Client
+FL0355,Mobile Development,"iOS, Flutter, React Native",1.7,junior,Latin America,Brazil,Master,32.02,"$33,159.18",Freelancer
+FL0356,Web Development,"Vue.js, JavaScript, Angular",5.8,senior,Africa,South Africa,Master,53.25,"$42,742.21",Direct Client
+FL0357,Backend Development,"Java, Python, Ruby",3.8,mid,Asia Pacific,India,Bachelor,26.66,"$21,430.09",Upwork
+FL0358,Backend Development,"Go, Java, Ruby",10,senior,Africa,Nigeria,Master,55.46,"$45,516.26",Toptal
+FL0359,Data Engineering,"SQL, Data Warehousing, ETL",5,mid,Latin America,Brazil,Master,55.45,"$51,590.51",Upwork
+FL0360,DevOps,"AWS, Azure, Kubernetes",4.2,mid,Eastern Europe,Romania,Bachelor,64.15,"$64,623.10",Toptal
+FL0361,Full Stack,"MongoDB, PostgreSQL, REST API",2.2,mid,Latin America,Mexico,Bachelor,45.29,"$38,261.60",Toptal
+FL0362,DevOps,"CI/CD, Docker, AWS",6.5,senior,Africa,South Africa,Bachelor,62.9,"$61,444.85",Direct Client
+FL0363,Mobile Development,"iOS, Android, Flutter",1.6,junior,Latin America,Brazil,Master,29.36,"$25,678.46",Upwork
+FL0364,DevOps,"Terraform, Azure, Kubernetes",5,mid,Eastern Europe,Poland,Bachelor,63.02,"$61,812.89",LinkedIn
+FL0365,UI/UX Design,"Adobe XD, Wireframing, Prototyping",2.4,mid,North America,US,Master,97.3,"$102,280.52",Upwork
+FL0366,Blockchain,"Ethereum, Solidity, Web3",7.3,senior,Africa,Nigeria,Bachelor,65.77,"$65,375.41",LinkedIn
+FL0367,DevOps,"Kubernetes, Azure, AWS",2.4,mid,Eastern Europe,Poland,Self-taught,59.19,"$55,309.75",Upwork
+FL0368,Full Stack,"React, PostgreSQL, GraphQL",1.2,junior,Latin America,Mexico,Bachelor,29.18,"$26,517.37",Freelancer
+FL0369,Mobile Development,"Kotlin, iOS, React Native",1.4,junior,North America,Canada,Self-taught,71.27,"$72,621.72",Direct Client
+FL0370,Backend Development,"PHP, Ruby, Python",8.3,senior,Western Europe,UK,Self-taught,149.34,"$148,786.51",Freelancer
+FL0371,Full Stack,"REST API, Node.js, React",7.1,senior,Eastern Europe,Ukraine,Master,81.03,"$79,729.39",Freelancer
+FL0372,UI/UX Design,"Figma, Sketch, Prototyping",4.6,mid,Latin America,Argentina,Bachelor,48.42,"$40,542.19",Toptal
+FL0373,AI/ML Engineering,"Computer Vision, Python, TensorFlow",6.3,senior,Middle East,UAE,PhD,177.95,"$180,258.57",Toptal
+FL0374,DevOps,"Docker, Terraform, CI/CD",2.6,mid,Latin America,Mexico,Master,53.69,"$45,527.04",Upwork
+FL0375,DevOps,"Kubernetes, Terraform, AWS",7.1,senior,Eastern Europe,Poland,Bachelor,104.78,"$87,727.67",Direct Client
+FL0376,Backend Development,"C#, PHP, Go",4.2,mid,Latin America,Mexico,Bachelor,47.68,"$40,583.47",Freelancer
+FL0377,Web Development,"HTML/CSS, Angular, Node.js",7.2,senior,Middle East,UAE,Bachelor,113.41,"$112,657.13",Upwork
+FL0378,Full Stack,"React, REST API, PostgreSQL",7.9,senior,North America,US,Self-taught,169.38,"$170,763.19",LinkedIn
+FL0379,DevOps,"Kubernetes, Docker, CI/CD",2.9,mid,North America,US,Bachelor,127.87,"$128,316.11",Upwork
+FL0380,Full Stack,"Node.js, PostgreSQL, MongoDB",5,mid,Eastern Europe,Poland,Self-taught,53.1,"$55,893.68",Fiverr
+FL0381,Data Engineering,"SQL, Data Warehousing, Python",1.1,junior,Asia Pacific,Philippines,PhD,18.84,"$18,961.33",Freelancer
+FL0382,UI/UX Design,"Wireframing, Figma, User Research",1,junior,Western Europe,France,Bachelor,54.38,"$52,786.82",Toptal
+FL0383,Cybersecurity,"Cryptography, Network Security, Security Audit",3.5,mid,Middle East,UAE,Bootcamp,94.23,"$76,786.92",Upwork
+FL0384,Web Development,"Node.js, JavaScript, React",2,junior,North America,Canada,Bachelor,41.11,"$37,456.58",Upwork
+FL0385,Backend Development,"Ruby, Python, Java",4.9,mid,Latin America,Argentina,Self-taught,56.53,"$54,171.85",LinkedIn
+FL0386,UI/UX Design,"Wireframing, Figma, Sketch",4.4,mid,Eastern Europe,Poland,Bachelor,50.77,"$53,854.81",LinkedIn
+FL0387,Blockchain,"Solidity, Smart Contracts, Web3",6.2,senior,Latin America,Brazil,Bachelor,86.71,"$87,089.17",Freelancer
+FL0388,Mobile Development,"React Native, Android, Swift",3.6,mid,North America,Canada,Bootcamp,102.12,"$88,157.95",Direct Client
+FL0389,Full Stack,"React, MongoDB, PostgreSQL",8.9,senior,Latin America,Mexico,Bachelor,74.92,"$77,992.29",LinkedIn
+FL0390,AI/ML Engineering,"PyTorch, TensorFlow, NLP",4.6,mid,Western Europe,UK,Master,130.42,"$104,292.77",LinkedIn
+FL0391,Mobile Development,"React Native, Android, Kotlin",3.9,mid,Western Europe,Switzerland,Self-taught,128.34,"$104,371.03",LinkedIn
+FL0392,Cybersecurity,"Network Security, Cryptography, Penetration Testing",5.1,senior,Eastern Europe,Poland,Bachelor,107.04,"$103,856.80",Direct Client
+FL0393,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",3.9,mid,Middle East,Israel,Bachelor,103.85,"$112,142.09",Direct Client
+FL0394,Full Stack,"REST API, GraphQL, PostgreSQL",1.2,junior,Western Europe,Germany,Self-taught,69.15,"$66,713.79",Upwork
+FL0395,Data Engineering,"Data Warehousing, BigQuery, SQL",4.5,mid,Western Europe,Switzerland,Bachelor,168.12,"$153,968.51",Upwork
+FL0396,Full Stack,"React, GraphQL, MongoDB",9.3,senior,Middle East,UAE,Master,146.19,"$138,111.16",LinkedIn
+FL0397,DevOps,"Azure, CI/CD, Docker",4.3,mid,North America,Canada,Self-taught,113.26,"$109,350.91",Upwork
+FL0398,Data Engineering,"Python, SQL, BigQuery",4.3,mid,Eastern Europe,Ukraine,Master,52.63,"$54,364.85",Upwork
+FL0399,AI/ML Engineering,"NLP, Computer Vision, TensorFlow",11.5,senior,Africa,Nigeria,Master,64.71,"$63,683.48",Upwork
+FL0400,UI/UX Design,"Prototyping, Wireframing, User Research",4.8,mid,Eastern Europe,Romania,Bachelor,39.5,"$36,741.97",Upwork
+FL0401,Mobile Development,"Swift, Kotlin, Android",4.5,mid,Africa,South Africa,Bachelor,40.45,"$43,090.80",Upwork
+FL0402,Web Development,"Vue.js, React, Node.js",3.2,mid,Eastern Europe,Romania,Bachelor,46.06,"$40,021.69",Upwork
+FL0403,Backend Development,"Java, Python, C#",9.7,senior,Middle East,UAE,Self-taught,102.8,"$82,749.22",Upwork
+FL0404,Web Development,"JavaScript, Angular, Node.js",5.1,senior,Eastern Europe,Ukraine,Self-taught,76.05,"$81,011.33",Freelancer
+FL0405,Web Development,"Vue.js, JavaScript, React",6,senior,North America,US,Bachelor,158.64,"$162,254.57",Direct Client
+FL0406,UI/UX Design,"Prototyping, User Research, Sketch",6.8,senior,Asia Pacific,Japan,Bachelor,97.8,"$99,171.94",LinkedIn
+FL0407,Web Development,"Vue.js, React, Node.js",4.8,mid,North America,US,Master,103.01,"$101,310.39",Upwork
+FL0408,Data Engineering,"ETL, BigQuery, Data Warehousing",6.4,senior,Latin America,Mexico,PhD,91.77,"$77,188.38",Upwork
+FL0409,Web Development,"Vue.js, JavaScript, Angular",6.5,senior,Western Europe,Germany,Self-taught,125.37,"$118,951.80",Direct Client
+FL0410,Web Development,"React, Node.js, Vue.js",7.1,senior,Latin America,Brazil,Bootcamp,65.9,"$62,777.45",LinkedIn
+FL0411,Blockchain,"Solidity, Smart Contracts, Ethereum",2.3,mid,Eastern Europe,Poland,Master,86.96,"$90,889.62",Upwork
+FL0412,Web Development,"React, Node.js, HTML/CSS",7.8,senior,Asia Pacific,China,Self-taught,50.93,"$41,162.21",Freelancer
+FL0413,Backend Development,"PHP, Python, Java",5.2,senior,Latin America,Mexico,Self-taught,82.24,"$81,250.50",Upwork
+FL0414,Backend Development,"Ruby, Java, Go",2.2,mid,Asia Pacific,Philippines,Bachelor,36.09,"$34,638.24",LinkedIn
+FL0415,Cybersecurity,"Network Security, Cryptography, Penetration Testing",2.1,mid,Asia Pacific,Philippines,Bachelor,45.55,"$37,513.33",Direct Client
+FL0416,Mobile Development,"iOS, Flutter, React Native",7.7,senior,Africa,Nigeria,Master,44.02,"$37,106.28",Direct Client
+FL0417,Web Development,"Angular, HTML/CSS, Vue.js",7.2,senior,Africa,Nigeria,Bachelor,42.08,"$33,722.46",Fiverr
+FL0418,Backend Development,"Ruby, C#, Python",7.4,senior,Middle East,Israel,Master,115.87,"$124,497.33",Fiverr
+FL0419,Mobile Development,"Swift, Android, Kotlin",9.4,senior,Africa,Nigeria,Master,51.69,"$41,380.49",Upwork
+FL0420,Web Development,"JavaScript, HTML/CSS, Vue.js",3.2,mid,Latin America,Brazil,Self-taught,39.69,"$34,830.01",Freelancer
+FL0421,Web Development,"JavaScript, React, Vue.js",6.2,senior,North America,Canada,Self-taught,129.8,"$128,767.96",Freelancer
+FL0422,Cybersecurity,"Penetration Testing, Security Audit, Cryptography",2.1,mid,Eastern Europe,Ukraine,Self-taught,61.04,"$58,890.91",Freelancer
+FL0423,Cybersecurity,"Cryptography, Penetration Testing, Security Audit",6.5,senior,Middle East,Israel,Bachelor,162.53,"$174,258.87",Upwork
+FL0424,Cybersecurity,"Penetration Testing, Security Audit, Cryptography",10.5,senior,Latin America,Colombia,Master,77.99,"$63,813.67",Toptal
+FL0425,Data Engineering,"Data Warehousing, ETL, BigQuery",5.8,senior,Latin America,Brazil,PhD,79.14,"$66,829.87",Freelancer
+FL0426,UI/UX Design,"User Research, Wireframing, Figma",6.2,senior,Eastern Europe,Ukraine,Master,59.88,"$64,106.43",LinkedIn
+FL0427,Data Engineering,"Spark, SQL, Data Warehousing",6.6,senior,Middle East,UAE,PhD,137.99,"$141,416.69",Upwork
+FL0428,Full Stack,"React, MongoDB, REST API",7.9,senior,Africa,Nigeria,Master,51.54,"$53,893.81",Direct Client
+FL0429,Cybersecurity,"Network Security, Security Audit, Cryptography",8.7,senior,Africa,South Africa,Bachelor,78.79,"$78,576.13",Direct Client
+FL0430,Blockchain,"Solidity, Smart Contracts, DeFi",4.5,mid,North America,US,Bachelor,177.33,"$159,685.64",Fiverr
+FL0431,Blockchain,"Solidity, DeFi, Ethereum",1.3,junior,Eastern Europe,Poland,Bootcamp,56.18,"$48,403.27",LinkedIn
+FL0432,Backend Development,"Java, Ruby, Python",9,senior,Latin America,Mexico,Bachelor,56.9,"$50,888.98",Fiverr
+FL0433,Blockchain,"Smart Contracts, DeFi, Ethereum",4.7,mid,Western Europe,Germany,Bachelor,164.34,"$136,850.33",Upwork
+FL0434,Full Stack,"React, Node.js, GraphQL",3.5,mid,Middle East,Israel,Bachelor,92.32,"$98,459.44",Toptal
+FL0435,DevOps,"Kubernetes, Azure, CI/CD",4.9,mid,North America,US,Bachelor,141.65,"$152,466.15",Direct Client
+FL0436,Cybersecurity,"Cryptography, Network Security, Security Audit",11.1,senior,Middle East,UAE,Self-taught,133.49,"$107,695.55",LinkedIn
+FL0437,UI/UX Design,"Prototyping, Adobe XD, Figma",3.6,mid,Asia Pacific,India,Master,30.19,"$27,023.60",LinkedIn
+FL0438,AI/ML Engineering,"Python, PyTorch, Computer Vision",7.1,senior,Middle East,Israel,Master,173.57,"$175,400.95",Direct Client
+FL0439,Cybersecurity,"Security Audit, Cryptography, Penetration Testing",3,mid,Asia Pacific,Philippines,Bachelor,40.81,"$32,595.81",Direct Client
+FL0440,DevOps,"CI/CD, AWS, Kubernetes",1,junior,Africa,Nigeria,Master,20.24,"$21,311.68",Direct Client
+FL0441,DevOps,"Kubernetes, Azure, AWS",6.2,senior,Africa,Nigeria,Master,53.48,"$46,562.27",Upwork
+FL0442,AI/ML Engineering,"TensorFlow, Data Science, PyTorch",10.8,senior,Africa,Nigeria,Bachelor,64.48,"$53,973.48",Direct Client
+FL0443,Backend Development,"Python, C#, Go",6.4,senior,Asia Pacific,Australia,Bachelor,194.73,"$197,995.26",Toptal
+FL0444,UI/UX Design,"Adobe XD, Figma, Sketch",3,mid,Asia Pacific,Japan,Self-taught,72.49,"$67,911.88",Upwork
+FL0445,Cybersecurity,"Network Security, Penetration Testing, Cryptography",7.9,senior,North America,US,Master,237.41,"$243,578.38",Direct Client
+FL0446,Full Stack,"REST API, GraphQL, MongoDB",9.3,senior,Western Europe,Switzerland,Bootcamp,207.53,"$196,851.16",Freelancer
+FL0447,Mobile Development,"iOS, Flutter, Kotlin",9.5,senior,Middle East,Israel,Bachelor,139.99,"$131,736.83",Toptal
+FL0448,DevOps,"Docker, Terraform, AWS",1.5,junior,Asia Pacific,China,Self-taught,27.45,"$26,629.56",Upwork
+FL0449,Data Engineering,"Spark, Data Warehousing, BigQuery",7.1,senior,Middle East,Israel,Master,137.4,"$110,994.58",Toptal
+FL0450,UI/UX Design,"Sketch, User Research, Adobe XD",11.5,senior,Middle East,Israel,Bachelor,126.96,"$126,892.07",Freelancer
+FL0451,Full Stack,"REST API, PostgreSQL, React",6,senior,Western Europe,France,Bachelor,156.41,"$127,682.33",Upwork
+FL0452,DevOps,"CI/CD, Azure, AWS",5.5,senior,Africa,South Africa,Master,72.33,"$60,954.68",LinkedIn
+FL0453,AI/ML Engineering,"TensorFlow, Python, PyTorch",1.1,junior,Eastern Europe,Poland,Bachelor,42.4,"$41,365.14",Freelancer
+FL0454,Backend Development,"Python, Ruby, Go",4.8,mid,Eastern Europe,Poland,Master,63.35,"$55,982.76",Direct Client
+FL0455,Backend Development,"Java, Python, C#",9.1,senior,Western Europe,UK,Bachelor,153.42,"$137,473.00",Freelancer
+FL0456,Backend Development,"Java, Python, C#",1.4,junior,Middle East,UAE,Self-taught,44.95,"$39,907.19",Upwork
+FL0457,Web Development,"Vue.js, Angular, React",6.6,senior,Latin America,Brazil,Bachelor,70.19,"$75,033.16",LinkedIn
+FL0458,Mobile Development,"React Native, Android, Flutter",1.8,junior,North America,Canada,Self-taught,62.2,"$64,395.56",LinkedIn
+FL0459,DevOps,"Kubernetes, AWS, Docker",6.2,senior,Western Europe,Switzerland,Master,214.75,"$213,943.42",Upwork
+FL0460,Web Development,"HTML/CSS, Node.js, JavaScript",5.9,senior,Africa,Nigeria,Master,47.05,"$45,616.50",Upwork
+FL0461,Mobile Development,"Flutter, Kotlin, iOS",6,senior,Western Europe,Germany,Self-taught,201.38,"$216,946.83",Direct Client
+FL0462,DevOps,"Kubernetes, Docker, AWS",6.3,senior,Eastern Europe,Ukraine,Self-taught,97.9,"$95,017.88",Direct Client
+FL0463,Backend Development,"Ruby, Java, C#",4.2,mid,Africa,South Africa,Self-taught,36.24,"$31,023.78",LinkedIn
+FL0464,Backend Development,"Ruby, Go, C#",6.7,senior,Latin America,Brazil,Self-taught,53.96,"$45,045.74",Upwork
+FL0465,Web Development,"Vue.js, HTML/CSS, React",1.7,junior,Middle East,UAE,Bachelor,39.17,"$37,164.96",Fiverr
+FL0466,Blockchain,"Web3, DeFi, Ethereum",8.4,senior,Eastern Europe,Romania,Self-taught,115.16,"$107,966.86",Upwork
+FL0467,Mobile Development,"iOS, Kotlin, Swift",10.6,senior,Asia Pacific,Japan,Bachelor,144.53,"$130,578.15",Direct Client
+FL0468,Data Engineering,"ETL, SQL, Python",5.3,senior,Eastern Europe,Romania,Bachelor,87.96,"$85,938.69",Toptal
+FL0469,UI/UX Design,"Figma, User Research, Prototyping",6.4,senior,Eastern Europe,Romania,Bachelor,61,"$62,884.27",LinkedIn
+FL0470,UI/UX Design,"Wireframing, Sketch, User Research",6.2,senior,North America,US,Self-taught,140.73,"$133,247.66",Direct Client
+FL0471,Full Stack,"React, REST API, MongoDB",7.8,senior,Africa,Nigeria,Master,48.87,"$51,733.85",Toptal
+FL0472,Blockchain,"Ethereum, Solidity, DeFi",3.2,mid,Latin America,Brazil,Master,73.03,"$64,149.44",Fiverr
+FL0473,UI/UX Design,"Adobe XD, Figma, Sketch",9.2,senior,North America,US,Master,151.71,"$144,224.43",Upwork
+FL0474,Backend Development,"C#, Go, Python",5.5,senior,Latin America,Mexico,Bootcamp,68.84,"$65,319.89",Direct Client
+FL0475,AI/ML Engineering,"Computer Vision, Python, Data Science",9.6,senior,Eastern Europe,Poland,PhD,118.02,"$121,596.83",LinkedIn
+FL0476,Cybersecurity,"Security Audit, Cryptography, Network Security",10.1,senior,Latin America,Colombia,Self-taught,77.97,"$73,138.09",Freelancer
+FL0477,Data Engineering,"Data Warehousing, Spark, ETL",1.5,junior,Eastern Europe,Ukraine,Master,39.27,"$37,464.03",Fiverr
+FL0478,Cybersecurity,"Network Security, Penetration Testing, Cryptography",4.8,mid,Africa,South Africa,Bootcamp,56.01,"$46,515.97",Freelancer
+FL0479,DevOps,"CI/CD, Terraform, Azure",8.8,senior,Asia Pacific,India,Bootcamp,47.1,"$45,315.16",Toptal
+FL0480,Blockchain,"DeFi, Web3, Ethereum",3.6,mid,Middle East,UAE,Bootcamp,113.26,"$100,450.96",Direct Client
+FL0481,Blockchain,"Web3, Smart Contracts, Solidity",4.3,mid,North America,US,Master,180.38,"$144,946.22",Fiverr
+FL0482,UI/UX Design,"User Research, Figma, Adobe XD",7.1,senior,North America,Canada,Bootcamp,111.67,"$97,114.94",Upwork
+FL0483,Cybersecurity,"Network Security, Penetration Testing, Security Audit",5.9,senior,Asia Pacific,Philippines,Bachelor,49.73,"$47,750.01",Toptal
+FL0484,Full Stack,"PostgreSQL, GraphQL, React",7.2,senior,Eastern Europe,Ukraine,Bachelor,74.46,"$59,985.55",Fiverr
+FL0485,Web Development,"React, JavaScript, Angular",5,mid,Eastern Europe,Romania,Self-taught,46.78,"$49,679.47",LinkedIn
+FL0486,Mobile Development,"Flutter, Kotlin, Android",4.4,mid,North America,US,Master,117.81,"$117,313.03",Direct Client
+FL0487,AI/ML Engineering,"Python, Computer Vision, TensorFlow",2.5,mid,Western Europe,France,PhD,137.72,"$134,984.70",LinkedIn
+FL0488,Full Stack,"REST API, GraphQL, Node.js",2.1,mid,Western Europe,UK,Bachelor,100.88,"$98,174.71",Upwork
+FL0489,Cybersecurity,"Network Security, Security Audit, Penetration Testing",7,senior,Asia Pacific,China,Bachelor,75.91,"$79,577.13",Direct Client
+FL0490,Data Engineering,"SQL, ETL, Python",3.3,mid,North America,US,Master,133.96,"$142,484.16",Upwork
+FL0491,Full Stack,"REST API, React, MongoDB",3.9,mid,Middle East,Israel,Master,91.94,"$78,225.20",Upwork
+FL0492,Cybersecurity,"Network Security, Cryptography, Penetration Testing",3.8,mid,Asia Pacific,Australia,Bootcamp,142.71,"$151,580.03",Toptal
+FL0493,DevOps,"CI/CD, Kubernetes, Azure",5.4,senior,Africa,South Africa,Bootcamp,70.94,"$69,616.41",Direct Client
+FL0494,AI/ML Engineering,"TensorFlow, Data Science, Computer Vision",8.2,senior,Africa,Nigeria,PhD,71.56,"$60,239.65",Upwork
+FL0495,UI/UX Design,"User Research, Figma, Wireframing",6.7,senior,Latin America,Argentina,Bachelor,64.06,"$61,521.90",Direct Client
+FL0496,UI/UX Design,"Adobe XD, Sketch, Figma",9.7,senior,Western Europe,Germany,Self-taught,129.08,"$114,149.16",Direct Client
+FL0497,Cybersecurity,"Network Security, Security Audit, Cryptography",1.2,junior,Western Europe,Switzerland,Bootcamp,84.37,"$86,158.21",Toptal
+FL0498,DevOps,"Docker, Kubernetes, Terraform",6.4,senior,North America,US,Bachelor,220.15,"$225,178.75",LinkedIn
+FL0499,AI/ML Engineering,"Python, NLP, PyTorch",7.4,senior,Western Europe,UK,PhD,220.01,"$236,868.46",Freelancer
+FL0500,Blockchain,"Ethereum, Solidity, Smart Contracts",10.8,senior,Eastern Europe,Romania,Master,127.68,"$136,126.59",LinkedIn
