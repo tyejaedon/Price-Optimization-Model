@@ -16,7 +16,7 @@ from src.ingest_multisource import (
 class MacroLookupBuilderTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repo_root = Path(__file__).resolve().parent.parent
-        self.raw_dir = str(self.repo_root / "data" / "raw")
+        self.raw_dir = str(self.repo_root / "tests" / "fixtures" / "raw")
 
     def test_find_file_in_dir_resolves_expected_csvs(self) -> None:
         wdi_path = find_file_in_dir(
