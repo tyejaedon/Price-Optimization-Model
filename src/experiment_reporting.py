@@ -26,7 +26,9 @@ from src.train_pipeline import (
     _predict_category_mean_baseline,
     _predict_idw,
     build_stratified_splits,
+    inverse_target_log1p,
     load_harmonized_parquet,
+    transform_target_log1p,
 )
 
 DEFAULT_REPORT_DIR = os.path.join("reports", "model_evaluation")
@@ -53,13 +55,17 @@ def _markdown_table(frame: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def _fit_indexer(matrices: Any, split_data: Any) -> DomainPartitionedKDTreeIndexer:
+def _fit_indexer(
+    matrices: Any,
+    split_data: Any,
+    verified_rates: np.ndarray | None = None,
+) -> DomainPartitionedKDTreeIndexer:
     indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=1)
     indexer.fit(
         hybrid_vectors=matrices.x_train,
         industry_partitions=[str(value) for value in split_data.train["industry_partition"].tolist()],
         record_indices=np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist(),
-        verified_rates=matrices.y_train.tolist(),
+        verified_rates=(matrices.y_train if verified_rates is None else verified_rates).tolist(),
     )
     return indexer
 
@@ -152,6 +158,50 @@ def _run_k_sweep(
     return results
 
 
+def _run_log_target_sweep(
+    indexer: DomainPartitionedKDTreeIndexer,
+    matrices: Any,
+    split_data: Any,
+    k_values: Sequence[int],
+) -> pd.DataFrame:
+    rows: List[Dict[str, Any]] = []
+    log_validation_targets = transform_target_log1p(matrices.y_validation)
+    log_test_targets = transform_target_log1p(matrices.y_test)
+    validation_partitions = [str(value) for value in split_data.validation["industry_partition"].tolist()]
+    test_partitions = [str(value) for value in split_data.test["industry_partition"].tolist()]
+    for k in sorted({max(1, int(value)) for value in k_values}):
+        validation_log_predictions = _predict_idw(indexer, matrices.x_validation, validation_partitions, k)
+        test_log_predictions = _predict_idw(indexer, matrices.x_test, test_partitions, k)
+        validation_raw_predictions = inverse_target_log1p(validation_log_predictions)
+        test_raw_predictions = inverse_target_log1p(test_log_predictions)
+        validation_log_metrics = _metric_summary(log_validation_targets, validation_log_predictions)
+        test_log_metrics = _metric_summary(log_test_targets, test_log_predictions)
+        validation_raw_metrics = _metric_summary(matrices.y_validation, validation_raw_predictions)
+        test_raw_metrics = _metric_summary(matrices.y_test, test_raw_predictions)
+        rows.append(
+            {
+                "model": "idw_log1p",
+                "k_neighbors": k,
+                "validation_log_r2": validation_log_metrics["r2"],
+                "test_log_r2": test_log_metrics["r2"],
+                "validation_log_rmse": validation_log_metrics["rmse"],
+                "test_log_rmse": test_log_metrics["rmse"],
+                "validation_raw_r2": validation_raw_metrics["r2"],
+                "test_raw_r2": test_raw_metrics["r2"],
+                "validation_raw_rmse": validation_raw_metrics["rmse"],
+                "test_raw_rmse": test_raw_metrics["rmse"],
+                "validation_raw_mae": validation_raw_metrics["mae"],
+                "test_raw_mae": test_raw_metrics["mae"],
+                "validation_raw_median_absolute_error": validation_raw_metrics["median_absolute_error"],
+                "test_raw_median_absolute_error": test_raw_metrics["median_absolute_error"],
+                "validation_raw_smape_percent": validation_raw_metrics["smape_percent"],
+                "test_raw_smape_percent": test_raw_metrics["smape_percent"],
+            }
+        )
+    results = pd.DataFrame(rows)
+    results["best_validation_log_configuration"] = False
+    results.loc[results["validation_log_r2"].idxmax(), "best_validation_log_configuration"] = True
+    return results
 def _plot_hyperparameter_trends(results: pd.DataFrame, output_path: Path, quality_gate_r2: float) -> None:
     figure, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
     axes[0].plot(results["k_neighbors"], results["validation_r2"], marker="o", label="Validation R²")
@@ -229,10 +279,43 @@ def _plot_variable_effects(independent_summary: pd.DataFrame, target_summary: pd
     plt.close(figure)
 
 
+def _plot_target_transformations(raw_results: pd.DataFrame, log_results: pd.DataFrame, output_path: Path) -> None:
+    figure, axes = plt.subplots(2, 2, figsize=(12, 9), constrained_layout=True)
+    x = np.arange(len(raw_results))
+    labels = [f"k={int(value)}" for value in raw_results["k_neighbors"]]
+    axes[0, 0].plot(x, raw_results["validation_r2"], marker="o", label="Raw target")
+    axes[0, 0].plot(x, log_results["validation_log_r2"], marker="s", label="Log1p target, log space")
+    axes[0, 0].set_title("Validation R? by target transformation")
+    axes[0, 0].set_ylabel("R?")
+    axes[0, 0].legend()
+    axes[0, 0].grid(alpha=0.25)
+    axes[0, 0].set_xticks(x, labels)
+    axes[0, 1].plot(x, raw_results["test_r2"], marker="o", label="Raw target")
+    axes[0, 1].plot(x, log_results["test_log_r2"], marker="s", label="Log1p target, log space")
+    axes[0, 1].set_title("Test R? by target transformation")
+    axes[0, 1].set_ylabel("R?")
+    axes[0, 1].legend()
+    axes[0, 1].grid(alpha=0.25)
+    axes[0, 1].set_xticks(x, labels)
+    axes[1, 0].plot(x, raw_results["validation_rmse"], marker="o", label="Raw target")
+    axes[1, 0].plot(x, log_results["validation_raw_rmse"], marker="s", label="Log1p + expm1, raw KES")
+    axes[1, 0].set_title("Validation RMSE in KES/hour")
+    axes[1, 0].set_ylabel("RMSE")
+    axes[1, 0].legend()
+    axes[1, 0].grid(alpha=0.25)
+    axes[1, 0].set_xticks(x, labels)
+    axes[1, 1].plot(x, log_results["validation_log_rmse"], marker="s", color="tab:purple")
+    axes[1, 1].set_title("Validation RMSE in log space")
+    axes[1, 1].set_ylabel("RMSE(log1p target)")
+    axes[1, 1].grid(alpha=0.25)
+    axes[1, 1].set_xticks(x, labels)
+    figure.savefig(output_path, dpi=160)
+    plt.close(figure)
 def _write_markdown_report(
     output_path: Path,
     config: Dict[str, Any],
     results: pd.DataFrame,
+    log_results: pd.DataFrame,
     independent_summary: pd.DataFrame,
     target_summary: pd.DataFrame,
     baseline_metrics: Dict[str, Dict[str, float]],
@@ -271,6 +354,12 @@ def _write_markdown_report(
         "## Hyperparameter results",
         "",
         _markdown_table(results),
+        "",
+        "## Raw versus log1p target comparison",
+        "",
+        "The log1p model is evaluated in log space and after expm1 inversion into KES/hour.",
+        "",
+        _markdown_table(log_results),
         "",
         "## Dependent-variable summary",
         "",
@@ -314,6 +403,8 @@ def run_experiment_report(
         save_artifacts=False,
     )
     indexer = _fit_indexer(matrices, split_data)
+    log_train_targets = transform_target_log1p(matrices.y_train)
+    log_indexer = _fit_indexer(matrices, split_data, verified_rates=log_train_targets)
     partition_means, global_mean = _build_category_mean_baseline(split_data.train)
     baseline_validation = _predict_category_mean_baseline(split_data.validation, partition_means, global_mean)
     baseline_test = _predict_category_mean_baseline(split_data.test, partition_means, global_mean)
@@ -322,6 +413,7 @@ def run_experiment_report(
         "test": _metric_summary(matrices.y_test, baseline_test),
     }
     results = _run_k_sweep(indexer, matrices, split_data, k_values, baseline_metrics["validation"], baseline_metrics["test"])
+    log_results = _run_log_target_sweep(log_indexer, matrices, split_data, k_values)
     model_metrics = {
         "validation": _metric_summary(matrices.y_validation, _predict_idw(indexer, matrices.x_validation, [str(v) for v in split_data.validation["industry_partition"].tolist()], int(results.iloc[int(results["validation_r2"].idxmax())]["k_neighbors"]))),
         "test": _metric_summary(matrices.y_test, _predict_idw(indexer, matrices.x_test, [str(v) for v in split_data.test["industry_partition"].tolist()], int(results.iloc[int(results["validation_r2"].idxmax())]["k_neighbors"]))),
@@ -342,14 +434,22 @@ def run_experiment_report(
     results.to_csv(output_path / "hyperparameter_results.csv", index=False)
     independent_summary.to_csv(output_path / "independent_variable_summary.csv", index=False)
     target_summary.to_csv(output_path / "dependent_variable_summary.csv", index=False)
+    log_results.to_csv(output_path / "target_transformation_results.csv", index=False)
     _plot_hyperparameter_trends(results, output_path / "hyperparameter_trends.png", quality_gate_r2)
+    _plot_target_transformations(results, log_results, output_path / "target_transformation_comparison.png")
     _plot_model_progress(results, output_path / "model_progress.png", baseline_metrics)
     _plot_variable_effects(independent_summary, target_summary, output_path / "variable_effects.png")
-    _write_markdown_report(output_path / "experiment_report.md", config, results, independent_summary, target_summary, baseline_metrics)
+    _write_markdown_report(output_path / "experiment_report.md", config, results, log_results, independent_summary, target_summary, baseline_metrics)
     payload = {
         "config": config,
         "best_configuration": results.loc[results["validation_r2"].idxmax()].to_dict(),
+        "best_log_configuration": log_results.loc[log_results["validation_log_r2"].idxmax()].to_dict(),
         "baseline_metrics": baseline_metrics,
+        "target_transformation": {
+            "raw": "identity",
+            "log": "log1p",
+            "inverse": "expm1",
+        },
         "best_model_metrics": model_metrics,
         "output_dir": str(output_path),
         "files": [],
