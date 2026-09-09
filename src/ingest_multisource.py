@@ -5,7 +5,7 @@ import os
 import re
 from datetime import datetime, timezone
 from statistics import median
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 PPP_SERIES_CODE = "PA.NUS.PPP"
 
@@ -169,15 +169,53 @@ def _fallback_cost_index_value(cost_data: Dict[str, Dict[str, float]]) -> float:
     return float(median(values)) if values else 30.0
 
 
+def extract_mpesa_tariff_summary(mpesa_csv_path: str) -> Dict[str, object]:
+    """Read the M-Pesa tariff CSV and return a compact summary for downstream modules."""
+    total_rows = 0
+    unique_categories = set()
+    unique_tx_types = set()
+    consumer_transfer_rows = 0
+    max_fee = 0.0
+
+    with open(mpesa_csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            total_rows += 1
+            category = (row.get("tariff_category") or "").strip()
+            tx_type = (row.get("transaction_type") or "").strip()
+            if category:
+                unique_categories.add(category)
+            if tx_type:
+                unique_tx_types.add(tx_type)
+
+            if category == "CONSUMER_TRANSFER" and tx_type == "P2P_MPESA":
+                consumer_transfer_rows += 1
+
+            fee = _safe_float(row.get("fee_kes", ""))
+            if fee is not None and fee > max_fee:
+                max_fee = fee
+
+    return {
+        "row_count": total_rows,
+        "category_count": len(unique_categories),
+        "transaction_type_count": len(unique_tx_types),
+        "consumer_transfer_band_count": consumer_transfer_rows,
+        "max_fee_kes": max_fee,
+    }
+
+
 def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]:
     wdi_root = os.path.join(raw_data_dir, "World_Development_Indicators")
     cost_root = os.path.join(raw_data_dir, "Cost_Index")
+    mpesa_root = os.path.join(raw_data_dir, "Mpesa_Tarrifs")
 
     wdi_csv_path = find_file_in_dir(wdi_root, name_contains="_Data")
     cost_csv_path = find_file_in_dir(cost_root, name_contains="Cost_of_Living_Index")
+    mpesa_csv_path = find_file_in_dir(mpesa_root, name_contains="tarrifs")
 
     ppp_by_iso3 = extract_latest_ppp_by_iso3(wdi_csv_path)
     cost_by_iso2 = extract_cost_index_by_iso2(cost_csv_path)
+    mpesa_summary = extract_mpesa_tariff_summary(mpesa_csv_path)
     fallback_col = _fallback_cost_index_value(cost_by_iso2)
 
     records: Dict[str, Dict[str, object]] = {}
@@ -186,6 +224,9 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
         ppp_info = ppp_by_iso3.get(iso3)
         if ppp_info is None:
             raise ValueError(f"Missing PPP record for target country {iso2}/{iso3}")
+        ppp_info = cast(Dict[str, Any], ppp_info)
+        ppp_value = float(cast(float, ppp_info["ppp_lcu_per_intl_dollar"]))
+        ppp_year = int(cast(int, ppp_info["year"]))
 
         cost_info = cost_by_iso2.get(iso2)
         fallback_used = cost_info is None
@@ -194,8 +235,8 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
             "country_iso2": iso2,
             "country_iso3": iso3,
             "country_name": ISO2_TO_COUNTRY_NAME[iso2],
-            "ppp_lcu_per_intl_dollar": float(ppp_info["ppp_lcu_per_intl_dollar"]),
-            "ppp_reference_year": int(ppp_info["year"]),
+            "ppp_lcu_per_intl_dollar": ppp_value,
+            "ppp_reference_year": ppp_year,
             "cost_of_living_index": float(cost_info["cost_of_living_index"]) if cost_info else fallback_col,
             "rent_index": float(cost_info["rent_index"]) if cost_info else 0.0,
             "local_purchasing_power_index": float(cost_info["local_purchasing_power_index"]) if cost_info else 0.0,
@@ -212,6 +253,10 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "raw_data_dir": os.path.abspath(raw_data_dir),
             "target_economies": list(TARGET_ISO2_TO_ISO3.keys()),
+            "mpesa_tariffs": {
+                "source_file": os.path.basename(mpesa_csv_path),
+                "summary": mpesa_summary,
+            },
         },
         "records": records,
     }
@@ -272,8 +317,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     payload = build_macro_lookup(raw_data_dir=args.raw_dir, output_path=args.output)
+    records = cast(Dict[str, Dict[str, Any]], payload.get("records", {}))
     print(
-        f"Wrote {len(payload['records'])} macro records to {os.path.abspath(args.output)}"
+        f"Wrote {len(records)} macro records to {os.path.abspath(args.output)}"
     )
 
 

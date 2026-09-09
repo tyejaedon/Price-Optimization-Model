@@ -27,9 +27,14 @@ class MacroLookupBuilderTests(unittest.TestCase):
             os.path.join(self.raw_dir, "Cost_Index"),
             name_contains="Cost_of_Living_Index",
         )
+        mpesa_path = find_file_in_dir(
+            os.path.join(self.raw_dir, "Mpesa_Tarrifs"),
+            name_contains="tarrifs",
+        )
 
         self.assertTrue(wdi_path.endswith("_Data.csv"))
         self.assertTrue(col_path.endswith("Cost_of_Living_Index_by_Country_2024.csv"))
+        self.assertTrue(mpesa_path.endswith("tarrifs.csv"))
 
     def test_build_lookup_contains_target_economies(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -50,8 +55,8 @@ class MacroLookupBuilderTests(unittest.TestCase):
             records = cast(Dict[str, Dict[str, Any]], payload["records"])
             rwanda = records["RW"]
 
-            self.assertTrue(rwanda["cost_index_fallback_used"])
-            self.assertGreater(rwanda["cost_of_living_index"], 0.0)
+            self.assertTrue(bool(rwanda["cost_index_fallback_used"]))
+            self.assertGreater(float(rwanda["cost_of_living_index"]), 0.0)
 
     def test_lookup_load_and_safe_fallback_accessor(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -64,12 +69,23 @@ class MacroLookupBuilderTests(unittest.TestCase):
             default_record = get_macro_record(records, iso2_code="XX", default_iso2_code="KE")
             self.assertEqual(default_record["country_iso2"], "KE")
 
-            # Quick local JSON read sanity.
             with open(output_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.assertIn("records", data)
 
+    def test_mpesa_tariff_metadata_is_integrated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, "macro_lookup_table.json")
+            payload = build_macro_lookup(self.raw_dir, output_path)
+
+            metadata = cast(Dict[str, Any], payload.get("metadata", {}))
+            mpesa = cast(Dict[str, Any], metadata.get("mpesa_tariffs", {}))
+            summary = cast(Dict[str, Any], mpesa.get("summary", {}))
+
+            self.assertEqual(mpesa.get("source_file"), "tarrifs.csv")
+            self.assertGreater(int(summary.get("row_count", 0)), 0)
+            self.assertGreater(int(summary.get("consumer_transfer_band_count", 0)), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
-
