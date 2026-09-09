@@ -1,4 +1,4 @@
-# Dynamic Price Optimizer for Technical Mentors & Consultants
+ Dynamic Price Optimizer for Technical Mentors & Consultants
 
 An intelligent pricing recommendation engine designed for independent consultants, technical mentors, and digital freelancers in emerging markets like Kenya.  
 
@@ -114,6 +114,17 @@ python -m src.ingest_multisource
 ```bash
 python -m src.ingest_multisource --mode harmonize_corpus --preview-limit 5
 python -m src.ingest_multisource --mode harmonize_corpus --output data/processed/harmonized_marketplace_corpus.csv
+```
+
+### 2c. Build M1.3 harmonized parquet with macro joins
+```bash
+python -m src.ingest_multisource --mode macro_lookup --output data/processed/macro_lookup_table.json
+python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/processed/macro_lookup_table.json --output data/processed/harmonized_marketplace_corpus.parquet --preview-limit 3
+```
+
+### 2d. Run M2.1 text sanitization preview
+```bash
+python -m src.nlp_pipeline --text "Senior backend engineer with 8 years of API platform experience"
 ```
 
 ### 3. Train the Model
