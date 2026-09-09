@@ -162,6 +162,11 @@ python -m src.train_pipeline
 python -m src.train_pipeline --mode evaluate --artifact-dir artifacts --quality-gate-r2 0.75 --no-enforce-quality-gate
 ```
 
+### 3c. Generate M6.2 tuning diagrams, tables, and report
+```powershell
+python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
+```
+
 ### 4. Start the Inference Server
 ```bash
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload

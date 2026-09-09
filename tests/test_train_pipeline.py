@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.ingest_multisource import build_macro_lookup
+from src.experiment_reporting import run_experiment_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
     build_stratified_splits,
@@ -169,6 +170,34 @@ class TrainPipelineTests(unittest.TestCase):
                     quality_gate_r2=1.01,
                     enforce_quality_gate=True,
                 )
+
+    def test_experiment_report_writes_tuning_tables_and_diagrams(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "model_evaluation")
+
+            payload = run_experiment_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_values=(1, 3),
+            )
+
+            expected_files = {
+                "hyperparameter_results.csv",
+                "independent_variable_summary.csv",
+                "dependent_variable_summary.csv",
+                "experiment_report.md",
+                "experiment_report.json",
+                "hyperparameter_trends.png",
+                "model_progress.png",
+                "variable_effects.png",
+            }
+            self.assertTrue(expected_files.issubset(set(os.listdir(report_dir))))
+            self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
+            self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
+            self.assertIn("Hyperparameter results", Path(report_dir, "experiment_report.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
