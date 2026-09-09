@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, cast
 try:
     import numpy as np
     import pandas as pd
-    from sklearn.metrics import mean_squared_error, r2_score
+    from sklearn.metrics import mean_absolute_error, median_absolute_error, mean_squared_error, r2_score
     from sklearn.model_selection import train_test_split
 except ImportError as exc:
     raise RuntimeError("Missing training-pipeline dependencies. Install from requirements.txt") from exc
@@ -218,9 +218,37 @@ def _rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(mean_squared_error(y_true, y_pred) ** 0.5)
 
 
+def _smape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    actual = np.asarray(y_true, dtype=float)
+    predicted = np.asarray(y_pred, dtype=float)
+    denominator = np.abs(actual) + np.abs(predicted)
+    numerator = 2.0 * np.abs(predicted - actual)
+    values = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator > 0.0)
+    return float(np.mean(values) * 100.0)
+
+
+def transform_target_log1p(target: np.ndarray) -> np.ndarray:
+    values = np.asarray(target, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Target contains non-finite values.")
+    if np.any(values < 0.0):
+        raise ValueError("log1p target transformation requires non-negative target values.")
+    return np.log1p(values)
+
+
+def inverse_target_log1p(target_log: np.ndarray) -> np.ndarray:
+    values = np.asarray(target_log, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Log-transformed target contains non-finite values.")
+    return np.maximum(0.0, np.expm1(values))
+
+
 def _metric_summary(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     return {
         "rmse": round(_rmse(y_true, y_pred), 6),
+        "mae": round(float(mean_absolute_error(y_true, y_pred)), 6),
+        "median_absolute_error": round(float(median_absolute_error(y_true, y_pred)), 6),
+        "smape_percent": round(_smape(y_true, y_pred), 6),
         "r2": round(float(r2_score(y_true, y_pred)), 6),
     }
 
@@ -407,6 +435,36 @@ def evaluate_and_serialize_training(
     model_test_metrics = _metric_summary(matrices.y_test, test_predictions)
     baseline_validation_metrics = _metric_summary(matrices.y_validation, baseline_validation_predictions)
     baseline_test_metrics = _metric_summary(matrices.y_test, baseline_test_predictions)
+    log_train_rates = transform_target_log1p(matrices.y_train)
+    log_validation_rates = transform_target_log1p(matrices.y_validation)
+    log_test_rates = transform_target_log1p(matrices.y_test)
+    log_indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=1)
+    log_indexer.fit(
+        hybrid_vectors=matrices.x_train,
+        industry_partitions=[str(v) for v in split_data.train["industry_partition"].tolist()],
+        record_indices=train_record_indices,
+        verified_rates=log_train_rates.tolist(),
+    )
+    log_validation_predictions = _predict_idw(
+        log_indexer,
+        matrices.x_validation,
+        [str(v) for v in split_data.validation["industry_partition"].tolist()],
+        k_neighbors=max(1, int(k_neighbors)),
+    )
+    log_test_predictions = _predict_idw(
+        log_indexer,
+        matrices.x_test,
+        [str(v) for v in split_data.test["industry_partition"].tolist()],
+        k_neighbors=max(1, int(k_neighbors)),
+    )
+    log_target_metrics = {
+        "transformation": "log1p",
+        "inverse_transformation": "expm1",
+        "validation_log_space": _metric_summary(log_validation_rates, log_validation_predictions),
+        "test_log_space": _metric_summary(log_test_rates, log_test_predictions),
+        "validation_raw_space": _metric_summary(matrices.y_validation, inverse_target_log1p(log_validation_predictions)),
+        "test_raw_space": _metric_summary(matrices.y_test, inverse_target_log1p(log_test_predictions)),
+    }
 
     outperforms_baseline = bool(
         model_validation_metrics["rmse"] < baseline_validation_metrics["rmse"]
@@ -441,6 +499,15 @@ def evaluate_and_serialize_training(
         "model_metrics": {
             "validation": model_validation_metrics,
             "test": model_test_metrics,
+        },
+        "target_transformation_comparison": {
+            "raw": {
+                "transformation": "identity",
+                "inverse_transformation": "none",
+                "validation_raw_space": model_validation_metrics,
+                "test_raw_space": model_test_metrics,
+            },
+            "log1p": log_target_metrics,
         },
         "baseline_metrics": {
             "validation": baseline_validation_metrics,

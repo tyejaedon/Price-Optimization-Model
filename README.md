@@ -162,6 +162,11 @@ python -m src.train_pipeline
 python -m src.train_pipeline --mode evaluate --artifact-dir artifacts --quality-gate-r2 0.75 --no-enforce-quality-gate
 ```
 
+### 3d. Run M6.3 raw versus log-target evaluation
+```powershell
+python -m src.train_pipeline --mode evaluate --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --artifact-dir (Join-Path $env:TEMP "m63_evaluation") --quality-gate-r2 0.75 --no-enforce-quality-gate
+```
+
 ### 3c. Generate M6.2 tuning diagrams, tables, and report
 ```powershell
 python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
