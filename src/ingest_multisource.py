@@ -13,6 +13,8 @@ USD_TO_KES_RATE_ANCHOR = 130.0
 MIN_DESCRIPTION_LENGTH = 40
 MIN_ACCEPTED_HOURLY_RATE_KES = 500.0
 MAX_ACCEPTED_HOURLY_RATE_KES = 35000.0
+DEFAULT_MACRO_OUTPUT = os.path.join("data", "processed", "macro_lookup_table.json")
+DEFAULT_HARMONIZED_OUTPUT = os.path.join("data", "processed", "harmonized_marketplace_corpus.csv")
 
 SUPPORTED_INDUSTRY_PARTITIONS = (
     "data_ai",
@@ -33,17 +35,35 @@ INDUSTRY_KEYWORDS = {
         "deep learning",
         "artificial intelligence",
         "nlp",
-        "analytics",
+        "llm",
+        "computer vision",
         "power bi",
+        "tableau",
+        "analytics",
+        "data analysis",
+        "data analyst",
+        "statistics",
+        "sql",
+        "predictive",
     ),
     "web_backend": (
         "full stack",
+        "fullstack",
         "backend",
         "front end",
         "frontend",
+        "web development",
+        "web app",
         "react",
+        "angular",
+        "vue",
         "node",
         "django",
+        "flask",
+        "wordpress",
+        "shopify",
+        "javascript",
+        "typescript",
         "api",
     ),
     "mobile": (
@@ -54,6 +74,7 @@ INDUSTRY_KEYWORDS = {
         "mobile app",
         "swift",
         "kotlin",
+        "xamarin",
     ),
     "devops_cloud": (
         "devops",
@@ -64,22 +85,40 @@ INDUSTRY_KEYWORDS = {
         "kubernetes",
         "docker",
         "terraform",
+        "ci/cd",
+        "jenkins",
+        "github actions",
+        "nginx",
+        "linux",
+        "microsoft azure",
     ),
     "design_creative": (
+        "graphic design",
+        "logo",
+        "brand",
+        "adobe",
+        "photoshop",
+        "illustrator",
+        "video editing",
+        "youtube",
         "ui",
         "ux",
         "figma",
-        "graphic design",
         "motion design",
         "branding",
+        "creative",
     ),
     "product_management": (
         "product manager",
+        "product management",
+        "project manager",
+        "project management",
         "scrum",
         "agile",
         "roadmap",
         "stakeholder",
-        "project manager",
+        "user story",
+        "jira",
     ),
     "digital_marketing": (
         "seo",
@@ -88,6 +127,12 @@ INDUSTRY_KEYWORDS = {
         "social media",
         "media buyer",
         "marketing",
+        "email marketing",
+        "lead generation",
+        "campaign",
+        "instagram",
+        "search engine optimization",
+        "content marketing",
     ),
 }
 
@@ -355,6 +400,58 @@ def harmonize_marketplace_corpus(
     return records
 
 
+def preview_harmonized_records(records: List[Dict[str, Any]], limit: int = 5) -> str:
+    """Return a small JSON preview for CLI inspection."""
+    if limit <= 0:
+        limit = 5
+
+    preview_payload = {
+        "record_count": len(records),
+        "preview": records[:limit],
+    }
+    return json.dumps(preview_payload, indent=2, ensure_ascii=False)
+
+
+def export_harmonized_records(records: List[Dict[str, Any]], output_path: str) -> None:
+    """Export harmonized marketplace rows to JSON or CSV based on file extension."""
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    _, ext = os.path.splitext(output_path)
+    normalized_ext = ext.lower()
+
+    if normalized_ext == ".json":
+        payload = {
+            "metadata": {
+                "currency": "KES",
+                "record_count": len(records),
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            },
+            "records": records,
+        }
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        return
+
+    fieldnames = [
+        "source_dataset",
+        "job_title",
+        "raw_description",
+        "source_country",
+        "industry_partition",
+        "hourly_rate",
+        "hourly_rate_usd",
+        "currency",
+        "usd_to_kes_rate_anchor",
+    ]
+    with open(output_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in records:
+            writer.writerow(row)
+
+
 def _year_columns(fieldnames: Iterable[str]) -> List[Tuple[int, str]]:
     columns: List[Tuple[int, str]] = []
     for column in fieldnames:
@@ -575,14 +672,50 @@ def get_macro_record(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build macroeconomic lookup table from raw data files.")
     parser.add_argument(
+        "--mode",
+        choices=("macro_lookup", "harmonize_corpus"),
+        default="macro_lookup",
+        help="Execution mode: build macro lookup (M1.1) or harmonize marketplace corpus (M1.2).",
+    )
+    parser.add_argument(
         "--raw-dir",
         default=os.path.join("data", "raw"),
         help="Root directory containing raw CSV datasets.",
     )
     parser.add_argument(
         "--output",
-        default=os.path.join("data", "processed", "macro_lookup_table.json"),
-        help="Output path for the generated macro lookup JSON.",
+        default=DEFAULT_MACRO_OUTPUT,
+        help="Output path for generated artifact (macro lookup or harmonized corpus export).",
+    )
+    parser.add_argument(
+        "--preview-limit",
+        type=int,
+        default=0,
+        help="When mode is harmonize_corpus, print a preview of up to N records.",
+    )
+    parser.add_argument(
+        "--usd-to-kes-rate",
+        type=float,
+        default=USD_TO_KES_RATE_ANCHOR,
+        help="USD to KES conversion anchor used for harmonization.",
+    )
+    parser.add_argument(
+        "--min-description-length",
+        type=int,
+        default=MIN_DESCRIPTION_LENGTH,
+        help="Minimum description length for retained harmonized rows.",
+    )
+    parser.add_argument(
+        "--min-hourly-kes",
+        type=float,
+        default=MIN_ACCEPTED_HOURLY_RATE_KES,
+        help="Minimum accepted hourly rate in KES.",
+    )
+    parser.add_argument(
+        "--max-hourly-kes",
+        type=float,
+        default=MAX_ACCEPTED_HOURLY_RATE_KES,
+        help="Maximum accepted hourly rate in KES.",
     )
     return parser.parse_args()
 
@@ -590,6 +723,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     resolved_raw_dir = _resolve_input_dir(args.raw_dir)
+
+    if args.mode == "harmonize_corpus":
+        output_arg = args.output
+        if output_arg == DEFAULT_MACRO_OUTPUT:
+            output_arg = DEFAULT_HARMONIZED_OUTPUT
+        resolved_output_path = _resolve_output_path(output_arg)
+
+        records = harmonize_marketplace_corpus(
+            raw_data_dir=resolved_raw_dir,
+            usd_to_kes_rate_anchor=args.usd_to_kes_rate,
+            min_description_length=args.min_description_length,
+            min_hourly_rate_kes=args.min_hourly_kes,
+            max_hourly_rate_kes=args.max_hourly_kes,
+        )
+        export_harmonized_records(records, resolved_output_path)
+
+        if args.preview_limit > 0:
+            print(preview_harmonized_records(records, args.preview_limit))
+
+        print(f"Wrote {len(records)} harmonized marketplace records to {resolved_output_path}")
+        return
+
     resolved_output_path = _resolve_output_path(args.output)
 
     payload = build_macro_lookup(raw_data_dir=resolved_raw_dir, output_path=resolved_output_path)
