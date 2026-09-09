@@ -105,6 +105,8 @@ pip install -r requirements.txt
 python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
 ```
 
+> If you only need test tooling, install pytest in your virtual environment as needed.
+
 ### 2. Prepare Data & Build Corpus
 ```bash
 python -m src.ingest_multisource
@@ -114,6 +116,12 @@ python -m src.ingest_multisource
 ```bash
 python -m src.ingest_multisource --mode harmonize_corpus --preview-limit 5
 python -m src.ingest_multisource --mode harmonize_corpus --output data/processed/harmonized_marketplace_corpus.csv
+```
+
+### 2c. Build M1.3 harmonized parquet with macro joins
+```bash
+python -m src.ingest_multisource --mode macro_lookup --output data/processed/macro_lookup_table.json
+python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/processed/macro_lookup_table.json --output data/processed/harmonized_marketplace_corpus.parquet --preview-limit 3
 ```
 
 ### 3. Train the Model
