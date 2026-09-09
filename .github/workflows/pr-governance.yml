@@ -2,7 +2,7 @@ name: PR Governance
 
 on:
   pull_request:
-    types: [opened, reopened, edited, synchronize, ready_for_review]
+    types: [opened, reopened, edited, synchronize, ready_for_review, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
 
-      - name: Verify issue exists in repository
+      - name: Verify issue exists and is tied to feature track milestone
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -45,13 +45,42 @@ jobs:
           ISSUE="${{ steps.branch_check.outputs.issue_number }}"
           REPO="${{ github.repository }}"
 
-          STATE=$(gh api "repos/$REPO/issues/$ISSUE" --jq .state 2>/dev/null || true)
+          STATE=$(gh api "repos/$REPO/issues/$ISSUE" --jq '.state' 2>/dev/null || true)
           if [ -z "$STATE" ]; then
             echo "::error::Issue #$ISSUE does not exist in $REPO"
             exit 1
           fi
 
+          MILESTONE_TITLE=$(gh api "repos/$REPO/issues/$ISSUE" --jq '.milestone.title // empty')
+          HAS_TRACK_LABEL=$(gh api "repos/$REPO/issues/$ISSUE" --jq '[.labels[].name] | index("project:feature-track") != null')
+
           echo "Issue #$ISSUE found with state: $STATE"
+
+          if [ -z "$MILESTONE_TITLE" ]; then
+            echo "::error::Issue #$ISSUE must be assigned to a milestone in the Price Optimization Model Feature Track."
+            exit 1
+          fi
+
+          if [ "$HAS_TRACK_LABEL" != "true" ]; then
+            echo "::error::Issue #$ISSUE must include the label 'project:feature-track'."
+            exit 1
+          fi
+
+      - name: Enforce PR project label and milestone
+        shell: bash
+        run: |
+          BODY_FILE="pr_metadata_check.txt"
+          printf "%s" "${{ toJson(github.event.pull_request.labels.*.name) }}" > "$BODY_FILE"
+
+          if ! grep -Eiq 'project:feature-track' "$BODY_FILE"; then
+            echo "::error::PR must include the label 'project:feature-track'."
+            exit 1
+          fi
+
+          if [ -z "${{ github.event.pull_request.milestone.title }}" ]; then
+            echo "::error::PR must be assigned to a milestone."
+            exit 1
+          fi
 
       - name: Ensure PR body links matching issue
         shell: bash
@@ -74,4 +103,3 @@ jobs:
           if ! grep -Eiq "Milestone:[[:space:]]+Milestone[[:space:]]+[1-8]" "$BODY_FILE"; then
             echo "::warning::Could not verify milestone declaration format in PR body. Ensure Milestone is filled in the template."
           fi
-
