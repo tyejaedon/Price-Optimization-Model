@@ -306,6 +306,70 @@ Milestone 8: Automated Verification, Latency Profiling & MLOps
 - Depends on `M4.2` and `M6.1`
 - Blocks `M7.2`
 
+### M6.2 Experimental Scope Decision: Retain KNN for Production
+
+Because of the scope of this feature track, production inference will continue to use the KNN-style peer pricing approach delivered in `M4.1` and `M4.2`: domain-partitioned KD-Tree retrieval with inverse-distance weighting and peer explainability.
+
+The experimental workflow should focus on tuning the KNN approach rather than introducing a broad collection of production model families. Recommended experiments are:
+
+- sweep `k_neighbors`,
+- tune distance weighting and text/metadata block weights,
+- evaluate raw versus `log1p(target_rate)` transformations,
+- compare validation/test RMSE, MAE, median absolute error, and `R^2`, and
+- use a category-mean model as the required baseline comparator.
+
+Alternative regressors may be used as offline reference points in the report, but they are not production deliverables for this milestone. The production independent variables remain the 53-D hybrid coordinate, and the dependent variable remains `target_rate` in KES/hour.
+
+### Issue M6.3 — Evaluate Target Transformations & Robust Error Metrics
+**GitHub issue:** #35
+**Labels:** `machine-learning`, `evaluation`, `project:feature-track`
+
+**Goal:** Reduce the influence of extreme harmonized rates and report metrics that better represent practical pricing error.
+
+**Scope:** Compare raw and `log1p(target_rate)` training targets, invert predictions with `expm1()`, and report RMSE, MAE, median absolute error, sMAPE, and R² for validation and test splits.
+
+**Dependency Notes:** Extends M6.2 and preserves the KNN/IDW production target contract.
+
+### Issue M6.4 — Expand KNN Hyperparameter & Hybrid-Distance Tuning
+**GitHub issue:** #36
+**Labels:** `machine-learning`, `algorithms`, `evaluation`, `project:feature-track`
+
+**Goal:** Extend the KNN experiment beyond the current `k <= 10` sweep while keeping KNN/IDW as the production model family.
+
+**Scope:** Sweep `k_neighbors` through `1, 3, 5, 7, 10, 15, 20, 30, 50`; tune partition thresholds, epsilon, fallback policy, text/metadata block weights, and normalized versus raw hybrid distances.
+
+**Dependency Notes:** Extends M4.2 and M6.2.
+
+### Issue M6.5 — Add Leakage-Safe Metadata Enrichment & Feature Ablations
+**GitHub issue:** #37
+**Labels:** `machine-learning`, `feature-engineering`, `evaluation`, `project:feature-track`
+
+**Goal:** Add useful macroeconomic, partition, source, and country-pair features without leaking validation/test information.
+
+**Scope:** Evaluate log bilateral factors, training-derived partition statistics, source indicators, country interactions, cost-of-living differences, PPP ratios, rate percentiles, and feature-group ablations.
+
+**Dependency Notes:** Extends M1.3, M3.1, M4.2, and M6.2.
+
+### Issue M6.6 — Evaluate Text Representation & Hybrid Normalization Settings
+**GitHub issue:** #38
+**Labels:** `nlp`, `feature-engineering`, `evaluation`, `project:feature-track`
+
+**Goal:** Determine whether text dimensionality, n-gram settings, vocabulary limits, and normalization improve KNN retrieval while preserving the 50-D production compatibility path.
+
+**Scope:** Compare SVD dimensions, n-gram ranges, `min_df`, vocabulary limits, normalized versus unnormalized text vectors, quality, latency, and artifact reload stability.
+
+**Dependency Notes:** Extends M2.2, M3.2, M4.2, and M6.2.
+
+### Issue M6.7 — Strengthen Leakage-Safe Validation & Per-Partition Diagnostics
+**GitHub issue:** #39
+**Labels:** `model-training`, `evaluation`, `qa`, `project:feature-track`
+
+**Goal:** Make reported model progress robust to source imbalance, duplicates, metadata leakage, and weak industry partitions.
+
+**Scope:** Add duplicate detection, source-grouped split comparisons, training-only aggregations, per-partition metrics, minimum-volume diagnostics, repeated-seed confidence intervals, and complete split metadata in reports.
+
+**Dependency Notes:** Extends M6.1 and M6.2.
+
 ---
 
 ## Milestone 7: Production ASGI API Service (FastAPI)
