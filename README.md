@@ -127,6 +127,11 @@ python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/pr
 python -m src.nlp_pipeline --text "Senior backend engineer with 8 years of API platform experience"
 ```
 
+### 2e. Run M2.2 TF-IDF + SVD artifact demo
+```bash
+python -m src.nlp_pipeline --mode fit_demo --n-components 50 --max-features 12000 --artifact-dir artifacts
+```
+
 ### 3. Train the Model
 ```bash
 python -m src.train_pipeline
