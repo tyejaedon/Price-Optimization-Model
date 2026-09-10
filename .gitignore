@@ -8,6 +8,9 @@ __pycache__/
 /Data/
 /artifacts/
 /reports/
+/sdk/
+*-firebase-adminsdk*.json
+*service-account*.json
 
 # JetBrains IDE local project files
 .idea/
