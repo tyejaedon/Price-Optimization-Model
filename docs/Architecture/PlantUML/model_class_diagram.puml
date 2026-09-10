@@ -1,0 +1,121 @@
+@startuml
+' M8.3 - Canonical implementation class diagram
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+title Dynamic Price Optimizer - Implementation Class Diagram
+
+package "Data Ingestion" {
+  class MultiSourceIngestion {
+    +find_file_in_dir()
+    +build_macro_lookup()
+    +harmonize_marketplace_corpus()
+    +build_harmonized_marketplace_records()
+    +export_harmonized_records_parquet()
+  }
+}
+
+package "Feature Engineering" {
+  class TextFeatureReducer {
+    +fit_transform(texts)
+    +transform(texts)
+    +save_artifacts()
+    +load_artifacts()
+  }
+
+  class ContinuousMetadataNormalizer {
+    +build_live_metadata_vector()
+    +fit_transform(records)
+    +transform(records)
+    +save_artifacts()
+    +load_artifacts()
+  }
+
+  class CoordinateFusion {
+    +fuse_coordinates(text, metadata)
+    +fuse_coordinate_batches(text, metadata)
+  }
+
+  class LeakageSafeMetadataEnricher {
+    +fit(training_frame)
+    +transform(frame, groups)
+    +save_artifacts()
+    +load_artifacts()
+  }
+}
+
+package "Spatial Pricing" {
+  class DomainPartitionedKDTreeIndexer {
+    +fit(vectors, partitions, verified_rates)
+    +query(vector, partition, k)
+    +predict_base_rate(vector, partition, k)
+    +save_artifacts()
+    +load_artifacts()
+  }
+}
+
+package "Financial Rules" {
+  class MpesaTariffEvaluator {
+    +compute_surcharge(base_rate, mentor_country)
+    +evaluate_quote(base_rate, mentor_country)
+    +from_csv()
+  }
+}
+
+package "Training and Evaluation" {
+  class TrainingPipeline {
+    +load_harmonized_parquet()
+    +build_stratified_splits()
+    +orchestrate_training()
+    +evaluate_and_serialize_training()
+  }
+
+  class ExperimentReporting {
+    +run_experiment_report()
+    +run_feature_ablation_report()
+    +run_text_representation_report()
+    +run_validation_diagnostics()
+  }
+}
+
+package "API Contracts and Service" {
+  class PricingQueryDTO
+  class PeerMatchDTO
+  class PredictionResultDTO
+  class HealthResponseDTO
+  class InferenceRuntime
+  class FastAPIService {
+    +GET /health
+    +POST /api/v1/optimize-price
+  }
+}
+
+MultiSourceIngestion --> TextFeatureReducer : raw descriptions
+MultiSourceIngestion --> ContinuousMetadataNormalizer : macro features
+TextFeatureReducer --> CoordinateFusion : 50-D text
+ContinuousMetadataNormalizer --> CoordinateFusion : 3-D metadata
+LeakageSafeMetadataEnricher --> CoordinateFusion : offline ablations
+CoordinateFusion --> DomainPartitionedKDTreeIndexer : 53-D production vector
+DomainPartitionedKDTreeIndexer --> MpesaTariffEvaluator : base quote
+TrainingPipeline --> TextFeatureReducer : fit on train only
+TrainingPipeline --> ContinuousMetadataNormalizer : fit on train only
+TrainingPipeline --> DomainPartitionedKDTreeIndexer : serialize artifacts
+ExperimentReporting --> TrainingPipeline : evaluate frozen splits
+FastAPIService --> PricingQueryDTO : validates request
+FastAPIService --> InferenceRuntime : startup/load state
+InferenceRuntime --> TextFeatureReducer
+InferenceRuntime --> ContinuousMetadataNormalizer
+InferenceRuntime --> DomainPartitionedKDTreeIndexer
+InferenceRuntime --> MpesaTariffEvaluator
+FastAPIService --> PredictionResultDTO : returns response
+FastAPIService --> HealthResponseDTO : readiness
+
+note right of DomainPartitionedKDTreeIndexer
+Production model scope:
+partitioned KNN/IDW with peer
+explainability payloads.
+end note
+
+@enduml
+

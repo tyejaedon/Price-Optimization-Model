@@ -370,6 +370,30 @@ Alternative regressors may be used as offline reference points in the report, bu
 
 **Dependency Notes:** Extends M6.1 and M6.2.
 
+### Issue M8.3 — Create Canonical Model Class Diagram in PlantUML
+**GitHub issue:** #50
+**Labels:** `documentation`, `machine-learning`, `project:feature-track`
+
+**Deliverable:** `docs/Architecture/PlantUML/model_class_diagram.puml` covering the implemented ingestion, feature engineering, spatial, tariff, training, API, and evaluation boundaries.
+
+### Issue M8.4 — Create Canonical Pricing ERD in PlantUML
+**GitHub issue:** #51
+**Labels:** `documentation`, `qa`, `project:feature-track`
+
+**Deliverable:** `docs/Architecture/PlantUML/model_erd.puml` aligned with the supplied ERD and showing domain entities, cardinalities, references, prediction fields, tariff fields, and audit fields.
+
+### Issue M8.5 — Create Canonical System Architecture Diagram in PlantUML
+**GitHub issue:** #52
+**Labels:** `documentation`, `api`, `project:feature-track`
+
+**Deliverable:** `docs/Architecture/PlantUML/system_architecture.puml` showing client, API, ML runtime, Firestore, external data, artifact loading, health, inference, KNN/IDW, and tariff boundaries.
+
+### Issue M8.6 — Create Canonical Firestore Database Schema in PlantUML
+**GitHub issue:** #53
+**Labels:** `documentation`, `data-engineering`, `project:feature-track`
+
+**Deliverable:** `docs/Architecture/PlantUML/firestore_database_schema.puml` aligned with the supplied database schema and Firestore collections: `mentors`, `macro_indices`, `industry_partitions`, `service_listings`, `mpesa_tariffs`, and `historical_transactions`.
+
 ---
 
 ## Milestone 7: Production ASGI API Service (FastAPI)
