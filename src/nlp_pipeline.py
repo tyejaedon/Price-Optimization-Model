@@ -117,16 +117,20 @@ class TextFeatureReducer:
         max_features: int = 12000,
         ngram_range: Tuple[int, int] = (1, 2),
         random_state: int = 42,
+        min_df: int = 1,
+        normalize_output: bool = False,
     ) -> None:
         self.n_components_requested = int(n_components)
         self.max_features = int(max_features)
         self.ngram_range = ngram_range
         self.random_state = random_state
+        self.min_df = max(1, int(min_df))
+        self.normalize_output = bool(normalize_output)
 
         self.vectorizer = TfidfVectorizer(
             max_features=self.max_features,
             ngram_range=self.ngram_range,
-            min_df=1,
+            min_df=self.min_df,
             norm="l2",
             sublinear_tf=True,
         )
@@ -138,6 +142,12 @@ class TextFeatureReducer:
             return 1
         return max(1, min(self.n_components_requested, n_features - 1))
 
+    def _normalize_dense_vectors(self, dense_vectors: np.ndarray) -> np.ndarray:
+        if not self.normalize_output:
+            return dense_vectors
+        norms = np.linalg.norm(dense_vectors, axis=1, keepdims=True)
+        return np.divide(dense_vectors, norms, out=np.zeros_like(dense_vectors), where=norms > 0.0)
+
     def fit_transform(self, texts: Sequence[str]) -> np.ndarray:
         cleaned_texts = sanitize_many(texts)
         tfidf_sparse = self.vectorizer.fit_transform(cleaned_texts)
@@ -146,7 +156,7 @@ class TextFeatureReducer:
         self.reducer = TruncatedSVD(n_components=effective_components, random_state=self.random_state)
         dense_vectors = self.reducer.fit_transform(tfidf_sparse)
         self.fitted = True
-        return dense_vectors
+        return self._normalize_dense_vectors(dense_vectors)
 
     def transform(self, texts: Sequence[str]) -> np.ndarray:
         if not self.fitted:
@@ -154,7 +164,7 @@ class TextFeatureReducer:
 
         cleaned_texts = sanitize_many(texts)
         tfidf_sparse = self.vectorizer.transform(cleaned_texts)
-        return self.reducer.transform(tfidf_sparse)
+        return self._normalize_dense_vectors(self.reducer.transform(tfidf_sparse))
 
     def explained_variance_sum(self) -> float:
         if not self.fitted:
@@ -182,6 +192,8 @@ class TextFeatureReducer:
             "n_components_fitted": int(self.reducer.n_components),
             "max_features": self.max_features,
             "ngram_range": [self.ngram_range[0], self.ngram_range[1]],
+            "min_df": self.min_df,
+            "normalize_output": self.normalize_output,
             "explained_variance_sum": self.explained_variance_sum(),
         }
         with open(metadata_path, "w", encoding="utf-8") as f:
@@ -191,17 +203,27 @@ class TextFeatureReducer:
     def load_artifacts(cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> "TextFeatureReducer":
         tfidf_path = os.path.join(artifact_dir, DEFAULT_TFIDF_ARTIFACT)
         svd_path = os.path.join(artifact_dir, DEFAULT_SVD_ARTIFACT)
+        metadata_path = os.path.join(artifact_dir, DEFAULT_METADATA_ARTIFACT)
 
         vectorizer = joblib.load(tfidf_path)
         reducer = joblib.load(svd_path)
         loaded_ngram = getattr(vectorizer, "ngram_range", (1, 2))
         if not isinstance(loaded_ngram, tuple) or len(loaded_ngram) != 2:
             loaded_ngram = (1, 2)
+        loaded_min_df = int(getattr(vectorizer, "min_df", 1) or 1)
+        loaded_normalize_output = False
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                loaded_metadata = json.load(f)
+            loaded_min_df = int(loaded_metadata.get("min_df", loaded_min_df))
+            loaded_normalize_output = bool(loaded_metadata.get("normalize_output", False))
 
         instance = cls(
             n_components=int(getattr(reducer, "n_components", 50)),
             max_features=int(getattr(vectorizer, "max_features", 12000) or 12000),
             ngram_range=(int(loaded_ngram[0]), int(loaded_ngram[1])),
+            min_df=loaded_min_df,
+            normalize_output=loaded_normalize_output,
         )
         instance.vectorizer = vectorizer
         instance.reducer = reducer

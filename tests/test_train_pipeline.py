@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.ingest_multisource import build_macro_lookup
-from src.experiment_reporting import run_experiment_report, run_feature_ablation_report
+from src.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
     _metric_summary,
@@ -195,6 +195,29 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertEqual(payload["k_neighbors"], 2)
             self.assertEqual(payload["selected_groups"], ["macro_enrichment", "partition_statistics"])
             self.assertIn("best_validation_ablation", payload)
+    def test_text_representation_report_tracks_dimensions_latency_and_reload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "text_representation")
+            payload = run_text_representation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                n_components_values=(25, 50),
+                ngram_ranges=((1, 2),),
+                max_features_values=(1000,),
+                min_df_values=(1,),
+                normalization_values=(False, True),
+                k_neighbors=2,
+            )
+            results = pd.read_csv(os.path.join(report_dir, "text_representation_results.csv"))
+            self.assertEqual(len(results), 4)
+            self.assertTrue(results["reload_stable"].all())
+            self.assertTrue((results["fit_latency_ms"] >= 0.0).all())
+            self.assertTrue((results["validation_transform_latency_ms"] >= 0.0).all())
+            self.assertEqual(payload["production_compatibility_dimensions"], 53)
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.md")))
     def test_quality_gate_is_enforced_programmatically(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
