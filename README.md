@@ -184,6 +184,11 @@ To compare hybrid block weights, pass multiple values such as `--text-weights 0.
 python -m src.experiment_reporting --mode feature_ablation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --ablation-output-dir (Join-Path $env:TEMP "m65_feature_ablations") --ablation-k-neighbors 10
 ```
 
+### 3g. Run M6.6 text representation experiments
+```powershell
+python -m src.experiment_reporting --mode text_representation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --text-output-dir (Join-Path $env:TEMP "m66_text_representation_report") --text-components 25 50 75 100 --text-ngram-ranges 1,1 1,2 1,3 --text-max-features 12000 --text-min-dfs 1 --text-normalization 0 1 --text-k-neighbors 10
+```
+
 ### 4. Start the Inference Server
 ```bash
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload

@@ -1,9 +1,11 @@
 import argparse
 import json
 import os
+import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, Tuple, cast
 
 try:
     import matplotlib
@@ -15,8 +17,9 @@ except ImportError as exc:
     raise RuntimeError("Install reporting dependencies with: python -m pip install -r requirements.txt") from exc
 
 from src.ingest_multisource import BILATERAL_ALPHA
-from src.macro_arbitrage import TEXT_VECTOR_DIMENSIONS
+from src.macro_arbitrage import ContinuousMetadataNormalizer, TEXT_VECTOR_DIMENSIONS
 from src.metadata_enrichment import LeakageSafeMetadataEnricher
+from src.nlp_pipeline import TextFeatureReducer
 from src.spatial_engine import DomainPartitionedKDTreeIndexer
 from src.train_pipeline import (
     DEFAULT_HARMONIZED_PARQUET,
@@ -588,6 +591,127 @@ def run_experiment_report(
     return payload
 
 
+def run_text_representation_report(
+    harmonized_parquet_path: str,
+    macro_lookup_path: str,
+    output_dir: str = os.path.join("reports", "m6_6_text_representation"),
+    n_components_values: Sequence[int] = (25, 50, 75, 100),
+    ngram_ranges: Sequence[Tuple[int, int]] = ((1, 1), (1, 2), (1, 3)),
+    max_features_values: Sequence[int] = (12000,),
+    min_df_values: Sequence[int] = (1,),
+    normalization_values: Sequence[bool] = (False, True),
+    k_neighbors: int = 10,
+) -> Dict[str, Any]:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    frame = load_harmonized_parquet(harmonized_parquet_path)
+    split_data = build_stratified_splits(frame, random_state=DEFAULT_RANDOM_STATE)
+    normalizer = ContinuousMetadataNormalizer(macro_lookup_path=macro_lookup_path)
+    train_records = cast(List[Dict[str, Any]], split_data.train.to_dict(orient="records"))
+    validation_records = cast(List[Dict[str, Any]], split_data.validation.to_dict(orient="records"))
+    test_records = cast(List[Dict[str, Any]], split_data.test.to_dict(orient="records"))
+    train_metadata = normalizer.fit_transform(train_records)
+    validation_metadata = normalizer.transform(validation_records)
+    test_metadata = normalizer.transform(test_records)
+    train_texts = [str(value) for value in split_data.train["raw_description"].tolist()]
+    validation_texts = [str(value) for value in split_data.validation["raw_description"].tolist()]
+    test_texts = [str(value) for value in split_data.test["raw_description"].tolist()]
+    validation_partitions = [str(value) for value in split_data.validation["industry_partition"].tolist()]
+    test_partitions = [str(value) for value in split_data.test["industry_partition"].tolist()]
+    rows: List[Dict[str, Any]] = []
+    for requested_components in n_components_values:
+        for ngram_range in ngram_ranges:
+            for max_features in max_features_values:
+                for min_df in min_df_values:
+                    for normalize_output in normalization_values:
+                        reducer = TextFeatureReducer(
+                            n_components=int(requested_components),
+                            max_features=int(max_features),
+                            ngram_range=(int(ngram_range[0]), int(ngram_range[1])),
+                            min_df=int(min_df),
+                            normalize_output=bool(normalize_output),
+                        )
+                        fit_start = time.perf_counter()
+                        train_text = reducer.fit_transform(train_texts)
+                        fit_ms = ((time.perf_counter() - fit_start) * 1000.0)
+                        transform_start = time.perf_counter()
+                        validation_text = reducer.transform(validation_texts)
+                        test_text = reducer.transform(test_texts)
+                        transform_ms = ((time.perf_counter() - transform_start) * 1000.0)
+                        feature_dimensions = int(train_text.shape[1] + train_metadata.shape[1])
+                        train_features = np.concatenate([train_text, train_metadata], axis=1)
+                        validation_features = np.concatenate([validation_text, validation_metadata], axis=1)
+                        test_features = np.concatenate([test_text, test_metadata], axis=1)
+                        indexer = DomainPartitionedKDTreeIndexer(
+                            minimum_partition_size=1,
+                            vector_dimensions=feature_dimensions,
+                        )
+                        indexer.fit(
+                            train_features,
+                            [str(value) for value in split_data.train["industry_partition"].tolist()],
+                            record_indices=np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist(),
+                            verified_rates=split_data.train["target_rate"].to_numpy(dtype=float).tolist(),
+                        )
+                        validation_predictions = _predict_idw(indexer, validation_features, validation_partitions, k_neighbors)
+                        test_predictions = _predict_idw(indexer, test_features, test_partitions, k_neighbors)
+                        validation_metrics = _metric_summary(split_data.validation["target_rate"].to_numpy(dtype=float), validation_predictions)
+                        test_metrics = _metric_summary(split_data.test["target_rate"].to_numpy(dtype=float), test_predictions)
+                        query_text = [validation_texts[0]]
+                        with tempfile.TemporaryDirectory() as artifact_dir:
+                            reducer.save_artifacts(artifact_dir)
+                            restored = TextFeatureReducer.load_artifacts(artifact_dir)
+                            reload_stable = bool(np.allclose(reducer.transform(query_text), restored.transform(query_text), atol=1e-9))
+                        rows.append(
+                            {
+                                "n_components_requested": int(requested_components),
+                                "n_components_fitted": int(reducer.reducer.n_components),
+                                "ngram_range": f"{ngram_range[0]}-{ngram_range[1]}",
+                                "max_features": int(max_features),
+                                "min_df": int(min_df),
+                                "normalize_output": bool(normalize_output),
+                                "vocabulary_size": int(len(reducer.vectorizer.vocabulary_)),
+                                "feature_dimensions": feature_dimensions,
+                                "fit_latency_ms": round(fit_ms, 6),
+                                "validation_transform_latency_ms": round(transform_ms, 6),
+                                "reload_stable": reload_stable,
+                                "validation_rmse": validation_metrics["rmse"],
+                                "validation_mae": validation_metrics["mae"],
+                                "validation_median_absolute_error": validation_metrics["median_absolute_error"],
+                                "validation_smape_percent": validation_metrics["smape_percent"],
+                                "validation_r2": validation_metrics["r2"],
+                                "test_rmse": test_metrics["rmse"],
+                                "test_mae": test_metrics["mae"],
+                                "test_median_absolute_error": test_metrics["median_absolute_error"],
+                                "test_smape_percent": test_metrics["smape_percent"],
+                                "test_r2": test_metrics["r2"],
+                            }
+                        )
+    results = pd.DataFrame(rows)
+    results["best_validation_configuration"] = False
+    results.loc[results["validation_r2"].idxmax(), "best_validation_configuration"] = True
+    results.to_csv(output_path / "text_representation_results.csv", index=False)
+    summary = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "input_rows": int(len(frame)),
+        "split_rows": {"train": len(split_data.train), "validation": len(split_data.validation), "test": len(split_data.test)},
+        "production_compatibility_dimensions": 53,
+        "k_neighbors": int(k_neighbors),
+        "best_validation_configuration": results.loc[results["validation_r2"].idxmax()].to_dict(),
+        "all_artifacts_reload_stable": bool(results["reload_stable"].all()),
+        "output_dir": str(output_path),
+    }
+    (output_path / "text_representation_report.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
+    markdown = [
+        "# M6.6 Text Representation and Hybrid Normalization Report",
+        "",
+        "- Every vectorizer/SVD configuration was fitted on training text only.",
+        "- Metadata normalization was fitted on training metadata only.",
+        "- The production compatibility target remains 50 text dimensions plus 3 metadata dimensions.",
+        "",
+        _markdown_table(results),
+    ]
+    (output_path / "text_representation_report.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
+    return summary
 def run_feature_ablation_report(
     harmonized_parquet_path: str,
     macro_lookup_path: str,
@@ -696,7 +820,7 @@ def run_feature_ablation_report(
     return summary
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate reproducible model tuning tables and diagrams.")
-    parser.add_argument("--mode", choices=("report", "feature_ablation"), default="report")
+    parser.add_argument("--mode", choices=("report", "feature_ablation", "text_representation"), default="report")
     parser.add_argument("--harmonized-parquet", default=DEFAULT_HARMONIZED_PARQUET)
     parser.add_argument("--macro-lookup", required=True)
     parser.add_argument("--output-dir", default=DEFAULT_REPORT_DIR)
@@ -708,6 +832,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quality-gate-r2", type=float, default=0.75)
     parser.add_argument("--ablation-output-dir", default=os.path.join("reports", "m6_5_feature_ablations"))
     parser.add_argument("--ablation-k-neighbors", type=int, default=10)
+    parser.add_argument("--text-components", nargs="+", type=int, default=[25, 50, 75, 100])
+    parser.add_argument("--text-ngram-ranges", nargs="+", default=["1,1", "1,2", "1,3"])
+    parser.add_argument("--text-max-features", nargs="+", type=int, default=[12000])
+    parser.add_argument("--text-min-dfs", nargs="+", type=int, default=[1])
+    parser.add_argument("--text-normalization", nargs="+", type=int, choices=(0, 1), default=[0, 1])
+    parser.add_argument("--text-output-dir", default=os.path.join("reports", "m6_6_text_representation"))
+    parser.add_argument("--text-k-neighbors", type=int, default=10)
     parser.add_argument("--text-weights", nargs="+", type=float, default=[1.0])
     parser.add_argument("--metadata-weights", nargs="+", type=float, default=[1.0])
     parser.add_argument("--minimum-partition-sizes", nargs="+", type=int, default=[1])
@@ -718,7 +849,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.mode == "feature_ablation":
+    if args.mode == "text_representation":
+        payload = run_text_representation_report(
+            harmonized_parquet_path=args.harmonized_parquet,
+            macro_lookup_path=args.macro_lookup,
+            output_dir=args.text_output_dir,
+            n_components_values=args.text_components,
+            ngram_ranges=[(int(parts[0]), int(parts[1])) for item in args.text_ngram_ranges for parts in [item.split(",")]],
+            max_features_values=args.text_max_features,
+            min_df_values=args.text_min_dfs,
+            normalization_values=[bool(value) for value in args.text_normalization],
+            k_neighbors=args.text_k_neighbors,
+        )
+    elif args.mode == "feature_ablation":
         payload = run_feature_ablation_report(
             harmonized_parquet_path=args.harmonized_parquet,
             macro_lookup_path=args.macro_lookup,
