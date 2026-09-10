@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.ingest_multisource import build_macro_lookup
-from src.experiment_reporting import run_experiment_report
+from src.experiment_reporting import run_experiment_report, run_feature_ablation_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
     _metric_summary,
@@ -178,6 +178,23 @@ class TrainPipelineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-negative"):
             transform_target_log1p(pd.Series([1.0, -0.5]).to_numpy(dtype=float))
 
+    def test_feature_ablation_report_is_leakage_safe_and_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "feature_ablations")
+            payload = run_feature_ablation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_neighbors=2,
+                groups=("macro_enrichment", "partition_statistics"),
+            )
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "metadata_enrichment_metadata.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_results.csv")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_report.md")))
+            self.assertEqual(payload["k_neighbors"], 2)
+            self.assertEqual(payload["selected_groups"], ["macro_enrichment", "partition_statistics"])
+            self.assertIn("best_validation_ablation", payload)
     def test_quality_gate_is_enforced_programmatically(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)

@@ -179,6 +179,11 @@ python -m src.experiment_reporting --harmonized-parquet (Join-Path $env:TEMP "m6
 
 To compare hybrid block weights, pass multiple values such as `--text-weights 0.5 1.0 1.5 2.0 --metadata-weights 0.5 1.0 1.5 2.0`.
 
+### 3f. Run M6.5 leakage-safe feature ablations
+```powershell
+python -m src.experiment_reporting --mode feature_ablation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --ablation-output-dir (Join-Path $env:TEMP "m65_feature_ablations") --ablation-k-neighbors 10
+```
+
 ### 4. Start the Inference Server
 ```bash
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
