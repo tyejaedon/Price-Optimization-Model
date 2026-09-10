@@ -30,13 +30,13 @@ def _normalize_partition(partition: Any) -> str:
     return DEFAULT_FALLBACK_PARTITION
 
 
-def _coerce_hybrid_matrix(hybrid_vectors: Any) -> np.ndarray:
+def _coerce_hybrid_matrix(hybrid_vectors: Any, expected_dimensions: int = HYBRID_VECTOR_DIMENSIONS) -> np.ndarray:
     matrix = np.asarray(hybrid_vectors, dtype=float)
     if matrix.ndim != 2:
         raise ValueError(f"hybrid_vectors must be a 2-D matrix; got shape {matrix.shape}.")
-    if matrix.shape[1] != HYBRID_VECTOR_DIMENSIONS:
+    if matrix.shape[1] != expected_dimensions:
         raise ValueError(
-            f"hybrid_vectors must have {HYBRID_VECTOR_DIMENSIONS} columns; got {matrix.shape[1]}."
+            f"hybrid_vectors must have {expected_dimensions} columns; got {matrix.shape[1]}."
         )
     if matrix.shape[0] == 0:
         raise ValueError("hybrid_vectors cannot be empty.")
@@ -45,7 +45,7 @@ def _coerce_hybrid_matrix(hybrid_vectors: Any) -> np.ndarray:
     return matrix.astype(float, copy=False)
 
 
-def _coerce_query_vector(query_vector: Any) -> np.ndarray:
+def _coerce_query_vector(query_vector: Any, expected_dimensions: int = HYBRID_VECTOR_DIMENSIONS) -> np.ndarray:
     vector = np.asarray(query_vector, dtype=float)
     if vector.ndim == 2:
         if vector.shape[0] != 1:
@@ -54,9 +54,9 @@ def _coerce_query_vector(query_vector: Any) -> np.ndarray:
     elif vector.ndim != 1:
         raise ValueError(f"query_vector must be 1-D; got shape {vector.shape}.")
 
-    if vector.size != HYBRID_VECTOR_DIMENSIONS:
+    if vector.size != expected_dimensions:
         raise ValueError(
-            f"query_vector must contain exactly {HYBRID_VECTOR_DIMENSIONS} values; got {vector.size}."
+            f"query_vector must contain exactly {expected_dimensions} values; got {vector.size}."
         )
     if not np.all(np.isfinite(vector)):
         raise ValueError("query_vector contains non-finite values.")
@@ -82,6 +82,7 @@ class DomainPartitionedKDTreeIndexer:
         leaf_size: int = DEFAULT_LEAF_SIZE,
         minimum_partition_size: int = DEFAULT_MIN_PARTITION_SIZE,
         fallback_partition: str = DEFAULT_FALLBACK_PARTITION,
+        vector_dimensions: Optional[int] = None,
     ) -> None:
         self.leaf_size = max(1, int(leaf_size))
         self.minimum_partition_size = max(1, int(minimum_partition_size))
@@ -90,7 +91,7 @@ class DomainPartitionedKDTreeIndexer:
         self.partition_row_indices: Dict[str, np.ndarray] = {}
         self.partition_verified_rates: Dict[str, np.ndarray] = {}
         self.partition_counts: Dict[str, int] = {}
-        self.hybrid_dimensions = HYBRID_VECTOR_DIMENSIONS
+        self.hybrid_dimensions = max(1, int(vector_dimensions or HYBRID_VECTOR_DIMENSIONS))
         self.fitted = False
 
     def fit(
@@ -100,7 +101,7 @@ class DomainPartitionedKDTreeIndexer:
         record_indices: Optional[Sequence[int]] = None,
         verified_rates: Optional[Sequence[float]] = None,
     ) -> None:
-        matrix = _coerce_hybrid_matrix(hybrid_vectors)
+        matrix = _coerce_hybrid_matrix(hybrid_vectors, expected_dimensions=self.hybrid_dimensions)
         if len(industry_partitions) != matrix.shape[0]:
             raise ValueError(
                 f"industry_partitions must align with hybrid_vectors rows; got {len(industry_partitions)} labels for {matrix.shape[0]} rows."
@@ -280,7 +281,7 @@ class DomainPartitionedKDTreeIndexer:
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before query().")
 
-        resolved_query = _coerce_query_vector(query_vector)
+        resolved_query = _coerce_query_vector(query_vector, expected_dimensions=self.hybrid_dimensions)
         result = self._query_partition_tree(
             query_vector=resolved_query,
             requested_partition=requested_partition,
@@ -303,7 +304,7 @@ class DomainPartitionedKDTreeIndexer:
         if not self.partition_verified_rates:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted with verified_rates before predict_base_rate().")
 
-        resolved_query = _coerce_query_vector(query_vector)
+        resolved_query = _coerce_query_vector(query_vector, expected_dimensions=self.hybrid_dimensions)
         result = self._query_partition_tree(
             query_vector=resolved_query,
             requested_partition=requested_partition,
@@ -385,6 +386,7 @@ class DomainPartitionedKDTreeIndexer:
             leaf_size=int(payload.get("leaf_size", DEFAULT_LEAF_SIZE)),
             minimum_partition_size=int(payload.get("minimum_partition_size", DEFAULT_MIN_PARTITION_SIZE)),
             fallback_partition=str(payload.get("fallback_partition", DEFAULT_FALLBACK_PARTITION)),
+            vector_dimensions=int(payload.get("hybrid_dimensions", HYBRID_VECTOR_DIMENSIONS)),
         )
         instance.partition_trees = cast(Dict[str, KDTree], dict(payload.get("partition_trees", {})))
         instance.partition_row_indices = {
