@@ -276,6 +276,8 @@ def _predict_idw(
     feature_matrix: np.ndarray,
     partitions: List[str],
     k_neighbors: int,
+    epsilon: float = 1e-9,
+    allow_fallback: bool = True,
 ) -> np.ndarray:
     predictions: List[float] = []
     for row_number, partition in enumerate(partitions):
@@ -283,7 +285,8 @@ def _predict_idw(
             query_vector=feature_matrix[row_number],
             requested_partition=partition,
             k=k_neighbors,
-            allow_fallback=True,
+            allow_fallback=allow_fallback,
+            epsilon=epsilon,
         )
         predictions.append(float(prediction["base_predicted_rate"]))
     return np.asarray(predictions, dtype=float)

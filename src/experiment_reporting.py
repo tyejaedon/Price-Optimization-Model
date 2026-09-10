@@ -32,7 +32,7 @@ from src.train_pipeline import (
 )
 
 DEFAULT_REPORT_DIR = os.path.join("reports", "model_evaluation")
-DEFAULT_K_VALUES = (1, 3, 5, 7, 10)
+DEFAULT_K_VALUES = (1, 3, 5, 7, 10, 15, 20, 30, 50)
 METADATA_FEATURE_NAMES = (
     "bilateral_arbitrage_factor",
     "market_saturation_score",
@@ -70,6 +70,102 @@ def _fit_indexer(
     return indexer
 
 
+def _scale_hybrid_matrix(matrix: np.ndarray, text_weight: float, metadata_weight: float) -> np.ndarray:
+    if text_weight <= 0.0 or metadata_weight <= 0.0:
+        raise ValueError("Hybrid block weights must be positive.")
+    weighted = np.asarray(matrix, dtype=float).copy()
+    weighted[:, :TEXT_VECTOR_DIMENSIONS] *= float(text_weight)
+    weighted[:, TEXT_VECTOR_DIMENSIONS:] *= float(metadata_weight)
+    return weighted
+def _fit_weighted_indexer(
+    matrices: Any,
+    split_data: Any,
+    text_weight: float,
+    metadata_weight: float,
+    minimum_partition_size: int,
+) -> DomainPartitionedKDTreeIndexer:
+    indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=max(1, int(minimum_partition_size)))
+    indexer.fit(
+        hybrid_vectors=_scale_hybrid_matrix(matrices.x_train, text_weight, metadata_weight),
+        industry_partitions=[str(value) for value in split_data.train["industry_partition"].tolist()],
+        record_indices=np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist(),
+        verified_rates=matrices.y_train.tolist(),
+    )
+    return indexer
+def _run_hybrid_configuration_sweep(
+    matrices: Any,
+    split_data: Any,
+    k_values: Sequence[int],
+    text_weights: Sequence[float],
+    metadata_weights: Sequence[float],
+    minimum_partition_sizes: Sequence[int],
+    epsilons: Sequence[float],
+    fallback_policies: Sequence[bool],
+) -> pd.DataFrame:
+    rows: List[Dict[str, Any]] = []
+    validation_partitions = [str(value) for value in split_data.validation["industry_partition"].tolist()]
+    test_partitions = [str(value) for value in split_data.test["industry_partition"].tolist()]
+    weighted_validation_cache: Dict[Tuple[float, float], np.ndarray] = {}
+    weighted_test_cache: Dict[Tuple[float, float], np.ndarray] = {}
+    for text_weight in sorted({float(value) for value in text_weights}):
+        for metadata_weight in sorted({float(value) for value in metadata_weights}):
+            key = (text_weight, metadata_weight)
+            weighted_validation_cache[key] = _scale_hybrid_matrix(matrices.x_validation, text_weight, metadata_weight)
+            weighted_test_cache[key] = _scale_hybrid_matrix(matrices.x_test, text_weight, metadata_weight)
+            for minimum_partition_size in sorted({max(1, int(value)) for value in minimum_partition_sizes}):
+                for epsilon in sorted({max(1e-12, float(value)) for value in epsilons}):
+                    for allow_fallback in sorted({bool(value) for value in fallback_policies}):
+                        indexer = _fit_weighted_indexer(
+                            matrices,
+                            split_data,
+                            text_weight,
+                            metadata_weight,
+                            minimum_partition_size,
+                        )
+                        for k in sorted({max(1, int(value)) for value in k_values}):
+                            validation_predictions = _predict_idw(
+                                indexer,
+                                weighted_validation_cache[key],
+                                validation_partitions,
+                                k,
+                                epsilon=epsilon,
+                                allow_fallback=allow_fallback,
+                            )
+                            test_predictions = _predict_idw(
+                                indexer,
+                                weighted_test_cache[key],
+                                test_partitions,
+                                k,
+                                epsilon=epsilon,
+                                allow_fallback=allow_fallback,
+                            )
+                            validation_metrics = _metric_summary(matrices.y_validation, validation_predictions)
+                            test_metrics = _metric_summary(matrices.y_test, test_predictions)
+                            rows.append(
+                                {
+                                    "model": "idw_weighted",
+                                    "k_neighbors": k,
+                                    "text_weight": text_weight,
+                                    "metadata_weight": metadata_weight,
+                                    "minimum_partition_size": minimum_partition_size,
+                                    "epsilon": epsilon,
+                                    "allow_fallback": allow_fallback,
+                                    "validation_rmse": validation_metrics["rmse"],
+                                    "validation_mae": validation_metrics["mae"],
+                                    "validation_median_absolute_error": validation_metrics["median_absolute_error"],
+                                    "validation_smape_percent": validation_metrics["smape_percent"],
+                                    "validation_r2": validation_metrics["r2"],
+                                    "test_rmse": test_metrics["rmse"],
+                                    "test_mae": test_metrics["mae"],
+                                    "test_median_absolute_error": test_metrics["median_absolute_error"],
+                                    "test_smape_percent": test_metrics["smape_percent"],
+                                    "test_r2": test_metrics["r2"],
+                                }
+                            )
+    results = pd.DataFrame(rows)
+    results["best_validation_configuration"] = False
+    results.loc[results["validation_r2"].idxmax(), "best_validation_configuration"] = True
+    return results
 def _target_summary(split_data: Any, model_metrics: Dict[str, Dict[str, float]], baseline_metrics: Dict[str, Dict[str, float]]) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
     for split_name, frame in (("train", split_data.train), ("validation", split_data.validation), ("test", split_data.test)):
@@ -316,6 +412,7 @@ def _write_markdown_report(
     config: Dict[str, Any],
     results: pd.DataFrame,
     log_results: pd.DataFrame,
+    hybrid_results: pd.DataFrame,
     independent_summary: pd.DataFrame,
     target_summary: pd.DataFrame,
     baseline_metrics: Dict[str, Dict[str, float]],
@@ -361,6 +458,10 @@ def _write_markdown_report(
         "",
         _markdown_table(log_results),
         "",
+        "## Hybrid-distance tuning results",
+        "",
+        _markdown_table(hybrid_results),
+        "",
         "## Dependent-variable summary",
         "",
         _markdown_table(target_summary),
@@ -388,6 +489,11 @@ def run_experiment_report(
     max_features: int = 12000,
     alpha: float = BILATERAL_ALPHA,
     quality_gate_r2: float = 0.75,
+    text_weights: Sequence[float] = (1.0,),
+    metadata_weights: Sequence[float] = (1.0,),
+    minimum_partition_sizes: Sequence[int] = (1,),
+    epsilons: Sequence[float] = (1e-9,),
+    fallback_policies: Sequence[bool] = (True,),
 ) -> Dict[str, Any]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -414,6 +520,16 @@ def run_experiment_report(
     }
     results = _run_k_sweep(indexer, matrices, split_data, k_values, baseline_metrics["validation"], baseline_metrics["test"])
     log_results = _run_log_target_sweep(log_indexer, matrices, split_data, k_values)
+    hybrid_results = _run_hybrid_configuration_sweep(
+        matrices,
+        split_data,
+        k_values,
+        text_weights,
+        metadata_weights,
+        minimum_partition_sizes,
+        epsilons,
+        fallback_policies,
+    )
     model_metrics = {
         "validation": _metric_summary(matrices.y_validation, _predict_idw(indexer, matrices.x_validation, [str(v) for v in split_data.validation["industry_partition"].tolist()], int(results.iloc[int(results["validation_r2"].idxmax())]["k_neighbors"]))),
         "test": _metric_summary(matrices.y_test, _predict_idw(indexer, matrices.x_test, [str(v) for v in split_data.test["industry_partition"].tolist()], int(results.iloc[int(results["validation_r2"].idxmax())]["k_neighbors"]))),
@@ -435,20 +551,29 @@ def run_experiment_report(
     independent_summary.to_csv(output_path / "independent_variable_summary.csv", index=False)
     target_summary.to_csv(output_path / "dependent_variable_summary.csv", index=False)
     log_results.to_csv(output_path / "target_transformation_results.csv", index=False)
+    hybrid_results.to_csv(output_path / "hybrid_distance_results.csv", index=False)
     _plot_hyperparameter_trends(results, output_path / "hyperparameter_trends.png", quality_gate_r2)
     _plot_target_transformations(results, log_results, output_path / "target_transformation_comparison.png")
     _plot_model_progress(results, output_path / "model_progress.png", baseline_metrics)
     _plot_variable_effects(independent_summary, target_summary, output_path / "variable_effects.png")
-    _write_markdown_report(output_path / "experiment_report.md", config, results, log_results, independent_summary, target_summary, baseline_metrics)
+    _write_markdown_report(output_path / "experiment_report.md", config, results, log_results, hybrid_results, independent_summary, target_summary, baseline_metrics)
     payload = {
         "config": config,
         "best_configuration": results.loc[results["validation_r2"].idxmax()].to_dict(),
         "best_log_configuration": log_results.loc[log_results["validation_log_r2"].idxmax()].to_dict(),
+        "best_hybrid_configuration": hybrid_results.loc[hybrid_results["validation_r2"].idxmax()].to_dict(),
         "baseline_metrics": baseline_metrics,
         "target_transformation": {
             "raw": "identity",
             "log": "log1p",
             "inverse": "expm1",
+        },
+        "hybrid_tuning": {
+            "text_weights": [float(value) for value in text_weights],
+            "metadata_weights": [float(value) for value in metadata_weights],
+            "minimum_partition_sizes": [int(value) for value in minimum_partition_sizes],
+            "epsilons": [float(value) for value in epsilons],
+            "fallback_policies": [bool(value) for value in fallback_policies],
         },
         "best_model_metrics": model_metrics,
         "output_dir": str(output_path),
@@ -473,6 +598,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-features", type=int, default=12000)
     parser.add_argument("--alpha", type=float, default=BILATERAL_ALPHA)
     parser.add_argument("--quality-gate-r2", type=float, default=0.75)
+    parser.add_argument("--text-weights", nargs="+", type=float, default=[1.0])
+    parser.add_argument("--metadata-weights", nargs="+", type=float, default=[1.0])
+    parser.add_argument("--minimum-partition-sizes", nargs="+", type=int, default=[1])
+    parser.add_argument("--epsilons", nargs="+", type=float, default=[1e-9])
+    parser.add_argument("--fallback-policies", nargs="+", type=int, choices=(0, 1), default=[1])
     return parser.parse_args()
 
 
@@ -488,6 +618,11 @@ def main() -> None:
         max_features=args.max_features,
         alpha=args.alpha,
         quality_gate_r2=args.quality_gate_r2,
+        text_weights=args.text_weights,
+        metadata_weights=args.metadata_weights,
+        minimum_partition_sizes=args.minimum_partition_sizes,
+        epsilons=args.epsilons,
+        fallback_policies=[bool(value) for value in args.fallback_policies],
     )
     print(json.dumps(payload, indent=2, default=str))
 
