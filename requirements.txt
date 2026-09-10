@@ -1,9 +1,4 @@
-pandas>=2.2.0
-pyarrow>=17.0.0
-nltk>=3.9.1
-scikit-learn>=1.5.0
-
-
-numpy
-matplotlib>=3.8.0
 pydantic>=2.7.0
+fastapi>=0.115.0
+uvicorn>=0.30.0
+httpx>=0.27.0
