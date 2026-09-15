@@ -172,6 +172,11 @@ python -m src.experiment_reporting --harmonized-parquet data/processed/harmonize
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+### 4b. Run administrator MLOps controls (M8.7 / UC8-UC11)
+Configure `MLOPS_ADMIN_TOKEN` through a secret manager or local environment, then
+use the admin-only profile, metrics, grid-search, and retraining routes documented
+in `docs/M8.7_MLOps_UC8_UC11.md`.
+
 ---
 
 ## API Reference

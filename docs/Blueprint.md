@@ -79,6 +79,9 @@ The following design artifacts inform implementation sequencing and issue design
 | `src/tariff_evaluator.py` | Safaricom M-Pesa surcharge calculation and quote augmentation |
 | `src/train_pipeline.py` | Train/validation/test orchestration, evaluation, benchmarking, and artifact export |
 | `src/serve.py` | FastAPI application, DTO validation, startup loading, prediction and health routes |
+| `src/repository.py` | Firestore/in-memory repository boundary for profiles and historical transactions |
+| `src/observability.py` | Thread-safe API, inference, and database latency/error metrics |
+| `src/mlops_service.py` | Bounded grid-search overrides, weighted coordinates, serialized retraining, and atomic model publication |
 | `tests/test_pipeline.py` | End-to-end mathematical and pipeline invariance checks |
 
 > Note: the repository currently contains `Src/` and `Test/` directories, while the planned implementation modules are documented using the conventional Python naming pattern `src/` and `tests/`. Standardizing this layout should be handled early during implementation.

@@ -161,7 +161,13 @@ def _fit_feature_matrices(
     alpha: float = BILATERAL_ALPHA,
     artifact_dir: str = DEFAULT_ARTIFACT_DIR,
     save_artifacts: bool = True,
+    text_weight: float = 1.0,
+    metadata_weight: float = 1.0,
 ) -> TrainingMatrices:
+    if not np.isfinite(float(text_weight)) or float(text_weight) < 0.0:
+        raise ValueError("text_weight must be finite and non-negative.")
+    if not np.isfinite(float(metadata_weight)) or float(metadata_weight) < 0.0:
+        raise ValueError("metadata_weight must be finite and non-negative.")
     train_texts = [str(value) for value in split_data.train["raw_description"].tolist()]
     validation_texts = [str(value) for value in split_data.validation["raw_description"].tolist()]
     test_texts = [str(value) for value in split_data.test["raw_description"].tolist()]
@@ -185,9 +191,9 @@ def _fit_feature_matrices(
             f"Metadata vector dimensionality mismatch: expected {METADATA_VECTOR_DIMENSIONS}, got {train_meta.shape[1]}"
         )
 
-    x_train = fuse_coordinate_batches(train_text, train_meta)
-    x_validation = fuse_coordinate_batches(validation_text, validation_meta)
-    x_test = fuse_coordinate_batches(test_text, test_meta)
+    x_train = fuse_coordinate_batches(train_text * float(text_weight), train_meta * float(metadata_weight))
+    x_validation = fuse_coordinate_batches(validation_text * float(text_weight), validation_meta * float(metadata_weight))
+    x_test = fuse_coordinate_batches(test_text * float(text_weight), test_meta * float(metadata_weight))
 
     y_train = split_data.train["target_rate"].to_numpy(dtype=float)
     y_validation = split_data.validation["target_rate"].to_numpy(dtype=float)
@@ -248,6 +254,8 @@ def _predict_idw(
     feature_matrix: np.ndarray,
     partitions: List[str],
     k_neighbors: int,
+    allow_fallback: bool = True,
+    epsilon: float = 1e-9,
 ) -> np.ndarray:
     predictions: List[float] = []
     for row_number, partition in enumerate(partitions):
@@ -255,7 +263,8 @@ def _predict_idw(
             query_vector=feature_matrix[row_number],
             requested_partition=partition,
             k=k_neighbors,
-            allow_fallback=True,
+            allow_fallback=allow_fallback,
+            epsilon=epsilon,
         )
         predictions.append(float(prediction["base_predicted_rate"]))
     return np.asarray(predictions, dtype=float)
@@ -273,6 +282,8 @@ def orchestrate_training(
     alpha: float = BILATERAL_ALPHA,
     artifact_dir: str = DEFAULT_ARTIFACT_DIR,
     save_artifacts: bool = True,
+    text_weight: float = 1.0,
+    metadata_weight: float = 1.0,
 ) -> Dict[str, Any]:
     frame = load_harmonized_parquet(harmonized_parquet_path)
     split_data = build_stratified_splits(
@@ -302,6 +313,8 @@ def orchestrate_training(
         alpha=alpha,
         artifact_dir=artifact_dir,
         save_artifacts=save_artifacts,
+        text_weight=text_weight,
+        metadata_weight=metadata_weight,
     )
 
     return {
@@ -326,6 +339,10 @@ def orchestrate_training(
             "y_test": int(matrices.y_test.shape[0]),
         },
         "artifact_dir": artifact_dir if save_artifacts else None,
+        "runtime_tuning": {
+            "text_weight": float(text_weight),
+            "metadata_weight": float(metadata_weight),
+        },
     }
 
 
@@ -343,6 +360,11 @@ def evaluate_and_serialize_training(
     k_neighbors: int = DEFAULT_IDW_NEIGHBORS,
     quality_gate_r2: float = DEFAULT_QUALITY_GATE_R2,
     enforce_quality_gate: bool = True,
+    text_weight: float = 1.0,
+    metadata_weight: float = 1.0,
+    minimum_partition_size: int = 1,
+    idw_epsilon: float = 1e-9,
+    allow_fallback: bool = True,
 ) -> Dict[str, Any]:
     frame = load_harmonized_parquet(harmonized_parquet_path)
     split_data = build_stratified_splits(
@@ -373,9 +395,11 @@ def evaluate_and_serialize_training(
         alpha=alpha,
         artifact_dir=artifact_dir,
         save_artifacts=True,
+        text_weight=text_weight,
+        metadata_weight=metadata_weight,
     )
 
-    idw_indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=1)
+    idw_indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=minimum_partition_size)
     train_record_indices = np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist()
     idw_indexer.fit(
         hybrid_vectors=matrices.x_train,
@@ -391,12 +415,16 @@ def evaluate_and_serialize_training(
         matrices.x_validation,
         [str(v) for v in split_data.validation["industry_partition"].tolist()],
         k_neighbors=max(1, int(k_neighbors)),
+        allow_fallback=allow_fallback,
+        epsilon=idw_epsilon,
     )
     test_predictions = _predict_idw(
         frozen_indexer,
         matrices.x_test,
         [str(v) for v in split_data.test["industry_partition"].tolist()],
         k_neighbors=max(1, int(k_neighbors)),
+        allow_fallback=allow_fallback,
+        epsilon=idw_epsilon,
     )
 
     partition_means, global_mean = _build_category_mean_baseline(split_data.train)

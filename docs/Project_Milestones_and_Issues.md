@@ -460,6 +460,28 @@ Alternative regressors may be used as offline reference points in the report, bu
 **Dependency Notes**
 - Depends on `M7.2`
 
+### Issue M8.7 — Implement Administrator MLOps Controls and Observability for UC8-UC11
+**GitHub issue:** #56
+**Labels:** `backend`, `performance`, `testing`, `machine-learning`, `project:feature-track`
+
+**Tasks**
+- [ ] Provide an admin-only repository boundary for mentor profiles and historical transactions, with Firestore and in-memory implementations.
+- [ ] Expose API, inference, and database latency/error metrics without exposing credentials or sensitive payloads.
+- [ ] Provide serialized manual retraining with versioned artifact directories and an atomic active-model manifest.
+- [ ] Persist bounded KNN/grid-search overrides for `k_neighbors`, empirical text/metadata weights, IDW epsilon, partition size, and fallback behavior.
+- [ ] Map UC8, UC9, UC10, and UC11 to executable modules and endpoints.
+
+**Acceptance Criteria**
+- [ ] Missing or invalid administrator credentials are rejected with HTTP 401/403.
+- [ ] Firestore is optional at local startup and is initialized only through application-default credentials when explicitly configured.
+- [ ] Retraining cannot run concurrently and never publishes a partial active artifact manifest.
+- [ ] Invalid tuning bounds return HTTP 422 and valid settings affect model-side runtime coordinates/evaluation.
+- [ ] Metrics and health responses contain operational state but no secrets.
+- [ ] Unit and API tests cover success, rejection, locking, persistence, and failure paths.
+
+**Dependency Notes**
+- Builds on `M4.2`, `M5.1`, `M6.1`, `M7.1`, `M7.2`, and `M8.2`.
+
 ---
 
 ## Issue Dependency Graph
@@ -478,6 +500,7 @@ M2.1 (Text Cleaner) ------> M2.2 (TF-IDF & SVD) ---------------------------> M7.
 
 M3.1 (Meta Scaler) -------> M3.2 -------------------------------------------> M8.1
 M5.1 (M-Pesa Tariff) -------------------------------------------------------> M7.2 --> M8.2
+M7.2 + M8.2 ---------------------------------------------------------------> M8.7 (UC8-UC11 MLOps controls)
 ```
 
 ---
