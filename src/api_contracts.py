@@ -34,7 +34,7 @@ class PeerMatchDTO(StrictModel):
     distance: float = Field(ge=0.0)
     verified_rate: float = Field(ge=0.0)
     similarity_score: float = Field(gt=0.0, le=1.0)
-    idw_weight: float = Field(ge=0.0, le=1.0)
+    idw_weight: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 
 class PredictionResultDTO(StrictModel):
@@ -42,6 +42,7 @@ class PredictionResultDTO(StrictModel):
     mpesa_tariff_surcharge: float = Field(ge=0.0)
     final_quoted_rate: float = Field(ge=0.0)
     currency: str = "KES"
+    bilateral_arbitrage_factor: Optional[float] = None
     mentor_country_iso2: str = "ZZ"
     nearest_neighbors: List[PeerMatchDTO] = Field(default_factory=list)
 
@@ -59,7 +60,6 @@ class HealthResponseDTO(StrictModel):
     status: Literal["HEALTHY", "DEGRADED", "UNHEALTHY"]
     models_loaded: bool
     database: Literal["firestore", "memory", "unconfigured", "unavailable"]
-    metrics: Dict[str, Any] = Field(default_factory=dict)
 
 
 class GridSearchConfigDTO(StrictModel):
