@@ -162,9 +162,36 @@ python -m src.train_pipeline
 python -m src.train_pipeline --mode evaluate --artifact-dir artifacts --quality-gate-r2 0.75 --no-enforce-quality-gate
 ```
 
+### 3d. Run M6.3 raw versus log-target evaluation
+```powershell
+python -m src.train_pipeline --mode evaluate --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --artifact-dir (Join-Path $env:TEMP "m63_evaluation") --quality-gate-r2 0.75 --no-enforce-quality-gate
+```
+
 ### 3c. Generate M6.2 tuning diagrams, tables, and report
 ```powershell
 python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
+```
+
+### 3e. Run M6.4 expanded KNN and hybrid-distance tuning
+```powershell
+python -m src.experiment_reporting --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --output-dir (Join-Path $env:TEMP "m64_knn_tuning_report") --k-values 1 3 5 7 10 15 20 30 50 --text-weights 1.0 --metadata-weights 1.0 --minimum-partition-sizes 1 --epsilons 1e-9 --fallback-policies 1
+```
+
+To compare hybrid block weights, pass multiple values such as `--text-weights 0.5 1.0 1.5 2.0 --metadata-weights 0.5 1.0 1.5 2.0`.
+
+### 3f. Run M6.5 leakage-safe feature ablations
+```powershell
+python -m src.experiment_reporting --mode feature_ablation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --ablation-output-dir (Join-Path $env:TEMP "m65_feature_ablations") --ablation-k-neighbors 10
+```
+
+### 3g. Run M6.6 text representation experiments
+```powershell
+python -m src.experiment_reporting --mode text_representation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --text-output-dir (Join-Path $env:TEMP "m66_text_representation_report") --text-components 25 50 75 100 --text-ngram-ranges 1,1 1,2 1,3 --text-max-features 12000 --text-min-dfs 1 --text-normalization 0 1 --text-k-neighbors 10
+```
+
+### 3h. Run M6.7 validation diagnostics
+```powershell
+python -m src.validation_diagnostics --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --output-dir (Join-Path $env:TEMP "m67_validation_diagnostics") --seeds 42 43 44 --k-neighbors 10
 ```
 
 ### 4. Start the Inference Server

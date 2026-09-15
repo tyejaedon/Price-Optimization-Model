@@ -1,0 +1,102 @@
+@startuml
+' M8.5 - Canonical system architecture
+!theme plain
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+title Dynamic Price Optimizer - System Architecture
+
+actor "Mentor / Client" as User
+
+cloud "External Data Sources" as Sources {
+  component "Marketplace exports" as Marketplace
+  component "World Development Indicators" as WDI
+  component "Cost of Living data" as Cost
+  component "M-Pesa tariff source" as TariffSource
+}
+
+node "Client Tier" as Client {
+  component "Mobile/Web Client" as App
+}
+
+node "API Tier" as API {
+  component "FastAPI Service" as FastAPI
+  component "/health" as Health
+  component "/api/v1/optimize-price" as Optimize
+  component "Pydantic v2 DTOs" as DTOs
+}
+
+node "ML Runtime" as Runtime {
+  component "Startup Artifact Loader" as Loader
+  component "NLP Reducer" as NLP
+  component "Metadata Normalizer" as Metadata
+  component "53-D Coordinate Fusion" as Fusion
+  component "Partitioned KNN/IDW" as KNN
+  component "M-Pesa Tariff Evaluator" as Tariff
+}
+
+cloud "Google Cloud Firestore" as Firestore {
+  database "mentors" as Mentors
+  database "macro_indices" as Macro
+  database "industry_partitions" as Industries
+  database "service_listings" as Listings
+  database "mpesa_tariffs" as Tariffs
+  database "historical_transactions" as Transactions
+}
+
+folder "Serialized Artifacts" as Artifacts {
+  artifact "TF-IDF / SVD"
+  artifact "Metadata scaler"
+  artifact "KD-Trees"
+  artifact "Training summary"
+}
+
+User --> App
+App --> FastAPI
+FastAPI --> DTOs
+DTOs --> Optimize
+FastAPI --> Health
+Optimize --> Loader
+Loader --> Artifacts
+Loader --> NLP
+Loader --> Metadata
+Loader --> KNN
+Loader --> Tariff
+Optimize --> NLP : sanitize + transform
+Optimize --> Metadata : live macro vector
+NLP --> Fusion : 50-D text
+Metadata --> Fusion : 3-D metadata
+Fusion --> KNN : 53-D query
+KNN --> Tariff : base predicted rate
+Tariff --> Optimize : final quoted rate
+Health --> Loader : readiness
+
+Marketplace --> Sources
+WDI --> Sources
+Cost --> Sources
+TariffSource --> Sources
+Sources --> Artifacts : offline ingestion/training
+
+Loader --> Firestore : optional runtime lookups
+Optimize --> Transactions : audit write
+Macro --> Metadata
+Industries --> KNN
+Listings --> KNN
+Tariffs --> Tariff
+Mentors --> Metadata
+
+note right of Firestore
+Google Cloud Firestore NoSQL.
+Credentials are configuration only;
+never embed service-account keys
+in source, docs, or artifacts.
+end note
+
+note bottom of KNN
+Production model scope:
+KNN/IDW peer retrieval with
+partition routing and explainability.
+end note
+
+@enduml
+

@@ -1,0 +1,88 @@
+@startuml
+' M8.4 - Canonical domain ERD aligned with ERD.svg
+!theme plain
+hide methods
+hide stereotypes
+skinparam linetype ortho
+
+title Dynamic Price Optimizer - Domain ERD
+
+entity "COUNTRY_MACRO_INDEX" as Country {
+  * country_code : String <<PK>>
+  --
+  * country_name : String
+  * currency_code : String
+  * ppp_conversion_factor : Float
+  * cost_of_living_index : Float
+  * last_recalibrated_at : DateTime
+}
+
+entity "MENTOR" as Mentor {
+  * mentor_id : Identifier <<PK>>
+  --
+  * country_code : String <<FK>>
+  * full_name : String
+  * email : String
+  * account_status : String
+  * created_at : DateTime
+}
+
+entity "INDUSTRY_PARTITION" as Industry {
+  * industry_id : Identifier <<PK>>
+  --
+  * industry_name : String
+  parent_sector : String
+  * baseline_hourly_rate : Currency
+  * is_active : Boolean
+}
+
+entity "SERVICE_LISTING" as Listing {
+  * listing_id : Identifier <<PK>>
+  --
+  * mentor_id : Identifier <<FK>>
+  * industry_id : Identifier <<FK>>
+  * title : String
+  * raw_description : Text
+  * latent_feature_vector : Vector[50]
+  * market_competitiveness : Float
+  * base_rate_floor : Currency
+  * created_at : DateTime
+}
+
+entity "MPESA_TARIFF_BRACKET" as Tariff {
+  * tariff_bracket_id : Identifier <<PK>>
+  --
+  * transaction_type : String
+  * min_amount : Currency
+  * max_amount : Currency
+  * transfer_fee : Currency
+  * effective_date : Date
+}
+
+entity "HISTORICAL_TRANSACTION" as Transaction {
+  * transaction_id : Identifier <<PK>>
+  --
+  * listing_id : Identifier <<FK>>
+  * client_country_code : String <<FK>>
+  tariff_bracket_id : Identifier <<FK>>
+  * bilateral_arbitrage_factor : Float
+  * base_predicted_rate : Currency
+  * mpesa_tariff_surcharge : Currency
+  * final_quoted_rate : Currency
+  * k_neighbors_used : Integer
+  * similarity_score : Float
+  * executed_at : DateTime
+}
+
+Country ||--o{ Mentor : locates
+Country ||--o{ Transaction : client target
+Mentor ||--o{ Listing : offers
+Industry ||--o{ Listing : classifies
+Listing ||--o{ Transaction : records
+Tariff ||--o{ Transaction : governs fee
+
+note "The deployed persistence implementation is Firestore: identifiers marked FK are document references or lookup keys, not SQL joins." as N1
+N1 .. Transaction
+
+@enduml
+
