@@ -199,18 +199,10 @@ python -m src.validation_diagnostics --harmonized-parquet (Join-Path $env:TEMP "
 uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 5. Profile inference latency and stability (M8.2)
-```powershell
-python -m src.performance_profiling `
-  --output-dir reports/inference_latency `
-  --iterations 100 `
-  --memory-iterations 1000 `
-  --target-p95-ms 250 `
-  --max-memory-growth-bytes 1000000
-```
-
-See `docs/M8.2_Inference_Latency_and_Operational_Stability.md` for the methodology
-and the optional HTTP endpoint probe.
+### 4b. Run administrator MLOps controls (M8.7 / UC8-UC11)
+Configure `MLOPS_ADMIN_TOKEN` through a secret manager or local environment, then
+use the admin-only profile, metrics, grid-search, and retraining routes documented
+in `docs/M8.7_MLOps_UC8_UC11.md`.
 
 ---
 
