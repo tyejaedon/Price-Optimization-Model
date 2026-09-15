@@ -1,0 +1,98 @@
+@startuml
+' M8.6 - Canonical Firestore database schema
+!theme plain
+hide methods
+hide stereotypes
+skinparam linetype ortho
+
+title Google Cloud Firestore - Pricing Model Database Schema
+
+package "Google Cloud Firestore" {
+  entity "mentors" as Mentors {
+    * mentor_id : DocumentID
+    --
+    * full_name : String
+    * email : String
+    * country_code : String
+    * account_status : String
+    * created_at : Timestamp
+    * last_active_at : Timestamp
+  }
+
+  entity "macro_indices" as Macro {
+    * country_code : DocumentID
+    --
+    * currency_code : String
+    * ppp_conversion_factor : Number
+    * cost_of_living_index : Number
+    * last_recalibrated_at : Timestamp
+  }
+
+  entity "industry_partitions" as Industries {
+    * industry_id : DocumentID
+    --
+    * industry_name : String
+    * parent_sector : String
+    * baseline_hourly_rate : Number
+    * is_active : Boolean
+  }
+
+  entity "service_listings" as Listings {
+    * listing_id : DocumentID
+    --
+    * mentor_ref : DocumentReference -> mentors
+    * industry_id : String
+    * title : String
+    * raw_description : String
+    * svd_latent_vector : Array<Number>
+    * market_competitiveness : Number
+    * base_rate_floor : Number
+    * created_at : Timestamp
+  }
+
+  entity "mpesa_tariffs" as Tariffs {
+    * bracket_id : DocumentID
+    --
+    * transaction_type : String
+    * min_amount : Number
+    * max_amount : Number
+    * transfer_fee : Number
+    * effective_date : Timestamp
+  }
+
+  entity "historical_transactions" as Transactions {
+    * transaction_id : DocumentID
+    --
+    * listing_ref : DocumentReference -> service_listings
+    * client_country_code : String
+    * tariff_bracket_ref : DocumentReference -> mpesa_tariffs
+    * bilateral_arbitrage_factor : Number
+    * base_predicted_rate : Number
+    * mpesa_tariff_surcharge : Number
+    * final_quoted_rate : Number
+    * k_neighbors_used : Number
+    * similarity_score : Number
+    * executed_at : Timestamp
+  }
+}
+
+Mentors ||..o{ Listings : mentor_ref
+Industries ||..o{ Listings : industry_id
+Listings ||..o{ Transactions : listing_ref
+Macro ||..o{ Transactions : client_country_code
+Tariffs ||..o{ Transactions : tariff_bracket_ref
+
+note "Firestore references are document references or lookup keys; this diagram does not imply relational joins." as N1
+N1 .. Transactions
+
+note bottom
+Indexes/read paths used by inference:
+- macro_indices.country_code
+- industry_partitions.industry_id
+- service_listings.industry_id
+- mpesa_tariffs.transaction_type + amount range
+- historical_transactions.listing_ref + executed_at
+end note
+
+@enduml
+

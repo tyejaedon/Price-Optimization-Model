@@ -6,13 +6,16 @@ from pathlib import Path
 import pandas as pd
 
 from src.ingest_multisource import build_macro_lookup
-from src.experiment_reporting import run_experiment_report
+from src.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
+    _metric_summary,
     build_stratified_splits,
     evaluate_and_serialize_training,
+    inverse_target_log1p,
     load_harmonized_parquet,
     orchestrate_training,
+    transform_target_log1p,
 )
 
 
@@ -151,12 +154,70 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertIn("baseline_metrics", payload)
             self.assertIn("baseline_comparison", payload)
             self.assertIn("quality_gate", payload)
+            self.assertIn("target_transformation_comparison", payload)
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["transformation"], "log1p")
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["inverse_transformation"], "expm1")
             self.assertFalse(payload["has_split_overlap"])
 
             summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
             self.assertTrue(os.path.exists(summary_path))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "industry_kdtrees.joblib")))
 
+    def test_log_target_round_trip_and_robust_metrics_are_finite(self) -> None:
+        target = pd.Series([166.9, 2500.0, 60000.0, 343823.36], dtype=float).to_numpy()
+        transformed = transform_target_log1p(target)
+        restored = inverse_target_log1p(transformed)
+
+        pd.testing.assert_series_equal(pd.Series(restored), pd.Series(target), check_exact=False, rtol=1e-12, atol=1e-12)
+        metrics = _metric_summary(target, restored)
+        self.assertEqual(set(metrics), {"rmse", "mae", "median_absolute_error", "smape_percent", "r2"})
+        self.assertTrue(all(pd.notna(value) and value >= 0.0 for value in metrics.values() if value != metrics["r2"]))
+        self.assertTrue(pd.notna(metrics["r2"]))
+
+    def test_log_target_rejects_negative_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            transform_target_log1p(pd.Series([1.0, -0.5]).to_numpy(dtype=float))
+
+    def test_feature_ablation_report_is_leakage_safe_and_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "feature_ablations")
+            payload = run_feature_ablation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_neighbors=2,
+                groups=("macro_enrichment", "partition_statistics"),
+            )
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "metadata_enrichment_metadata.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_results.csv")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_report.md")))
+            self.assertEqual(payload["k_neighbors"], 2)
+            self.assertEqual(payload["selected_groups"], ["macro_enrichment", "partition_statistics"])
+            self.assertIn("best_validation_ablation", payload)
+    def test_text_representation_report_tracks_dimensions_latency_and_reload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "text_representation")
+            payload = run_text_representation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                n_components_values=(25, 50),
+                ngram_ranges=((1, 2),),
+                max_features_values=(1000,),
+                min_df_values=(1,),
+                normalization_values=(False, True),
+                k_neighbors=2,
+            )
+            results = pd.read_csv(os.path.join(report_dir, "text_representation_results.csv"))
+            self.assertEqual(len(results), 4)
+            self.assertTrue(results["reload_stable"].all())
+            self.assertTrue((results["fit_latency_ms"] >= 0.0).all())
+            self.assertTrue((results["validation_transform_latency_ms"] >= 0.0).all())
+            self.assertEqual(payload["production_compatibility_dimensions"], 53)
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.md")))
     def test_quality_gate_is_enforced_programmatically(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
@@ -187,17 +248,29 @@ class TrainPipelineTests(unittest.TestCase):
                 "hyperparameter_results.csv",
                 "independent_variable_summary.csv",
                 "dependent_variable_summary.csv",
+                "target_transformation_results.csv",
+                "hybrid_distance_results.csv",
                 "experiment_report.md",
                 "experiment_report.json",
                 "hyperparameter_trends.png",
                 "model_progress.png",
                 "variable_effects.png",
+                "target_transformation_comparison.png",
             }
             self.assertTrue(expected_files.issubset(set(os.listdir(report_dir))))
             self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
             self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
+            self.assertIn("best_log_configuration", payload)
+            self.assertIn("best_hybrid_configuration", payload)
+            self.assertEqual(payload["target_transformation"]["log"], "log1p")
+            self.assertEqual(payload["target_transformation"]["inverse"], "expm1")
             self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
-            self.assertIn("Hyperparameter results", Path(report_dir, "experiment_report.md").read_text(encoding="utf-8"))
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "target_transformation_results.csv"))), 2)
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hybrid_distance_results.csv"))), 2)
+            report_text = Path(report_dir, "experiment_report.md").read_text(encoding="utf-8")
+            self.assertIn("Hyperparameter results", report_text)
+            self.assertIn("Raw versus log1p target comparison", report_text)
+            self.assertIn("Hybrid-distance tuning results", report_text)
 
 
 if __name__ == "__main__":
