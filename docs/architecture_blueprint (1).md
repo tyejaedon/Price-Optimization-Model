@@ -247,11 +247,11 @@ from pydantic import BaseModel, Field, constr
 class PricingQueryDTO(BaseModel):
     mentorId: str = Field(..., description="Mentor document ID authorized for the verified Firebase UID")
     rawText: Optional[constr(min_length=20, max_length=2000)] = Field(
-        default=None, 
+        default=None,
         description="Unstructured capability description. If None, hydrated from Firestore."
     )
     industry: str = Field(
-        ..., 
+        ...,
         description="Industry partition key (e.g., data_ai, mobile)"
     )
     mentorCountry: constr(min_length=2, max_length=2) = Field(
