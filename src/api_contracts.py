@@ -17,7 +17,10 @@ class PricingQueryDTO(StrictModel):
     selected_industry: str = Field(min_length=1, max_length=100)
     mentor_country: str = Field(min_length=2, max_length=2)
     client_country: str = Field(min_length=2, max_length=2)
-    competitiveness_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    competitiveness_score: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="Legacy compatibility input; not part of the fitted 53D feature schema.",
+    )
     market_saturation_score: float = Field(default=0.5, ge=0.0, le=1.0)
 
     @field_validator("mentor_country", "client_country")
@@ -119,4 +122,3 @@ class MetricsResponseDTO(StrictModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metrics: Dict[str, Any] = Field(default_factory=dict)
     tuning: GridSearchConfigDTO
-

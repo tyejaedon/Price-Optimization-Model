@@ -30,6 +30,8 @@ DEFAULT_FEATURE_NAMES: Tuple[str, str, str] = (
 DEFAULT_ARTIFACT_DIR = "artifacts"
 DEFAULT_SCALER_ARTIFACT = "metadata_scaler.joblib"
 DEFAULT_SCALER_METADATA = "metadata_scaler_metadata.json"
+DEFAULT_INFERENCE_CONFIG_ARTIFACT = "inference_config.json"
+DEFAULT_BUNDLED_MACRO_LOOKUP = "macro_lookup_table.json"
 DEFAULT_MACRO_LOOKUP = os.path.join("data", "processed", "macro_lookup_table.json")
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
 TEXT_VECTOR_DIMENSIONS = 50
@@ -146,25 +148,28 @@ class ContinuousMetadataNormalizer:
             json.dump(metadata, f, indent=2, sort_keys=True)
 
     @classmethod
-    def load_artifacts(cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> "ContinuousMetadataNormalizer":
+    def load_artifacts(
+        cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR, macro_lookup_path: str | None = None
+    ) -> "ContinuousMetadataNormalizer":
         scaler_path = os.path.join(artifact_dir, DEFAULT_SCALER_ARTIFACT)
         metadata_path = os.path.join(artifact_dir, DEFAULT_SCALER_METADATA)
 
         with open(metadata_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
 
-        feature_names_raw = metadata.get("feature_names", list(DEFAULT_FEATURE_NAMES))
-        if not isinstance(feature_names_raw, list) or len(feature_names_raw) != 3:
-            feature_names = DEFAULT_FEATURE_NAMES
-        else:
-            feature_names = (str(feature_names_raw[0]), str(feature_names_raw[1]), str(feature_names_raw[2]))
+        feature_names_raw = metadata["feature_names"]
+        if feature_names_raw != list(DEFAULT_FEATURE_NAMES):
+            raise ValueError(f"Incompatible metadata feature schema: {feature_names_raw}")
+        feature_names = DEFAULT_FEATURE_NAMES
 
         instance = cls(
-            macro_lookup_path=str(metadata.get("macro_lookup_path", DEFAULT_MACRO_LOOKUP)),
+            macro_lookup_path=macro_lookup_path or str(metadata.get("macro_lookup_path", DEFAULT_MACRO_LOOKUP)),
             feature_names=feature_names,
             alpha=float(metadata.get("alpha", BILATERAL_ALPHA)),
         )
         instance.scaler = joblib.load(scaler_path)
+        if instance.scaler.n_features_in_ != METADATA_VECTOR_DIMENSIONS:
+            raise ValueError("Incompatible metadata scaler dimensions.")
         instance.fitted = True
         return instance
 
@@ -357,4 +362,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

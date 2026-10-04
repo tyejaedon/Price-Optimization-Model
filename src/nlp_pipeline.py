@@ -51,6 +51,17 @@ DEFAULT_SVD_ARTIFACT = "svd_reducer.joblib"
 DEFAULT_METADATA_ARTIFACT = "nlp_reducer_metadata.json"
 
 
+def ensure_text_dimensions(matrix: np.ndarray, expected_dimensions: int = 50) -> np.ndarray:
+    if matrix.ndim != 2:
+        raise ValueError(f"Expected a 2-D text matrix; got shape {matrix.shape}.")
+    cols = matrix.shape[1]
+    if cols == expected_dimensions:
+        return matrix
+    if cols > expected_dimensions:
+        return matrix[:, :expected_dimensions]
+    return np.pad(matrix, ((0, 0), (0, expected_dimensions - cols)), mode="constant").astype(float, copy=False)
+
+
 @lru_cache(maxsize=1)
 def _stopwords_set() -> Set[str]:
     try:
@@ -212,14 +223,16 @@ class TextFeatureReducer:
             loaded_ngram = (1, 2)
         loaded_min_df = int(getattr(vectorizer, "min_df", 1) or 1)
         loaded_normalize_output = False
+        loaded_components_requested = int(getattr(reducer, "n_components", 50))
         if os.path.exists(metadata_path):
             with open(metadata_path, "r", encoding="utf-8") as f:
                 loaded_metadata = json.load(f)
             loaded_min_df = int(loaded_metadata.get("min_df", loaded_min_df))
             loaded_normalize_output = bool(loaded_metadata.get("normalize_output", False))
+            loaded_components_requested = int(loaded_metadata.get("n_components_requested", loaded_components_requested))
 
         instance = cls(
-            n_components=int(getattr(reducer, "n_components", 50)),
+            n_components=loaded_components_requested,
             max_features=int(getattr(vectorizer, "max_features", 12000) or 12000),
             ngram_range=(int(loaded_ngram[0]), int(loaded_ngram[1])),
             min_df=loaded_min_df,

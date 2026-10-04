@@ -1,9 +1,11 @@
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 
 from src.ingest_multisource import build_macro_lookup, compute_bilateral_arbitrage_factor, load_macro_lookup_table
 from src.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
@@ -18,6 +20,11 @@ from src.train_pipeline import (
     transform_target_log1p,
 )
 from src.validation_diagnostics import run_validation_diagnostics
+from src.macro_arbitrage import ContinuousMetadataNormalizer, fuse_coordinates
+from src.nlp_pipeline import TextFeatureReducer
+from src.serve import InferenceRuntime
+from src.api_contracts import PricingQueryDTO
+from src.spatial_engine import DomainPartitionedKDTreeIndexer
 
 
 class TrainPipelineTests(unittest.TestCase):
@@ -197,6 +204,63 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertTrue(os.path.exists(summary_path))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "industry_kdtrees.joblib")))
 
+    def test_export_reload_online_coordinates_and_neighbors_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+            frame = pd.read_parquet(parquet_path)
+            frame["bilateral_arbitrage_factor"] = compute_bilateral_arbitrage_factor(
+                "KE", "US", load_macro_lookup_table(macro_path),
+            )
+            frame["industry_relative_density"] = frame.groupby("industry_partition")["industry_relative_density"].transform("median")
+            frame.to_parquet(parquet_path, index=False)
+            train_row = build_stratified_splits(load_harmonized_parquet(parquet_path)).train.iloc[0]
+            evaluate_and_serialize_training(
+                parquet_path, macro_path, artifact_dir=artifact_dir,
+                quality_gate_r2=0.0, text_weight=1.5, metadata_weight=0.5,
+            )
+            with open(os.path.join(artifact_dir, "inference_config.json"), encoding="utf-8") as handle:
+                config = json.load(handle)
+            self.assertEqual(config["k_neighbors"], 5)
+            self.assertEqual(config["idw_epsilon"], 1e-6)
+            self.assertEqual(config["metadata_features"], [
+                "bilateral_arbitrage_factor", "market_saturation_score", "industry_relative_density",
+            ])
+            os.remove(macro_path)
+            tariff_path = str(Path(__file__).resolve().parent / "fixtures" / "raw" / "Mpesa_Tarrifs" / "tarrifs_full_schedule.csv")
+            runtime = InferenceRuntime(artifact_dir, macro_path, tariff_path)
+            runtime.load()
+            self.assertTrue(runtime.models_loaded, runtime.load_error)
+            query = PricingQueryDTO(
+                raw_description=str(train_row["raw_description"]),
+                selected_industry=str(train_row["industry_partition"]), mentor_country="KE", client_country="US",
+                market_saturation_score=float(train_row["market_saturation_score"]), competitiveness_score=0.9,
+            )
+            online = runtime.predict(query)
+            reducer = TextFeatureReducer.load_artifacts(artifact_dir)
+            normalizer = ContinuousMetadataNormalizer.load_artifacts(
+                artifact_dir, macro_lookup_path=os.path.join(artifact_dir, "macro_lookup_table.json"),
+            )
+            text = reducer.transform([query.raw_description]).reshape(-1)
+            metadata = normalizer.transform_live_metadata(
+                "KE", "US", query.market_saturation_score, config["partition_density"][query.selected_industry],
+            )
+            np.testing.assert_allclose(
+                metadata,
+                normalizer.transform([train_row.to_dict()]),
+            )
+            expected_vector = fuse_coordinates(text * 1.5, metadata * 0.5)
+            self.assertEqual(expected_vector.shape, (53,))
+            self.assertTrue(np.isfinite(expected_vector).all())
+            indexer = DomainPartitionedKDTreeIndexer.load_artifacts(artifact_dir)
+            expected = indexer.predict_base_rate(expected_vector, query.selected_industry, k=5, epsilon=1e-6)
+            self.assertEqual(online.base_predicted_rate, expected["base_predicted_rate"])
+            self.assertEqual([peer.peer_index for peer in online.nearest_neighbors],
+                             [peer["peer_index"] for peer in expected["nearest_neighbors"]])
+            self.assertEqual(runtime.predict(query).model_dump(), online.model_dump())
+            self.assertEqual(runtime.predict(query.model_copy(update={"competitiveness_score": 0.1})).base_predicted_rate,
+                             online.base_predicted_rate)
+
     def test_log_target_round_trip_and_robust_metrics_are_finite(self) -> None:
         target = pd.Series([166.9, 2500.0, 60000.0, 343823.36], dtype=float).to_numpy()
         transformed = transform_target_log1p(target)
@@ -309,4 +373,3 @@ class TrainPipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
