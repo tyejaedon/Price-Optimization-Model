@@ -95,6 +95,27 @@ Milestone 8: Automated Verification, Latency Profiling & MLOps
 - Depends on `M1.1` and `M1.2`
 - Blocks `M6.1`
 
+### Issues M1.4-M1.6 — Validate and Expand Country Coverage (#59-#61)
+
+Macro lookup country support is derived from the intersection of usable WDI
+`PA.NUS.PPP` observations and positive cost-of-living rows. ISO-3 to ISO-2
+conversion uses `pycountry`; a few source-specific cost-country names have
+explicit aliases. New countries are included only when both inputs are present.
+The original nine baseline countries remain in the lookup; Rwanda retains its
+existing cost-index fallback. Other unsupported or partially covered countries
+are excluded, and `validate_macro_country_coverage(raw_dir, ["NG", ...])`
+reports missing source rows for explicitly requested countries.
+The selected country set and lookup records are deterministic for fixed inputs;
+the existing generation timestamp in lookup metadata changes on each run.
+
+Place the DataBank export in the ignored
+`data/raw/World_Development_Indicators/` directory as `Data.csv` or with a
+filename containing `_Data` (for example, `World_Data.csv`). Its first row must include
+`Country Name`, `Country Code`, `Series Code`, and year columns. Build the ignored
+`data/processed/macro_lookup_table.json` with
+`python -m src.ingest_multisource --mode macro_lookup`. Do not commit raw CSVs
+or generated lookup artifacts.
+
 ---
 
 ## Milestone 2: Semantic NLP & Dimensionality Reduction Pipeline
@@ -538,4 +559,3 @@ Use this document as the source of truth for creating:
 - a planning label named `project:feature-track`
 
 If GitHub Project assignment is enabled, add every issue in this document to the **Price Optimization Model Feature Track** project.
-

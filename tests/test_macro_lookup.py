@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,8 @@ from src.ingest_multisource import (
     find_file_in_dir,
     get_macro_record,
     load_macro_lookup_table,
+    map_country_to_iso2,
+    validate_macro_country_coverage,
 )
 
 
@@ -57,6 +60,48 @@ class MacroLookupBuilderTests(unittest.TestCase):
 
             self.assertTrue(bool(rwanda["cost_index_fallback_used"]))
             self.assertGreater(float(rwanda["cost_of_living_index"]), 0.0)
+
+    def test_data_driven_countries_have_both_source_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            first = build_macro_lookup(self.raw_dir, os.path.join(tmp_dir, "first.json"))
+            second = build_macro_lookup(self.raw_dir, os.path.join(tmp_dir, "second.json"))
+            records = cast(Dict[str, Dict[str, Any]], first["records"])
+            metadata = cast(Dict[str, Any], first["metadata"])
+
+            self.assertEqual(list(records), metadata["target_economies"])
+            self.assertEqual(first["records"], second["records"])
+            self.assertEqual(metadata["target_economies"], cast(Dict[str, Any], second["metadata"])["target_economies"])
+            self.assertIn("FR", records)
+            self.assertIn("NG", records)
+            self.assertNotIn("BR", records)
+            self.assertNotIn("ZA", records)
+            self.assertFalse(records["NG"]["cost_index_fallback_used"])
+            self.assertEqual(records["NG"]["country_iso3"], "NGA")
+            self.assertEqual(map_country_to_iso2("Nigeria"), "NG")
+            self.assertEqual(map_country_to_iso2("FR"), "FR")
+            self.assertEqual(map_country_to_iso2("Hong Kong (China)"), "HK")
+            for code, row in records.items():
+                self.assertEqual(map_country_to_iso2(str(row["country_name"]), "ZZ"), code)
+
+    def test_preflight_reports_missing_ppp_and_cost_rows(self) -> None:
+        self.assertEqual(validate_macro_country_coverage(self.raw_dir, ["fr", "NG"]), {"FR": "FRA", "NG": "NGA"})
+        with self.assertRaisesRegex(ValueError, "ZA/ZAF: missing usable PA.NUS.PPP"):
+            validate_macro_country_coverage(self.raw_dir, ["ZA"])
+        with self.assertRaisesRegex(ValueError, "BR: missing usable cost-of-living row"):
+            validate_macro_country_coverage(self.raw_dir, ["BR"])
+        with self.assertRaisesRegex(ValueError, "XX: invalid ISO-2"):
+            validate_macro_country_coverage(self.raw_dir, ["XX"])
+
+    def test_standard_databank_export_filename_is_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            shutil.copytree(self.raw_dir, os.path.join(tmp_dir, "raw"))
+            wdi_root = os.path.join(tmp_dir, "raw", "World_Development_Indicators")
+            os.rename(os.path.join(wdi_root, "World_Data.csv"), os.path.join(wdi_root, "Data.csv"))
+            output_path = os.path.join(tmp_dir, "lookup.json")
+
+            self.assertEqual(validate_macro_country_coverage(os.path.join(tmp_dir, "raw"), ["NG"]), {"NG": "NGA"})
+            payload = build_macro_lookup(os.path.join(tmp_dir, "raw"), output_path)
+            self.assertIn("NG", cast(Dict[str, Any], payload["records"]))
 
     def test_lookup_load_and_safe_fallback_accessor(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
