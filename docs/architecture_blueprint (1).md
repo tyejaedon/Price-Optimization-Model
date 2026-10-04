@@ -1,6 +1,8 @@
 # AI Dynamic Pricing Platform: Canonical Architectural Blueprint & Implementation Specification
 
-This document is the authoritative, zero-ambiguity system blueprint for the **Content-Based Dynamic Price Optimization Framework**. It provides exact mathematical formulas, system interaction models, data contracts, database schemas, directory layouts, and execution steps required to build and deploy the entire solution.
+This is the canonical **target architecture and migration plan** for the Content-Based Dynamic Price Optimization Framework, adopted in [M9.1 (#66)](https://github.com/tyejaedon/Price-Optimization-Model/issues/66). It describes intended behavior, not a claim that the Android app, authenticated API, Firestore pricing flow, OOT evaluation or corridor already exist. [Blueprint.md](Blueprint.md) and [Project_Milestones_and_Issues.md](Project_Milestones_and_Issues.md) retain the M1-M8 history and map it to the pivot; [README.md](../README.md) distinguishes the running service from this target.
+
+**Decisions that override the proposal below:** Keep the existing `POST /api/v1/optimize-price` and `GET /health` routes; do not introduce `POST /price`. Extend the existing `src/api_contracts.py` (or add a documented adapter) instead of creating a competing `src/schemas.py`. Use this repository's `docs/`, `src/`, `tests/`, `data/` and `artifacts/` paths. Preserve `src/repository.py`, `src/observability.py` and `src/mlops_service.py`; the tree below lists pivot additions, not replacements. The browser demo is a future test harness (#85), not the Android client. The migration and ownership decisions in section 9 govern any examples below.
 
 ---
 
@@ -20,10 +22,10 @@ This document is the authoritative, zero-ambiguity system blueprint for the **Co
 
 ## 2. Directory Structure & File Placement Rules
 
-Every code generator or developer must strictly adhere to this standardized repository tree:
+Use the existing repository layout. The following are representative locations; files not yet present are **planned**, not prerequisites for running the current service:
 
 ```
-mentor-pricing-engine/
+Price-Optimization-Model/
 ├── .github/
 │   └── workflows/
 │       ├── pr-governance.yml             # Branch naming and PR checklist gate
@@ -38,7 +40,7 @@ mentor-pricing-engine/
 │   ├── raw/                              # Secondary corpus CSVs (git-ignored)
 │   └── processed/
 │       ├── macro_lookup_table.json       # Sovereign PPP and CoL dictionary
-│       └── harmonized_corpus.parquet     # Unified training corpus
+│       └── harmonized_marketplace_corpus.parquet # Existing training corpus
 ├── demo/
 │   └── index.html                        # Browser test harness (IR-06)
 ├── src/
@@ -48,11 +50,14 @@ mentor-pricing-engine/
 │   ├── nlp_pipeline.py                   # Regex sanitization, lemmatizer, TF-IDF, SVD
 │   ├── macro_arbitrage.py                # Sovereign PPP ratio and CoL normalization
 │   ├── spatial_engine.py                 # KD-Tree indexing, fallback logic, IDW regression
-│   ├── tariff_evaluator.py               # Safaricom 12-tier statutory surcharge lookup
+│   ├── tariff_evaluator.py               # Existing tariff evaluator; #73 reconciles schedule
 │   ├── interval_synthesizer.py           # Bounded [Rate_min, Rate_max] derivation
-│   ├── firestore_sync.py                 # Asynchronous background telemetry logging
+│   ├── repository.py                     # Existing Firestore/in-memory boundary
+│   ├── observability.py                  # Existing latency/error metrics
+│   ├── mlops_service.py                  # Existing artifact publication
+│   ├── firestore_sync.py                 # Planned background telemetry adapter
 │   ├── security.py                       # Firebase Admin SDK RS256 token verification
-│   ├── schemas.py                        # Pydantic V2 DTOs (Request / Response / PeerMatch)
+│   ├── api_contracts.py                  # Existing Pydantic V2 DTOs; extend for pivot
 │   ├── train_pipeline.py                 # Offline OOT chronological training & evaluation
 │   └── serve.py                          # FastAPI application, startup hooks, REST endpoints
 ├── tests/
@@ -62,10 +67,12 @@ mentor-pricing-engine/
 │   ├── test_tariff_evaluator.py
 │   ├── test_train_pipeline.py
 │   └── test_api_endpoints.py
-├── Dockerfile                            # Production container spec (port 8000)
+├── Dockerfile                            # Planned container spec (port 8000)
 ├── requirements.txt                      # Frozen Python dependencies
-└── .env.example                          # Environment template (no secrets in repo)
+└── .env.example                          # Planned environment template (no secrets)
 ```
+
+`data/` (including raw and processed inputs), `artifacts/` and generated reports are ignored; never commit datasets, model binaries or service-account credentials. The browser `demo/` belongs to #85, and the Android `app/` belongs to #74-#76. Existing tests and modules not shown remain in place.
 
 ---
 
@@ -151,11 +158,11 @@ To output an actionable, economically defensible pricing corridor rather than a 
 
 ### 3.4 Safaricom M-Pesa 12-Tier Tariff Lookup Table (FR-07)
 
-When `mentorCountry == 'KE'`, apply the official Safaricom regulatory transfer fee schedule to calculate the additive surcharge. For international corridors (`mentorCountry != 'KE'`), $Surcharge_{M-Pesa} = 0.00$.
+When `mentorCountry == 'KE'`, apply the validated M-Pesa consumer transfer schedule to calculate the additive surcharge. The 12-tier table below is a **proposed schedule for #73 to verify** against the existing evaluator and a dated source before production use, not a claim of current statutory rates. For non-Kenyan mentors (`mentorCountry != 'KE'`), $Surcharge_{M-Pesa} = 0.00$.
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│        Safaricom M-Pesa 12-Tier Statutory Bands        │
+│        Proposed M-Pesa 12-Tier Transfer Bands          │
 ├───────┬──────────────────────────┬─────────────────────┤
 │ Tier  │ Transaction Range (KES)  │ Transfer Fee (KES)  │
 ├───────┼──────────────────────────┼─────────────────────┤
@@ -195,11 +202,11 @@ sequenceDiagram
 
     UI->>VM: Submit form (Listing text + metadata)
     VM->>Repo: optimizePrice(PricingQueryDTO)
-    Repo->>Vault: Read cached RS256 JWT
+    Repo->>Vault: Obtain current Firebase ID token
     Vault-->>Repo: Bearer Token
     Repo->>API: POST /api/v1/optimize-price (Payload + Bearer Header)
     API->>Auth: Verify JWT (RS256 signature, expiry, claims)
-    Auth-->>API: DecodedTokenDTO (UID, Role)
+    Auth-->>API: Verified Firebase UID
 
     alt Profile Hydration Needed (FR-01)
         API->>DB: Fetch missing profile attributes (/mentors/{id})
@@ -219,7 +226,7 @@ sequenceDiagram
     Core->>Core: Check Tariff Schedule (MpesaTariffEvaluator)
     Core-->>API: PredictionResultDTO
 
-    API-)DB: BackgroundTasks: Append /historical_transactions (Audit)
+    API-)DB: BackgroundTasks: Append /historical_transactions (Audit; failures observable)
     API-->>Repo: 200 OK (PredictionResultDTO JSON)
     Repo-->>VM: Result.Success(PredictionResultDTO)
     VM->>VM: Mutate StateFlow (PricingUiState.Success)
@@ -230,7 +237,7 @@ sequenceDiagram
 
 ## 5. Strict Data Contracts (Pydantic V2 Schemas)
 
-Place these schemas inside `src/schemas.py`:
+The following is an illustrative **target wire contract**, not executable code to paste over the currently deployed models in `src/api_contracts.py`. #83 owns validation, OpenAPI and backward-compatible translation on the existing route; #84 owns hydration of omitted fields. The legacy snake_case DTO remains in use until that migration is implemented.
 
 ```python
 from datetime import datetime
@@ -238,14 +245,14 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, constr
 
 class PricingQueryDTO(BaseModel):
-    mentorId: str = Field(..., description="Unique mentor ID in Firebase")
+    mentorId: str = Field(..., description="Mentor document ID authorized for the verified Firebase UID")
     rawText: Optional[constr(min_length=20, max_length=2000)] = Field(
         default=None, 
         description="Unstructured capability description. If None, hydrated from Firestore."
     )
     industry: str = Field(
         ..., 
-        description="Industry partition key (e.g., software_eng, data_ai, mobile)"
+        description="Industry partition key (e.g., data_ai, mobile)"
     )
     mentorCountry: constr(min_length=2, max_length=2) = Field(
         ..., description="ISO 3166-1 alpha-2 origin code"
@@ -257,10 +264,10 @@ class PricingQueryDTO(BaseModel):
         default=0.5, ge=0.0, le=1.0, description="Self-reported saturation ratio"
     )
     costOfLivingIndex: Optional[float] = Field(
-        default=None, description="Optional Numbeo CoL index override"
+        default=None, description="Optional mentor cost-of-living index override"
     )
     baseRateFloor: Optional[float] = Field(
-        default=None, ge=0.0, description="Absolute reservation hourly rate (KES)"
+        default=None, ge=0.0, description="Absolute reservation rate (KES/hour)"
     )
 
 class PeerMatchDTO(BaseModel):
@@ -271,11 +278,11 @@ class PeerMatchDTO(BaseModel):
     euclideanDistance: float
 
 class PredictionResultDTO(BaseModel):
-    basePredictedRate: float = Field(..., description="Distance-weighted base rate (KES)")
-    mpesaTariffSurcharge: float = Field(..., description="Statutory M-Pesa fee (KES)")
-    finalQuotedRate: float = Field(..., description="Base rate + tariff surcharge (KES)")
-    minQuotedRate: float = Field(..., description="Negotiation floor (KES)")
-    maxQuotedRate: float = Field(..., description="Arbitrage-scaled value ceiling (KES)")
+    basePredictedRate: float = Field(..., description="Distance-weighted base rate (KES/hour)")
+    mpesaTariffSurcharge: float = Field(..., description="M-Pesa fee added to hourly quote (KES/hour)")
+    finalQuotedRate: float = Field(..., description="Base rate + tariff surcharge (KES/hour)")
+    minQuotedRate: float = Field(..., description="Negotiation floor (KES/hour)")
+    maxQuotedRate: float = Field(..., description="Arbitrage-scaled value ceiling (KES/hour)")
     kNeighborsUsed: int = Field(default=5)
     bilateralArbitrageFactor: float = Field(..., description="Evaluated Phi(m, c)")
     confidenceScore: float = Field(..., ge=0.0, le=1.0)
@@ -338,8 +345,8 @@ The database structure relies on denormalized collections to eliminate latency d
   "client_country": "US",
   "bilateral_arbitrage_phi": 0.51,
   "base_predicted_rate": 4700.0,
-  "mpesa_tariff_surcharge": 150.0,
-  "final_quoted_rate": 4850.0,
+  "mpesa_tariff_surcharge": 57.0,
+  "final_quoted_rate": 4757.0,
   "min_quoted_rate": 4200.0,
   "max_quoted_rate": 6500.0,
   "k_neighbors_used": 5,
@@ -363,7 +370,7 @@ The database structure relies on denormalized collections to eliminate latency d
       data class Error(val message: String) : PricingUiState
   }
   ```
-* **Hardware-Backed Security:** Store the Firebase JWT in Android Keystore:
+* **Android authentication:** #75 decides secure token handling. The following encrypted-preferences example is illustrative, not a requirement to persist Firebase ID tokens; prefer a fresh token from the Firebase Auth SDK and never embed admin credentials in the client.
   ```kotlin
   val masterKey = MasterKey.Builder(context)
       .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -383,47 +390,67 @@ The database structure relies on denormalized collections to eliminate latency d
 
 ## 8. Step-by-Step Implementation Roadmap (Sprint Plan)
 
-Instruct your Copilot to execute following this exact order:
+These are delivery stages, not instructions to reimplement completed M1-M8 work. The **mapping and overrides in section 9** supersede the provisional sprint task lists below.
 
-### Sprint 1: Offline ML Pipeline & Artifact Compilation
+### Sprint 1: Blueprint and offline model alignment (Milestone 9: #66, #67, #81)
 * **Target File:** `src/train_pipeline.py`, `src/nlp_pipeline.py`, `src/macro_arbitrage.py`
 * **Actions:**
-  1. Implement dataset parsing with IQR outlier filtering ($500 \le \text{rate} \le 35{,}000\text{ KES/hr}$).
+  1. Reuse existing dataset parsing and accepted KES/hour bounds; do not re-ingest or commit local datasets.
   2. Implement chronological Out-of-Time (OOT) temporal partition:
      $$S_{train} = \{x_t \mid t \le T_{split}\},\quad S_{eval} = \{x_t \mid t > T_{split}\}$$
   3. Fit NLTK Lemmatizer + TF-IDF (12,000 features) + Truncated SVD (50 components) exclusively on $S_{train}$.
   4. Build Scikit-Learn `KDTree(metric='euclidean', leaf_size=40)` across 8 industry categories.
   5. Assert Quality Gate: $R^2 \ge 0.75$, serialize `.joblib` artifacts into `artifacts/`.
 
-### Sprint 2: In-Memory Inference Core & Tariff Service
+### Sprint 2: In-memory inference, corridor and protected gateway (Milestone 10: #69, #70, #82, #83)
 * **Target File:** `src/spatial_engine.py`, `src/tariff_evaluator.py`, `src/interval_synthesizer.py`
 * **Actions:**
-  1. Implement `InferenceRuntime` class to load `.joblib` artifacts into RAM on boot.
+  1. Extend the existing `InferenceRuntime` to load a compatible `.joblib` artifact set into RAM on boot.
   2. Implement Euclidean search with partition fallback to `general_tech`.
   3. Implement IDW regression ($p=2.0, \epsilon=10^{-6}$).
-  4. Implement bounded corridor synthesizer ($[Rate_{min}, Rate_{max}]$).
-  5. Implement 12-tier Safaricom M-Pesa tariff boundary lookup.
+  4. Implement bounded corridor synthesis ($[Rate_{min}, Rate_{max}]$), including contradictory floor/ceiling handling under #82.
+  5. Reuse the tariff evaluator; validate any schedule changes under #73.
 
-### Sprint 3: FastAPI Gateway & Security Boundary
-* **Target File:** `src/serve.py`, `src/security.py`, `src/firestore_sync.py`
+### Sprint 3: Firestore persistence and asynchronous pricing audit (Milestone 11: #71, #72, #73, #84)
+* **Target Files:** `src/repository.py`, `src/observability.py`, `src/serve.py` (reuse); `src/firestore_sync.py` (if needed).
 * **Actions:**
-  1. Initialize FastAPI with `@app.on_event("startup")` loading artifacts in memory.
-  2. Expose `GET /health` and `POST /api/v1/optimize-price`.
+  1. Reuse the existing FastAPI lifespan to load artifacts in memory.
+  2. Reuse `GET /health` and `POST /api/v1/optimize-price`; do not create another route.
   3. Add `TokenVerificationService` extracting and verifying Firebase RS256 Bearer tokens.
-  4. Use `BackgroundTasks` to write audit telemetry to Firestore asynchronously.
-  5. Containerize via `Dockerfile` (Python 3.11-slim, expose port 8000).
+  4. Use `BackgroundTasks` to append audit telemetry and expose failures via observability.
+  5. Align Firestore service listings and mentor documents; containerization belongs to #77. Gateway authentication in this provisional list belongs to #69 in Milestone 10.
 
-### Sprint 4: Native Android App Presentation & Auth
+### Sprint 4: Native Android app presentation and auth (Milestone 12: #74, #75)
 * **Target Package:** `app/src/main/java/edu/strathmore/pricing/`
 * **Actions:**
-  1. Build user authentication with Firebase Auth; store JWT in `EncryptedSharedPreferences`.
+  1. Build user authentication with Firebase Auth; obtain fresh ID tokens via the SDK and follow #75 for secure storage.
   2. Implement `PricingViewModel` and `PricingUiState` with Unidirectional Data Flow.
   3. Construct declarative Jetpack Compose UI: `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`.
 
-### Sprint 5: Mobile-Cloud Integration & Usability Validation
+### Sprint 5: Mobile-cloud integration and deployment (Milestone 13: #76, #77)
 * **Target Package:** `app/src/main/java/edu/strathmore/pricing/network/`
 * **Actions:**
   1. Configure Retrofit + OkHttp with Bearer token interceptor.
   2. Build Compose dashboard displaying `finalQuotedRate`, corridor $[Rate_{min}, Rate_{max}]$, and M-Pesa fee breakdown.
-  3. Validate end-to-end network latency under simulated 3G cellular network ($RTT < 3.0\text{s}$).
-  4. Conduct System Usability Scale testing ($SUS \ge 80.0$).
+  3. Containerize the backend and gate the authenticated integration path in CI.
+
+### Sprint 6: Demo and end-to-end validation (Milestone 14: #85, #86, #87)
+
+1. Add the optional IR-06 browser harness as a protected-API test client, never an auth bypass.
+2. Validate mobile round-trip latency under simulated 3G ($RTT < 3.0\text{s}$).
+3. Conduct System Usability Scale testing ($SUS \ge 80.0$).
+
+---
+
+## 9. Migration decisions and ownership
+
+| Boundary | Existing M1-M8 work | Pivot decision and owner |
+| :--- | :--- | :--- |
+| Data and model | Harmonized marketplace parquet, macro lookup, 50D SVD + 3 scaled metadata features, partitioned KD-Trees, IDW and joblib artifacts already exist. Rates and targets are **KES/hour**. | #67 reconciles fitted offline/online transforms, `k=5`, quadratic IDW (`p=2`, `epsilon=1e-6`) and artifact parity; #81 adds chronological OOT evaluation and the `R^2 >= 0.75` gate. Do not treat old stratified 70/15/15 reports as OOT evidence. |
+| Metadata | Training uses `industry_partition`, mentor cost of living from the macro lookup, `market_saturation_score` and `competitiveness_score`; current API takes `selected_industry`. | The pivot wire field `industry` maps to an accepted partition key (`industry_id` in Firestore, `industry_partition` in training); reject unknown keys instead of silently mapping unrelated industries. `costOfLivingIndex` is an optional validated mentor CoL override, **not** an alias for saturation. `competitivenessScore` and training saturation remain distinct: #67/#83 must specify and test their feature mapping without changing the trained scaler's column order. |
+| Identity and listings | Current pricing DTO has no mentor ID or token. Existing repository and admin endpoints are not a Firebase-protected pricing gateway. Peer payloads carry positional indices, not durable listing IDs. | #69 verifies server-side Firebase ID tokens and binds the authenticated UID to the requested `mentorId`; never trust a body ID as authentication. #71 binds actual root `/service_listings/{listing_id}` to peer coordinates; do not fabricate `listingId`, `jobTitle` or `verifiedRate`. #84 hydrates missing fields only from authorized records and fails explicitly when required data is absent. |
+| API contract | `src/api_contracts.py` defines snake_case DTOs; `src/serve.py` implements `POST /api/v1/optimize-price` and `GET /health`. | #83 extends that module or supplies a clearly documented adapter for camelCase DTOs on **the same route**. Preserve old callers during a measured compatibility window, document deprecation in OpenAPI and README, and remove the legacy shape only in a separately tracked, versioned breaking change after client migration; #68 is closed as superseded, not reopened. #82 owns corridor invariants and handling of out-of-range floors. Missing artifacts return explicit unready health and HTTP 503, not invented predictions. |
+| Authentication and credentials | Local model testing needs no Firebase keys. Existing admin-token operations are separate from user pricing authentication. | #69 owns Firebase Admin initialization, token verification and authorization in the backend; credentials come from runtime secret management/application-default credentials, never Android, HTML, Git, `data/` or bundled artifacts. #75 owns Android Firebase Auth and token refresh/secure handling. #85 requires a temporary externally supplied test token and scoped CORS; never bypass verification in the demo. |
+| Deployment and failure reporting | `src/mlops_service.py` has versioned artifact publication; `src/observability.py` records metrics; repository supports memory and Firestore modes. | #70/#77 package a complete, versioned set of trained artifacts outside Git with the container or mounted at deployment; startup loads once using the existing lifespan and reports missing/incompatible sets as unready. #72 records append-only audit failures in metrics/logs with correlation identifiers, not a false success; no raw text, tokens or credentials in logs. Firestore unavailability must not silently turn a protected production request into an in-memory write. |
+
+The example DTOs and sample documents above are design illustrations: #83/#71 own their final validated schema, including whether omitted country and metadata fields can be hydrated safely under #84. The formulae are target requirements subject to targeted tests and rollout, not guarantees about the present service.

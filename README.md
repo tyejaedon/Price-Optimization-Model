@@ -2,7 +2,7 @@
 
 A planned Android-to-cloud application that recommends market-aware hourly rates for technical mentors and freelancers. A mentor describes a service, selects an industry and the two countries involved, and receives a peer-informed quote with a transparent Kenyan M-Pesa surcharge where applicable.
 
-**Project status:** The Python data, training, pricing, and FastAPI foundations exist. The native Android client, Firebase-protected pricing endpoint, pivot DTOs, Firestore service listings, and asynchronous audit flow are **planned**, not available in this repository yet. See the [pivot tracker](https://github.com/tyejaedon/Price-Optimization-Model/issues/66) and milestones 9-13 for the migration from the current implementation. The earlier [engineering blueprint](docs/Blueprint.md) describes the existing feature track; the proposed new blueprint is being adopted under #66.
+**Project status:** The Python data, training, pricing, and FastAPI foundations exist. The native Android client, Firebase-protected pricing endpoint, pivot DTOs, Firestore service listings, and asynchronous audit flow are **planned**, not available in this repository yet. The [canonical architecture and migration blueprint](docs/architecture_blueprint%20%281%29.md) is the target under #66; the [M1-M8 engineering blueprint](docs/Blueprint.md) records existing work. [Milestones 9-14](docs/Project_Milestones_and_Issues.md#pivot-roadmap-milestones-9-14) track the migration.
 
 ## Why this application?
 
@@ -13,14 +13,14 @@ Independent consultants can underquote international clients, price local client
 | Tier | Intended design | Responsibility |
 | --- | --- | --- |
 | Android client | Kotlin, Jetpack Compose, MVVM, `StateFlow<PricingUiState>`, Retrofit/OkHttp and coroutines | Collect mentor inputs, authenticate with Firebase, request and display pricing; dispatch network calls on `Dispatchers.IO` |
-| Pricing gateway | Python 3.11, FastAPI/Uvicorn and Pydantic v2 | Verify Firebase ID tokens with the Firebase Admin SDK, validate requests, load model artifacts once at application startup and serve `POST /price` |
+| Pricing gateway | Python 3.11, FastAPI/Uvicorn and Pydantic v2 | Verify Firebase ID tokens with the Firebase Admin SDK, validate requests, load model artifacts once at application startup and serve `POST /api/v1/optimize-price` |
 | ML engine | NLTK, scikit-learn and joblib | Compile peer-pricing artifacts offline; transform requests, retrieve neighbors and calculate a weighted base rate online |
 | Persistence | Firebase Authentication and Cloud Firestore | Link mentors to identities, store service listings and append pricing audit records |
 | Delivery | Docker and GitHub Actions | Package the API and validate backend/mobile integration without committing credentials or datasets |
 
-The intended Firestore collections are `/mentors/{mentor_id}` (auth link and country), root `/service_listings/{listing_id}` (service text, `industry_id`, 50-float SVD vector and peer-rate metadata), and append-only `/historical_transactions/{transaction_id}`. Pricing audits are intended to run through FastAPI `BackgroundTasks` after the response; reliability and failure handling are tracked in #72.
+The intended Firestore collections are `/mentors/{mentor_id}` (auth link and country), root `/service_listings/{listing_id}` (service text, `industry_id`, 50-float SVD vector and peer-rate metadata), and append-only `/historical_transactions/{transaction_id}`. A `mentorId` in the request must be authorized against the verified Firebase UID, not treated as authentication. Pricing audits are intended to run through FastAPI `BackgroundTasks` after the response; reliability and failure reporting are tracked in #72.
 
-Firebase ID tokens will be supplied by the Android client and verified on the backend before pricing. The Android secure-storage approach is tracked in #75; no service-account keys belong in the app or this repository.
+Firebase ID tokens will be supplied by the Android client and verified on the backend before pricing. The Android secure-storage approach is tracked in #75; backend Firebase credentials come from runtime secret management/application-default credentials, not the app or this repository. Versioned model artifacts must be deployed as a complete set outside Git; missing/incompatible artifacts report unready status and pricing fails explicitly.
 
 ## How a price is calculated
 
@@ -32,11 +32,11 @@ Firebase ID tokens will be supplied by the Android client and verified on the ba
 finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
 ```
 
-The existing ML and tariff implementations are reused, not restarted. #67 tracks any training/inference feature, IDW or artifact changes needed to match this target; peer IDs, confidence semantics and the request's optional rate floor are resolved in #68.
+The existing ML and tariff implementations are reused, not restarted. #67 tracks any training/inference feature, IDW or artifact changes needed to match this target; #71 owns real peer listing IDs, #82 the rate floor/corridor, and #83 the new response and confidence semantics. #68 is closed as superseded by #83.
 
 ## Target pricing contract (planned)
 
-`POST /price` will require `Authorization: Bearer <Firebase ID token>` and a validated `PricingQueryDTO`. The following illustrates the **proposed** request and response shape, not the currently deployed API:
+The target `POST /api/v1/optimize-price` requires a verified Firebase ID token and a validated `PricingQueryDTO`. The following illustrates the **proposed** request and response shape, not the currently deployed API:
 
 ```json
 {
@@ -54,8 +54,8 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
 ```json
 {
   "basePredictedRate": 4700.0,
-  "mpesaTariffSurcharge": 55.0,
-  "finalQuotedRate": 4755.0,
+  "mpesaTariffSurcharge": 57.0,
+  "finalQuotedRate": 4757.0,
   "kNeighborsUsed": 1,
   "confidenceScore": 0.82,
   "bilateralArbitrageFactor": 0.51,
@@ -70,7 +70,7 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
 }
 ```
 
-Rates in this example are illustrative KES/hour values. The proposed DTO limits `rawText` to 20-2,000 characters, uses two-letter country codes and bounds `competitivenessScore` to 0-1. The identity-to-mentor mapping and route migration are part of #68 and #69; **the current API does not accept this request or return this response**.
+Rates in this example are illustrative KES/hour values. The proposed DTO limits `rawText` to 20-2,000 characters, uses two-letter country codes and bounds `competitivenessScore` to 0-1. The identity-to-mentor mapping and contract migration belong to #69 and #83; the route itself stays the same. #84 owns authorized hydration when text or metadata is missing. The legacy snake_case contract remains supported during the migration and must be deprecated explicitly before any versioned removal; **the current API does not accept this request or return this response**. `industry` maps to the training partition / Firestore `industry_id`; `costOfLivingIndex` is not a saturation score. Rates throughout are KES/hour.
 
 ## What runs today
 
@@ -105,6 +105,7 @@ The training command above disables the evaluation quality gate for local explor
 | 3 | [Milestone 11](https://github.com/tyejaedon/Price-Optimization-Model/milestone/11) | Align Firestore collections, tariffs and asynchronous audit |
 | 4 | [Milestone 12](https://github.com/tyejaedon/Price-Optimization-Model/milestone/12) | Build the Android Compose shell and Firebase sign-in |
 | 5 | [Milestone 13](https://github.com/tyejaedon/Price-Optimization-Model/milestone/13) | Integrate Retrofit pricing and prepare Docker/CI delivery |
+| 6 | [Milestone 14](https://github.com/tyejaedon/Price-Optimization-Model/milestone/14) | Exercise protected browser demo and validate mobile latency/usability |
 
 Contributions follow the issue-first, draft-PR workflow in [CONTRIBUTING.md](CONTRIBUTING.md). The current project structure is `src/` for Python modules, `tests/` for tests, `docs/` for architecture and planning, and `data/` for ignored local datasets.
 

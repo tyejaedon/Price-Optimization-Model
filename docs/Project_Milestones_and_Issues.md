@@ -1,6 +1,6 @@
 # Project Milestones & Engineering Issue Breakdown
 
-This document is the execution roadmap for the **Price Optimization Model Feature Track**. It converts the current design assets in `README.md`, `Docs/Blueprint.md`, and `Docs/Architecture/` into milestone-based implementation work ready for GitHub tracking.
+This document retains the **M1-M8 execution history** for the Price Optimization Model Feature Track. The [canonical pivot blueprint](architecture_blueprint%20%281%29.md) and its section 9 govern M9-M14. The M1-M8 issue checkboxes below reflect original acceptance criteria, not current GitHub issue states; do not reopen completed issues based on unchecked boxes.
 
 ---
 
@@ -559,3 +559,20 @@ Use this document as the source of truth for creating:
 - a planning label named `project:feature-track`
 
 If GitHub Project assignment is enabled, add every issue in this document to the **Price Optimization Model Feature Track** project.
+
+---
+
+## Pivot roadmap: Milestones 9-14
+
+The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the target architecture, migration and ownership decisions; [Blueprint.md](Blueprint.md) records M1-M8. GitHub issues linked below carry the implementation acceptance criteria. Preserve their current open/closed states and milestone assignments; #68 is superseded by #83 and #64 by #70. No pivot task requires tracking local datasets or model binaries.
+
+| Sprint | GitHub milestone | Linked delivery issues | Depends on / outcome |
+| --- | --- | --- | --- |
+| 1 | Milestone 9: Canonical Blueprint & OOT Model Alignment | #66 blueprint; #67 offline/online 53D alignment; #81 chronological OOT gate; #78 README (closed) | Reuse M1-M8 NLP, parity, KD-Tree, tariff and training foundations; quality gating is new. |
+| 2 | Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | #69 Firebase verification; #70 artifact preload/benchmark; #82 corridor; #83 DTO/route migration; #68 (closed/superseded) | Requires canonical contract and model alignment; retain `POST /api/v1/optimize-price`, legacy compatibility and explicit unready responses. |
+| 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
+| 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling | Client uses protected pricing gateway; no backend admin credentials on device. |
+| 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
+| 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
+
+Existing `industry_partition` training labels map to target `industry`/Firestore `industry_id`; existing numeric rates are KES/hour. The optional `costOfLivingIndex` must not be silently mapped to `market_saturation_score`. `mentorId` is authorized against the verified Firebase UID, not presumed equivalent. #67, #69, #71, #83 and #84 own these translations; see the canonical blueprint's migration table for details.

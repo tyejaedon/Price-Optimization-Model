@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This blueprint translates the project vision, README, and architecture diagrams into an executable engineering plan for the **Price Optimization Model Feature Track**.
+This document records the **M1-M8 engineering baseline** for the Price Optimization Model Feature Track. The canonical pivot target is [architecture_blueprint (1).md](architecture_blueprint%20%281%29.md); its migration decisions override this document for M9-M14. Preserve the completed work below as history rather than reopening or replacing it.
 
 The system is intended to recommend fair, market-aware consulting rates for technical mentors and freelancers by combining:
 
@@ -174,7 +174,7 @@ The GitHub execution plan should use:
 
 ## Immediate Next Priority
 
-Because the repository currently has design assets and datasets but no implementation modules, the first engineering focus should be:
+The original next priority was:
 
 1. source file discovery,
 2. macroeconomic lookup extraction,
@@ -182,3 +182,17 @@ Because the repository currently has design assets and datasets but no implement
 4. processed corpus export.
 
 That work unlocks all later NLP, model training, API, and verification milestones.
+
+## Pivot reconciliation (Milestones 9-14)
+
+Existing `src/` and `tests/` modules implement much of M1-M8: ingestion, macro lookup, NLP features, 53D fusion, KD-Tree/IDW pricing, tariff logic, training, API contracts, repository/observability and MLOps controls. The earlier `Src/`, `Test/` and `Data/` observations and "no implementation modules" statement above describe the initial plan, **not the present tree**. Use `docs/`, `src/`, `tests/`, ignored `data/` and ignored `artifacts/`; do not commit datasets or generated model artifacts.
+
+| Pivot stage | Milestone | Reuse and new work |
+| --- | --- | --- |
+| Blueprint and model | 9: #66, #67, #81 | Adopt the canonical document; keep M1-M6 artifacts, reconcile online/offline feature mapping and add chronological OOT quality gating. |
+| Secure pricing gateway | 10: #69, #70, #82, #83 | Keep `POST /api/v1/optimize-price`, `GET /health`, `src/api_contracts.py` and the FastAPI lifespan; add protected camelCase contracts, in-memory readiness and bounded corridors without breaking legacy clients. #68 is closed as superseded by #83. |
+| Persistence and audit | 11: #71, #72, #73, #84 | Extend `src/repository.py`, `src/observability.py` and existing tariff behavior for authorized root listings, mentor hydration and observable append-only audits. |
+| Android | 12: #74, #75 | Add the native Compose application and Firebase Auth, rather than replacing the Python API. |
+| Integration and validation | 13: #76, #77; 14: #85, #86, #87 | Integrate Retrofit, container/CI, optional browser demo, mobile latency and usability studies. |
+
+The canonical blueprint section 9 specifies the KES/hour units, naming and identity translations, saturation versus cost-of-living semantics, contract deprecation, credential ownership, artifact delivery and failure reporting. Earlier references to stratified splits, legacy snake_case fields and the M1-M8 definition of done remain historical, not pivot acceptance criteria.

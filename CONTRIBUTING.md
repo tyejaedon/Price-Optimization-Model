@@ -2,7 +2,7 @@
 
 Thanks for contributing to `Price-Optimization-Model`.
 
-This project uses a milestone-driven workflow called the **Price Optimization Model Feature Track**. Every code change should map to a tracked issue and milestone.
+This project uses a milestone-driven workflow called the **Price Optimization Model Feature Track**. Every code change should map to a tracked issue and milestone. The [canonical M9-M14 architecture](docs/architecture_blueprint%20%281%29.md) governs pivot work; [Blueprint.md](docs/Blueprint.md) and the [roadmap](docs/Project_Milestones_and_Issues.md) preserve M1-M8 history and issue mapping.
 
 ---
 
@@ -49,6 +49,12 @@ Each template collects:
 | Milestone 6: Master Pipeline Training, Validation & Auditing | Split strategy, benchmarking, R^2 gate, artifact serialization |
 | Milestone 7: Production ASGI API Service (FastAPI) | DTO schemas, inference endpoint, health checks |
 | Milestone 8: Automated Verification, Latency Profiling & MLOps | Unit tests, performance profiling, operational readiness |
+| Milestone 9: Canonical Blueprint & OOT Model Alignment | Adopt architecture and reconcile offline/online ML and OOT gating |
+| Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | Secure canonical route, compatible DTOs, artifact readiness and corridor |
+| Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | Listings, mentor hydration, tariffs and observable audits |
+| Milestone 12: Native Android Shell & Firebase Authentication | Compose UI and Firebase sign-in |
+| Milestone 13: Mobile Integration & Backend Deployment | Retrofit integration, Docker and CI |
+| Milestone 14: Mobile Usability & End-to-End Validation | Protected demo, 3G RTT and SUS |
 
 ---
 
@@ -219,9 +225,9 @@ Workflow files responsible for these gates:
 
 Use these documents for planning alignment:
 
-- `README.md`
-- `Docs/Blueprint.md`
-- `Docs/Project_Milestones_and_Issues.md`
+- `README.md` (implemented vs target)
+- `docs/architecture_blueprint (1).md` (canonical pivot target and migration decisions)
+- `docs/Blueprint.md` (M1-M8 baseline)
+- `docs/Project_Milestones_and_Issues.md` (issue/milestone mapping)
 
 If implementation decisions change, update docs and linked issues in the same PR.
-
