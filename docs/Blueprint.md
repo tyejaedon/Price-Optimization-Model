@@ -189,10 +189,12 @@ Existing `src/` and `tests/` modules implement much of M1-M8: ingestion, macro l
 
 | Pivot stage | Milestone | Reuse and new work |
 | --- | --- | --- |
-| Blueprint and model | 9: #66, #67, #81 | Adopt the canonical document; keep M1-M6 artifacts, reconcile online/offline feature mapping and add chronological OOT quality gating. |
+| Blueprint and model | 9: #66, #67, #91; #81 deferred | Adopt the canonical document; keep M1-M6 artifacts and reconcile online/offline feature mapping. The #91 proxy-label audit defers empirical OOT quality gating, which does not block the CS implementation. |
 | Secure pricing gateway | 10: #69, #70, #82, #83 | Keep `POST /api/v1/optimize-price`, `GET /health`, `src/api_contracts.py` and the FastAPI lifespan; add protected camelCase contracts, in-memory readiness and bounded corridors without breaking legacy clients. #68 is closed as superseded by #83. |
 | Persistence and audit | 11: #71, #72, #73, #84 | Extend `src/repository.py`, `src/observability.py` and existing tariff behavior for authorized root listings, mentor hydration and observable append-only audits. |
 | Android | 12: #74, #75 | Add the native Compose application and Firebase Auth, rather than replacing the Python API. |
 | Integration and validation | 13: #76, #77; 14: #85, #86, #87 | Integrate Retrofit, container/CI, optional browser demo, mobile latency and usability studies. |
 
 The canonical blueprint section 9 specifies the KES/hour units, naming and identity translations, saturation versus cost-of-living semantics, contract deprecation, credential ownership, artifact delivery and failure reporting. Earlier references to stratified splits, legacy snake_case fields and the M1-M8 definition of done remain historical, not pivot acceptance criteria.
+
+Verified paid mentor rates and a passed OOT R2 target are not required for M10-M14. Continue testing software correctness, security, pricing invariants and artifact/train-serve parity; do not present proxy datasets as real-world mentor-pricing validation. See [issue #91 findings](Label_Provenance_Audit_91.md).
