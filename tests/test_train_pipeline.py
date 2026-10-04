@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.ingest_multisource import build_macro_lookup
+from src.ingest_multisource import build_macro_lookup, compute_bilateral_arbitrage_factor, load_macro_lookup_table
 from src.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
@@ -17,6 +17,7 @@ from src.train_pipeline import (
     orchestrate_training,
     transform_target_log1p,
 )
+from src.validation_diagnostics import run_validation_diagnostics
 
 
 class TrainPipelineTests(unittest.TestCase):
@@ -134,6 +135,39 @@ class TrainPipelineTests(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "tfidf_vectorizer.joblib")))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "svd_reducer.joblib")))
             self.assertTrue(os.path.exists(os.path.join(artifact_dir, "metadata_scaler.joblib")))
+
+    def test_training_and_diagnostics_accept_expanded_country_features(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            macro_records = load_macro_lookup_table(macro_lookup_path)
+            frame = self._build_synthetic_harmonized_frame()
+            for country in ("FR", "NG"):
+                mask = frame.index % 2 == (0 if country == "FR" else 1)
+                frame.loc[mask, "client_country_iso2"] = country
+                frame.loc[mask, "bilateral_arbitrage_factor"] = compute_bilateral_arbitrage_factor(
+                    "KE", country, macro_records
+                )
+            frame.to_parquet(parquet_path, index=False)
+
+            training = orchestrate_training(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                artifact_dir=os.path.join(tmp_dir, "artifacts"),
+                n_components=5,
+                save_artifacts=False,
+            )
+            diagnostics = run_validation_diagnostics(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=os.path.join(tmp_dir, "diagnostics"),
+                seeds=(42,),
+                n_components=5,
+            )
+            self.assertFalse(training["has_split_overlap"])
+            self.assertEqual(training["feature_shapes"]["x_train"][1], 53)
+            self.assertEqual(diagnostics["input_rows"], len(frame))
+            self.assertEqual(diagnostics["feature_fit_scope"], "train_split_only")
+            self.assertTrue(os.path.exists(os.path.join(tmp_dir, "diagnostics", "validation_diagnostics.json")))
 
     def test_evaluation_writes_metrics_and_training_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

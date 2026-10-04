@@ -42,6 +42,20 @@ class M81PricingInvariantTests(unittest.TestCase):
         self.assertGreater(export, domestic)
         self.assertTrue(np.isfinite(export))
 
+    def test_expanded_country_parity_and_missing_country_fallback(self) -> None:
+        for country in ("FR", "NG"):
+            with self.subTest(country=country):
+                self.assertIn(country, self.macro_records)
+                self.assertEqual(compute_bilateral_arbitrage_factor(country, country, self.macro_records), 1.0)
+                factor = compute_bilateral_arbitrage_factor("KE", country, self.macro_records)
+                self.assertTrue(np.isfinite(factor))
+                self.assertGreater(factor, 0.0)
+                self.assertNotEqual(factor, 1.0)
+
+        # Brazil has PPP in the fixture but no cost-of-living row, so it is not added.
+        self.assertNotIn("BR", self.macro_records)
+        self.assertEqual(compute_bilateral_arbitrage_factor("KE", "BR", self.macro_records), 1.0)
+
     def test_fusion_is_53d_immutable_and_deterministic(self) -> None:
         text = np.linspace(0.0, 1.0, 50)
         metadata = np.asarray([0.2, 0.4, 0.6], dtype=float)

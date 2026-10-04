@@ -8,6 +8,7 @@ import numpy as np
 from src.ingest_multisource import (
     build_harmonized_marketplace_records,
     build_macro_lookup,
+    compute_bilateral_arbitrage_factor,
     export_harmonized_records_parquet,
 )
 from src.macro_arbitrage import (
@@ -54,6 +55,28 @@ class ContinuousMetadataNormalizerTests(unittest.TestCase):
             self.assertEqual(round(float(raw[0][0]), 6), 1.0)
             self.assertEqual(scaled.shape, (1, 3))
             self.assertTrue(np.all(np.isfinite(scaled)))
+
+    def test_live_metadata_and_reloaded_scaler_use_expanded_country_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._build_fixture_paths(tmp_dir)
+            normalizer = ContinuousMetadataNormalizer(macro_lookup_path=macro_lookup_path)
+            normalizer.fit_from_parquet(parquet_path)
+
+            for country in ("FR", "NG"):
+                with self.subTest(country=country):
+                    factor = compute_bilateral_arbitrage_factor("KE", country, normalizer.macro_records)
+                    raw = normalizer.build_live_metadata_vector("Kenya", country, 0.3, 0.7)
+                    self.assertAlmostEqual(float(raw[0, 0]), factor)
+                    self.assertNotEqual(float(raw[0, 0]), 1.0)
+                    self.assertTrue(np.all(np.isfinite(normalizer.transform_live_metadata("KE", country, 0.3, 0.7))))
+
+            normalizer.save_artifacts(tmp_dir)
+            restored = ContinuousMetadataNormalizer.load_artifacts(tmp_dir)
+            np.testing.assert_allclose(
+                normalizer.transform_live_metadata("KE", "Nigeria", 0.3, 0.7),
+                restored.transform_live_metadata("KE", "NG", 0.3, 0.7),
+            )
+            self.assertEqual(float(restored.build_live_metadata_vector("KE", "BR", 0.3, 0.7)[0, 0]), 1.0)
 
     def test_serialization_preserves_transform_behavior(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
