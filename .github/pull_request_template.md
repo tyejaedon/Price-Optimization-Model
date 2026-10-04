@@ -7,18 +7,19 @@
 
 - Closes #
 - Related issue(s): #
-- Milestone: <!-- e.g., Milestone 3: Bilateral Arbitrage Scaler & Coordinate Fusion -->
+- Milestone: <!-- e.g., Milestone 9: Canonical Blueprint & OOT Model Alignment -->
 
 ## Workstream Labels
 
-- Primary label: <!-- one of: data-engineering, nlp, machine-learning, feature-engineering, spatial, algorithms, fintech, api, testing, performance -->
+- Primary label: <!-- e.g., documentation, data-engineering, nlp, machine-learning, feature-engineering, spatial, algorithms, fintech, api, testing, performance -->
 - Secondary label(s): <!-- optional -->
 
 ## Milestone Alignment Checklist
 
-- [ ] This PR maps to an existing milestone issue (`M1.1` to `M8.2`).
+- [ ] This PR maps to an existing milestone issue (`M1.x` to `M14.x`).
 - [ ] Issue labels reflect the workstream touched by this PR.
 - [ ] Acceptance criteria from the linked issue are addressed in this PR.
+- [ ] Pivot changes follow `docs/architecture_blueprint (1).md` and retain M1-M8 history where relevant.
 
 ## Change Type
 
@@ -58,4 +59,3 @@
 - Risk areas:
 - Follow-up tasks:
 - Rollback plan (if needed):
-
