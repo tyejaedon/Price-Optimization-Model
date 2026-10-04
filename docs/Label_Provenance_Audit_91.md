@@ -1,5 +1,16 @@
 # Issue #91 — pricing-label provenance and OOT readiness
 
+**Project scope decision (2026-10-04):** This is a computer-science
+implementation project. Collecting or verifying paid mentor transaction rates,
+demonstrating pricing accuracy, and enforcing an empirical OOT R² threshold are
+**deferred, not prerequisites** for API, model-serving, Firestore, Android, or
+CI engineering. Existing marketplace labels are demonstration/proxy data, not
+verified mentor prices. Continue testing parsing, feature isolation, artifact
+compatibility, deterministic inference, pricing invariants, authentication and
+other software behavior. Do not present proxy scores as validated real-world
+mentor-pricing performance. The remainder of this report preserves the audit
+findings and a possible *future* experimental protocol, not a delivery gate.
+
 Reproduce from a local checkout containing the ignored raw CSVs, macro lookup and
 harmonized parquet:
 
@@ -68,7 +79,7 @@ summaries. For mapped client-country codes, jobs are concentrated in US
 inferred/mapped codes, not verified population locations; consult the JSON
 for all countries and segments.
 
-## Eligibility decision for #81
+## Optional future OOT eligibility design (deferred)
 
 **Current parquet: no chronological OOT split.** It has no observation-time
 column: 0/22,677 timestamps are present. Among retained raw job candidates,
@@ -78,8 +89,8 @@ times. The ingestion path now preserves aware `published_date` values as
 `observation_timestamp_utc` on *future rebuilt* parquet only; it does not
 backfill, synthesize timestamps or silently replace the existing dataset.
 
-Predeclare the following policy **before fitting or inspecting held-out
-outcomes** if the intended population is *job-budget* estimates:
+If empirical job-budget evaluation is resumed later, predeclare the following
+policy **before fitting or inspecting held-out outcomes**:
 
 1. Keep the existing description and [500, 35,000] pre-arbitrage KES/hour
    eligibility rules. Then require a timezone-aware source publication time
@@ -97,9 +108,11 @@ outcomes** if the intended population is *job-budget* estimates:
    metadata scalers, enrichment/statistics and KD-Trees on training rows only.
    Current stratified results are exploratory, not OOT evidence.
 3. Report IQRs on training data for diagnostics; do **not** discard extra
-   outliers using holdout data or a score-selected IQR rule. Evaluate the
-   unchanged **raw-KES R² >= 0.75** gate on the specified population, and
-   report failure if it fails. Do not use `hourly_rate`, `hourly_rate_usd`,
+   outliers using holdout data or a score-selected IQR rule. The original
+   blueprint's **raw-KES R² >= 0.75** target is deferred, not a requirement for
+   software delivery. If revisited, report scores honestly on the specified
+   population without treating a proxy result as mentor-price validation.
+   Do not use `hourly_rate`, `hourly_rate_usd`,
    `harmonized_hourly_rate`, `target_rate`, ID/link, or post-outcome fields as
    predictors. The 53D training path currently uses text plus three named
    metadata features; tests perturb all rate columns without changing
@@ -109,8 +122,8 @@ outcomes** if the intended population is *job-budget* estimates:
 **Mentor-pricing population: not supported by these labels.** Publication
 times can make job-budget OOT evaluation possible, but cannot convert posted
 budgets or undated profile asking rates into dated verified mentor prices.
-Acquire consented, timestamped mentor listing/transaction rates with currency,
-rate unit, price type (ask/accepted), provenance, country roles and durable
-identifiers; validate dates and access controls before defining a mentor-rate
-OOT gate. Keep this acquisition/target-definition decision visible in #81,
-#92–#94; do not claim the 0.75 target is achievable on the current dataset.
+Acquiring consented, timestamped mentor transactions is **out of scope for now**;
+do not create an acquisition dependency for #81 or downstream engineering.
+Should the project later choose to validate mentor pricing empirically, define
+the target population, consent, date, units, country roles and provenance in a
+separate scoped issue. Do not claim the 0.75 target is achievable on this data.
