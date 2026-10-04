@@ -96,7 +96,7 @@ python -m src.train_pipeline --mode evaluate --harmonized-parquet data/processed
 uvicorn src.serve:app --host 127.0.0.1 --port 8000
 ```
 
-The training command above disables the evaluation quality gate for local exploration; inspect its reported metrics before relying on its artifacts. Use `/docs` for the current request schema and `/health` for model readiness. Android build/run instructions will be added when the client exists (#74-#76).
+The training command above disables the evaluation quality gate for local exploration; its proxy job-budget/profile-rate metrics do not validate real mentor earnings. Verified mentor transaction acquisition and empirical OOT/R2 gating are deferred, not prerequisites for the CS-focused API, security, artifact-parity and Android work (see [issue #91 audit](docs/Label_Provenance_Audit_91.md)). Continue software correctness and security tests. Use `/docs` for the current request schema and `/health` for model readiness. Android build/run instructions will be added when the client exists (#74-#76).
 
 ## Pivot delivery sequence
 
