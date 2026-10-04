@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import math
 import os
 import re
 from collections import Counter
@@ -8,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+
+import pycountry
 
 PPP_SERIES_CODE = "PA.NUS.PPP"
 USD_TO_KES_RATE_ANCHOR = 130.0
@@ -174,9 +177,21 @@ COST_INDEX_COUNTRY_TO_ISO2 = {
     "Germany": "DE",
     "Canada": "CA",
     "India": "IN",
+    "Hong Kong (China)": "HK",
+    "Palestine": "PS",
+    "Turkey": "TR",
+    "Russia": "RU",
 }
 
 COUNTRY_ALIASES_TO_ISO2 = {
+    "bahamas, the": "BS",
+    "egypt, arab rep.": "EG",
+    "hong kong sar, china": "HK",
+    "iran, islamic rep.": "IR",
+    "korea, rep.": "KR",
+    "puerto rico (us)": "PR",
+    "west bank and gaza": "PS",
+    "turkiye": "TR",
     "us": "US",
     "usa": "US",
     "united states of america": "US",
@@ -239,6 +254,14 @@ def find_file_in_dir(root_dir: str, name_contains: str, extension: str = ".csv")
     return candidates[0]
 
 
+def find_wdi_data_csv(raw_data_dir: str) -> str:
+    wdi_root = os.path.join(raw_data_dir, "World_Development_Indicators")
+    standard_export = os.path.join(wdi_root, "Data.csv")
+    if os.path.isfile(standard_export):
+        return standard_export
+    return find_file_in_dir(wdi_root, name_contains="_Data")
+
+
 def _safe_float(value: str) -> Optional[float]:
     if value is None:
         return None
@@ -294,7 +317,20 @@ def map_country_to_iso2(country_value: Any, default_iso2_code: str = "KE") -> st
     if lower_name in COUNTRY_ALIASES_TO_ISO2:
         return COUNTRY_ALIASES_TO_ISO2[lower_name]
 
+    resolved = _country_iso2(normalized)
+    if resolved:
+        return resolved
+
     return default_iso2_code
+
+
+def _country_iso2(country_name: str) -> Optional[str]:
+    if country_name in COST_INDEX_COUNTRY_TO_ISO2:
+        return COST_INDEX_COUNTRY_TO_ISO2[country_name]
+    try:
+        return pycountry.countries.lookup(country_name).alpha_2
+    except LookupError:
+        return None
 
 
 def map_industry_partition(text: str) -> str:
@@ -513,7 +549,7 @@ def extract_latest_ppp_by_iso3(wdi_csv_path: str) -> Dict[str, Dict[str, object]
             latest_ppp = None
             for year, col in year_cols:
                 maybe_value = _safe_float(row.get(col, ""))
-                if maybe_value is not None:
+                if maybe_value is not None and math.isfinite(maybe_value) and maybe_value > 0:
                     latest_year = year
                     latest_ppp = maybe_value
                     break
@@ -536,23 +572,57 @@ def extract_cost_index_by_iso2(cost_csv_path: str) -> Dict[str, Dict[str, float]
         reader = csv.DictReader(f)
         for row in reader:
             country_name = (row.get("Country") or "").strip()
-            iso2 = COST_INDEX_COUNTRY_TO_ISO2.get(country_name)
+            iso2 = _country_iso2(country_name)
             if not iso2:
                 continue
 
             cost_idx = _safe_float(row.get("Cost of Living Index", ""))
             rent_idx = _safe_float(row.get("Rent Index", ""))
             pp_idx = _safe_float(row.get("Local Purchasing Power Index", ""))
-            if cost_idx is None:
+            if cost_idx is None or not math.isfinite(cost_idx) or cost_idx <= 0:
                 continue
 
             by_iso2[iso2] = {
                 "cost_of_living_index": cost_idx,
-                "rent_index": rent_idx if rent_idx is not None else 0.0,
-                "local_purchasing_power_index": pp_idx if pp_idx is not None else 0.0,
+                "rent_index": rent_idx if rent_idx is not None and math.isfinite(rent_idx) else 0.0,
+                "local_purchasing_power_index": pp_idx if pp_idx is not None and math.isfinite(pp_idx) else 0.0,
             }
 
     return by_iso2
+
+
+def _validate_country_sources(
+    iso2_codes: Iterable[str],
+    ppp_by_iso3: Dict[str, Dict[str, object]],
+    cost_by_iso2: Dict[str, Dict[str, float]],
+) -> Dict[str, str]:
+    validated: Dict[str, str] = {}
+    errors: List[str] = []
+    for iso2 in sorted({code.strip().upper() for code in iso2_codes}):
+        country = pycountry.countries.get(alpha_2=iso2)
+        if country is None:
+            errors.append(f"{iso2}: invalid ISO-2 country code")
+            continue
+        iso3 = country.alpha_3
+        if iso3 not in ppp_by_iso3:
+            errors.append(f"{iso2}/{iso3}: missing usable PA.NUS.PPP series in WDI")
+        if iso2 not in cost_by_iso2:
+            errors.append(f"{iso2}: missing usable cost-of-living row")
+        if iso3 in ppp_by_iso3 and iso2 in cost_by_iso2:
+            validated[iso2] = iso3
+    if errors:
+        raise ValueError("Macro source coverage failed: " + "; ".join(errors))
+    return validated
+
+
+def validate_macro_country_coverage(raw_data_dir: str, iso2_codes: Iterable[str]) -> Dict[str, str]:
+    wdi_path = find_wdi_data_csv(raw_data_dir)
+    cost_path = find_file_in_dir(os.path.join(raw_data_dir, "Cost_Index"), name_contains="Cost_of_Living_Index")
+    return _validate_country_sources(
+        iso2_codes,
+        extract_latest_ppp_by_iso3(wdi_path),
+        extract_cost_index_by_iso2(cost_path),
+    )
 
 
 def _fallback_cost_index_value(cost_data: Dict[str, Dict[str, float]]) -> float:
@@ -600,11 +670,10 @@ def extract_mpesa_tariff_summary(mpesa_csv_path: str) -> Dict[str, object]:
 
 
 def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]:
-    wdi_root = os.path.join(raw_data_dir, "World_Development_Indicators")
     cost_root = os.path.join(raw_data_dir, "Cost_Index")
     mpesa_root = os.path.join(raw_data_dir, "Mpesa_Tarrifs")
 
-    wdi_csv_path = find_file_in_dir(wdi_root, name_contains="_Data")
+    wdi_csv_path = find_wdi_data_csv(raw_data_dir)
     cost_csv_path = find_file_in_dir(cost_root, name_contains="Cost_of_Living_Index")
     mpesa_csv_path = find_file_in_dir(mpesa_root, name_contains="tarrifs")
 
@@ -613,8 +682,19 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
     mpesa_summary = extract_mpesa_tariff_summary(mpesa_csv_path)
     fallback_col = _fallback_cost_index_value(cost_by_iso2)
 
+    country_mappings = dict(TARGET_ISO2_TO_ISO3)
+    for iso3 in sorted(ppp_by_iso3):
+        country = pycountry.countries.get(alpha_3=iso3)
+        if country and country.alpha_2 in cost_by_iso2:
+            country_mappings[country.alpha_2] = iso3
+    _validate_country_sources(
+        (iso2 for iso2 in country_mappings if iso2 not in TARGET_ISO2_TO_ISO3),
+        ppp_by_iso3,
+        cost_by_iso2,
+    )
+
     records: Dict[str, Dict[str, object]] = {}
-    for iso2, iso3 in TARGET_ISO2_TO_ISO3.items():
+    for iso2, iso3 in country_mappings.items():
         ppp_info = ppp_by_iso3.get(iso3)
         if ppp_info is None:
             raise ValueError(f"Missing PPP record for target country {iso2}/{iso3}")
@@ -628,7 +708,7 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
         records[iso2] = {
             "country_iso2": iso2,
             "country_iso3": iso3,
-            "country_name": ISO2_TO_COUNTRY_NAME[iso2],
+            "country_name": ISO2_TO_COUNTRY_NAME.get(iso2, str(ppp_info["country_name"])),
             "ppp_lcu_per_intl_dollar": ppp_value,
             "ppp_reference_year": ppp_year,
             "cost_of_living_index": float(cost_info["cost_of_living_index"]) if cost_info else fallback_col,
@@ -646,7 +726,7 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
             "indicator_series_code": PPP_SERIES_CODE,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "raw_data_dir": os.path.abspath(raw_data_dir),
-            "target_economies": list(TARGET_ISO2_TO_ISO3.keys()),
+            "target_economies": list(country_mappings),
             "mpesa_tariffs": {
                 "source_file": os.path.basename(mpesa_csv_path),
                 "summary": mpesa_summary,
