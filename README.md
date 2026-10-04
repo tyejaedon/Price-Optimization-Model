@@ -1,274 +1,115 @@
-# Dynamic Price Optimizer for Technical Mentors & Consultants
+# AI Dynamic Pricing Platform for Technical Mentors
 
-An intelligent pricing recommendation engine designed for independent consultants, technical mentors, and digital freelancers in emerging markets like Kenya.  
+A planned Android-to-cloud application that recommends market-aware hourly rates for technical mentors and freelancers. A mentor describes a service, selects an industry and the two countries involved, and receives a peer-informed quote with a transparent Kenyan M-Pesa surcharge where applicable.
 
-It analyzes qualitative skills from profile text, balances cross-border purchasing power, finds real market comparisons, and adds localized mobile money (M-Pesa) fee protection so practitioners never underquote or lose profit to transaction costs.
+**Project status:** The Python data, training, pricing, and FastAPI foundations exist. The native Android client, Firebase-protected pricing endpoint, pivot DTOs, Firestore service listings, and asynchronous audit flow are **planned**, not available in this repository yet. See the [pivot tracker](https://github.com/tyejaedon/Price-Optimization-Model/issues/66) and milestones 9-13 for the migration from the current implementation. The earlier [engineering blueprint](docs/Blueprint.md) describes the existing feature track; the proposed new blueprint is being adopted under #66.
 
----
+## Why this application?
 
-## The Problem
+Independent consultants can underquote international clients, price local clients out of reach, or overlook transaction fees. The platform aims to combine skill-based peer comparisons with bilateral purchasing-power context and, for Kenyan mentors, Safaricom M-Pesa fee protection. Quotes are recommendations, not guaranteed earnings or verified market prices.
 
-Freelancers and mentors in emerging economies face a tough rate-setting challenge:
+## Target application architecture
 
-- **The Cross-Border Dilemma**: If you quote international clients using local rates, you leave substantial money on the table. If you quote static US rates ($100+/hr), you price out local and regional African clients.  
-- **Guesswork Pricing**: Most independent professionals guess their hourly rates arbitrarily, leading to prolonged haggling, undercharging, or imposter syndrome.  
-- **Hidden Fee Leakage**: For domestic micro-consulting paid via mobile money (like Safaricom M-Pesa), withdrawal and transfer fees directly chip away at your net take-home earnings if not calculated into the quote upfront.  
-
----
-
-## How It Works
-
-The engine uses a **4-step pipeline**:
-
-| Step | Input | Process | Output |
-| --- | --- | --- | --- |
-| **1. NLP Capability Analysis** | Profile Bio & Skills | TF-IDF + SVD dimensionality reduction | 50-dimensional skill vector |
-| **2. Cross-Border Parity Adjustment** | Mentor & Client Country | World Bank PPP & cost-of-living scaling | Balanced international/local rate |
-| **3. Peer Cluster Lookup** | Industry Category | KD-Tree nearest-neighbor search (k=5) | Average of top 5 peer rates |
-| **4. Additive Margin Protection** | M-Pesa Fee Schedule | Safaricom tariff calculator | Final quoted rate with fee protection |
-
-### M-Pesa Margin Protection Formula
-\[
-\text{Final Quoted Rate} = \text{Base Recommended Rate} + \text{M-Pesa Transfer Fee}
-\]
-
----
-
-## System Architecture
-
-| Tier | Technology Stack | Key Components |
+| Tier | Intended design | Responsibility |
 | --- | --- | --- |
-| **Tier 1: Client Mobile App** | Android / Kotlin | Jetpack Compose UI (country selectors, skill inputs), PricingViewModel, hardware-backed encrypted storage |
-| **Tier 2: Cloud Ingestion API** | FastAPI / ASGI | Non-blocking async endpoints, Pydantic V2 validation, Firebase JWT authentication |
-| **Tier 3: Core Analytical & ML Pipeline** | Scikit-Learn | NLP tokenizer & dimensionality reducer (TF-IDF + SVD), PPP parity scaler, KD-Tree nearest-neighbor search (k=5), Safaricom M-Pesa tariff calculator |
-| **Tier 4: Persistence & Storage** | Firebase / Cloud Firestore | Firebase authentication (sessions & tokens), Firestore NoSQL (audit logs, peer nodes, reference lookups) |
+| Android client | Kotlin, Jetpack Compose, MVVM, `StateFlow<PricingUiState>`, Retrofit/OkHttp and coroutines | Collect mentor inputs, authenticate with Firebase, request and display pricing; dispatch network calls on `Dispatchers.IO` |
+| Pricing gateway | Python 3.11, FastAPI/Uvicorn and Pydantic v2 | Verify Firebase ID tokens with the Firebase Admin SDK, validate requests, load model artifacts once at application startup and serve `POST /price` |
+| ML engine | NLTK, scikit-learn and joblib | Compile peer-pricing artifacts offline; transform requests, retrieve neighbors and calculate a weighted base rate online |
+| Persistence | Firebase Authentication and Cloud Firestore | Link mentors to identities, store service listings and append pricing audit records |
+| Delivery | Docker and GitHub Actions | Package the API and validate backend/mobile integration without committing credentials or datasets |
 
----
+The intended Firestore collections are `/mentors/{mentor_id}` (auth link and country), root `/service_listings/{listing_id}` (service text, `industry_id`, 50-float SVD vector and peer-rate metadata), and append-only `/historical_transactions/{transaction_id}`. Pricing audits are intended to run through FastAPI `BackgroundTasks` after the response; reliability and failure handling are tracked in #72.
 
-## Repository Structure
+Firebase ID tokens will be supplied by the Android client and verified on the backend before pricing. The Android secure-storage approach is tracked in #75; no service-account keys belong in the app or this repository.
 
-| Path / File | Purpose |
-| --- | --- |
-| `Data/` | Top-level data directory for raw and processed project datasets |
-| `Data/Raw/` | Source datasets collected from external platforms and public indicators |
-| `Data/Raw/Cost_Index/` | Cost-of-living reference data by country |
-| `Data/Raw/Data_Scientist_Upwork/` | Upwork data scientist pricing and profile data |
-| `Data/Raw/Developer_Survey/` | Developer survey summary datasets |
-| `Data/Raw/freelancer_earnings/` | Freelancer earnings and skill stack datasets |
-| `Data/Raw/upwork-jobs.csv/` | Raw Upwork jobs export |
-| `Data/Raw/World_Development_Indicators/` | World Bank development and macroeconomic indicators |
-| `Data/Processed/` | Cleaned or transformed datasets ready for downstream analysis |
-| `Docs/` | Project documentation, diagrams, and design artifacts |
-| `Docs/Blueprint.md` | Project blueprint and planning document |
-| `Docs/Project_Milestones_and_Issues.md` | Detailed milestone roadmap and GitHub issue breakdown |
-| `Docs/Architecture/` | Architecture diagrams and technical design references |
-| `Docs/Architecture/Class/` | Class diagrams for API gateway, domain, ML pipeline, and mobile modules |
-| `Docs/Architecture/Conceptual Framework/` | High-level conceptual framework assets |
-| `Docs/Architecture/Database Schema/` | Database schema diagrams in image and vector formats |
-| `Docs/Architecture/ERD/` | Entity-relationship diagrams |
-| `Docs/Architecture/ML Pipeline/` | Machine learning pipeline diagrams |
-| `Docs/Architecture/System Arch/` | Overall system architecture diagrams |
-| `Docs/Architecture/Use case/` | Use-case diagrams |
-| `.github/ISSUE_TEMPLATE/` | GitHub issue forms aligned to project workstreams |
-| `.github/pull_request_template.md` | PR checklist tied to milestone and issue workflow |
-| `.github/copilot-instructions.md` | Agent instructions for issue-linked branching and PR governance |
-| `.github/agents/` | Workflow governance agent docs and skill packs |
-| `.github/workflows/pr-governance.yml` | PR policy gates: draft-first, branch-issue linkage, issue closure format |
-| `.github/workflows/ci-checks.yml` | CI integrity checks for repository safety and Python sanity |
-| `scripts/bootstrap-workflow.ps1` | Prompts for issue/branch type, creates compliant branch, and opens draft PR with milestone/labels |
-| `scripts/ready-pr.ps1` | Verifies required checks and transitions draft PRs to Ready for Review |
-| `CONTRIBUTING.md` | Contributor process, label map, and milestone mapping guide |
-| `Src/` | Source code directory for implementation modules |
-| `Test/` | Test directory for validation and QA assets |
-| `Readme.md` | Project overview, setup guidance, and usage documentation |
+## How a price is calculated
 
----
+**Offline training:** Harmonize historical freelance rates and macroeconomic data into parquet; sanitize and lemmatize service text; fit unigram/bigram TF-IDF (up to 12,000 features) and a 50-component Truncated SVD; scale three macro/market features; fuse them into 53-dimensional coordinates; build industry-partitioned KD-Trees; and export reloadable joblib artifacts.
 
-## Quickstart & Setup
+**Online inference:** Transform the submitted text and metadata with those *same fitted artifacts*, find up to five peers in the requested industry, and apply inverse-distance weighting to their rates. The target design uses a quadratic distance penalty (`p=2`, `epsilon=1e-6`). The base predicted rate plus any applicable Kenyan M-Pesa tariff produces the final quote:
 
-### Prerequisites
-- Python: 3.11 or higher  
-- Java SDK: 17+ (if building the Android client)  
-- Android Studio: Hedgehog (2023.1.1) or newer  
-
-### 1. Installation
-```bash
-git clone https://github.com/your-username/dynamic-pricing-engine.git
-cd dynamic-pricing-engine
-
-python3 -m venv venv
-source venv/bin/activate       # On Windows: venv\Scripts\activate
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Download required NLTK lexical corpora
-python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
+```text
+finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
 ```
 
-### 2. Prepare Data & Build Corpus
-```bash
-python -m src.ingest_multisource
-```
+The existing ML and tariff implementations are reused, not restarted. #67 tracks any training/inference feature, IDW or artifact changes needed to match this target; peer IDs, confidence semantics and the request's optional rate floor are resolved in #68.
 
-### 2b. Preview and export M1.2 harmonized marketplace records
-```bash
-python -m src.ingest_multisource --mode harmonize_corpus --preview-limit 5
-python -m src.ingest_multisource --mode harmonize_corpus --output data/processed/harmonized_marketplace_corpus.csv
-```
+## Target pricing contract (planned)
 
-### 2c. Build M1.3 harmonized parquet with macro joins
-```bash
-python -m src.ingest_multisource --mode macro_lookup --output data/processed/macro_lookup_table.json
-python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/processed/macro_lookup_table.json --output data/processed/harmonized_marketplace_corpus.parquet --preview-limit 3
-```
+`POST /price` will require `Authorization: Bearer <Firebase ID token>` and a validated `PricingQueryDTO`. The following illustrates the **proposed** request and response shape, not the currently deployed API:
 
-### 2d. Run M2.1 text sanitization preview
-```bash
-python -m src.nlp_pipeline --text "Senior backend engineer with 8 years of API platform experience"
-```
-
-### 2e. Run M2.2 TF-IDF + SVD artifact demo
-```bash
-python -m src.nlp_pipeline --mode fit_demo --n-components 50 --max-features 12000 --artifact-dir artifacts
-```
-
-### 2f. Run M3.1 metadata scaler demo
-```bash
-python -m src.macro_arbitrage --mode fit_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
-```
-
-### 2g. Run M3.2 hybrid coordinate fusion demo
-```bash
-python -m src.macro_arbitrage --mode fuse_demo --artifact-dir artifacts --mentor-country KE --client-country US --market-saturation 0.25 --industry-density 0.4
-```
-
-### 2h. Run M4.2 IDW regression + peer explainability demo
-```bash
-python -m src.spatial_engine --mode idw_demo --artifact-dir artifacts --requested-partition product_management --min-partition-size 2 --k 3
-```
-
-### 2i. Run M5.1 M-Pesa tariff evaluator demo
-```bash
-python -m src.tariff_evaluator --base-rate 4500 --mentor-country KE --show-bands
-```
-
-### 3. Train the Model
-```bash
-python -m src.train_pipeline
-```
-
-### 3b. Run M6.2 evaluation + training summary export
-```bash
-python -m src.train_pipeline --mode evaluate --artifact-dir artifacts --quality-gate-r2 0.75 --no-enforce-quality-gate
-```
-
-### 3d. Run M6.3 raw versus log-target evaluation
-```powershell
-python -m src.train_pipeline --mode evaluate --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --artifact-dir (Join-Path $env:TEMP "m63_evaluation") --quality-gate-r2 0.75 --no-enforce-quality-gate
-```
-
-### 3c. Generate M6.2 tuning diagrams, tables, and report
-```powershell
-python -m src.experiment_reporting --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --output-dir reports/model_evaluation --k-values 1 3 5 7 10
-```
-
-### 3e. Run M6.4 expanded KNN and hybrid-distance tuning
-```powershell
-python -m src.experiment_reporting --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --output-dir (Join-Path $env:TEMP "m64_knn_tuning_report") --k-values 1 3 5 7 10 15 20 30 50 --text-weights 1.0 --metadata-weights 1.0 --minimum-partition-sizes 1 --epsilons 1e-9 --fallback-policies 1
-```
-
-To compare hybrid block weights, pass multiple values such as `--text-weights 0.5 1.0 1.5 2.0 --metadata-weights 0.5 1.0 1.5 2.0`.
-
-### 3f. Run M6.5 leakage-safe feature ablations
-```powershell
-python -m src.experiment_reporting --mode feature_ablation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --ablation-output-dir (Join-Path $env:TEMP "m65_feature_ablations") --ablation-k-neighbors 10
-```
-
-### 3g. Run M6.6 text representation experiments
-```powershell
-python -m src.experiment_reporting --mode text_representation --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --text-output-dir (Join-Path $env:TEMP "m66_text_representation_report") --text-components 25 50 75 100 --text-ngram-ranges 1,1 1,2 1,3 --text-max-features 12000 --text-min-dfs 1 --text-normalization 0 1 --text-k-neighbors 10
-```
-
-### 3h. Run M6.7 validation diagnostics
-```powershell
-python -m src.validation_diagnostics --harmonized-parquet (Join-Path $env:TEMP "m62_report_inputs\harmonized_marketplace_corpus.parquet") --macro-lookup (Join-Path $env:TEMP "m62_report_inputs\macro_lookup_table.json") --output-dir (Join-Path $env:TEMP "m67_validation_diagnostics") --seeds 42 43 44 --k-neighbors 10
-```
-
-### 4. Start the Inference Server
-```bash
-uvicorn src.serve:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 4b. Run administrator MLOps controls (M8.7 / UC8-UC11)
-Configure `MLOPS_ADMIN_TOKEN` through a secret manager or local environment, then
-use the admin-only profile, metrics, grid-search, and retraining routes documented
-in `docs/M8.7_MLOps_UC8_UC11.md`.
-
----
-
-## API Reference
-
-### Get a Rate Recommendation
-**POST** `/api/v1/optimize-price`
-
-Request:
 ```json
 {
-  "raw_description": "Senior Android engineer specializing in Kotlin coroutines, Jetpack Compose UI architecture, and clean MVVM modularization. Mentored 15+ junior developers in TDD.",
-  "selected_industry": "SOFTWARE_ENG",
-  "mentor_country": "KE",
-  "client_country": "US",
-  "competitiveness_score": 0.65,
-  "market_saturation_score": 0.45
+  "mentorId": "mentor-123",
+  "rawText": "Experienced Android developer specializing in Kotlin, Jetpack Compose, and mentoring mobile teams.",
+  "industry": "mobile",
+  "mentorCountry": "KE",
+  "clientCountry": "US",
+  "competitivenessScore": 0.65,
+  "costOfLivingIndex": 0.74,
+  "baseRateFloor": 4000.0
 }
 ```
 
-Response:
 ```json
 {
-  "base_predicted_rate": 4700.0,
-  "mpesa_tariff_surcharge": 55.0,
-  "final_quoted_rate": 4755.0,
-  "currency": "KES",
-  "bilateral_arbitrage_factor": 0.51,
-  "nearest_neighbors": [
+  "basePredictedRate": 4700.0,
+  "mpesaTariffSurcharge": 55.0,
+  "finalQuotedRate": 4755.0,
+  "kNeighborsUsed": 1,
+  "confidenceScore": 0.82,
+  "bilateralArbitrageFactor": 0.51,
+  "comparables": [
     {
-      "peer_index": 1402,
-      "distance": 0.214,
-      "verified_rate": 4900.0,
-      "similarity_score": 0.823
-    },
-    {
-      "peer_index": 891,
-      "distance": 0.289,
-      "verified_rate": 4650.0,
-      "similarity_score": 0.775
+      "listingId": "listing-123",
+      "verifiedRate": 4900.0,
+      "similarityScore": 0.82
     }
-  ]
+  ],
+  "reason": "Illustrative peer-based recommendation with a Kenyan M-Pesa surcharge."
 }
 ```
 
----
+Rates in this example are illustrative KES/hour values. The proposed DTO limits `rawText` to 20-2,000 characters, uses two-letter country codes and bounds `competitivenessScore` to 0-1. The identity-to-mentor mapping and route migration are part of #68 and #69; **the current API does not accept this request or return this response**.
 
-## Health Check
-**GET** `/health`
-```json
-{
-  "status": "HEALTHY",
-  "models_loaded": true
-}
+## What runs today
+
+The existing Python service exposes `POST /api/v1/optimize-price` using snake_case fields such as `raw_description`, `selected_industry`, `mentor_country`, `client_country`, `competitiveness_score` and `market_saturation_score`. Its response uses `base_predicted_rate`, `mpesa_tariff_surcharge`, `final_quoted_rate` and `nearest_neighbors`. It also exposes `GET /health` and Swagger UI at `/docs`. Pricing currently lacks Firebase token verification and writes transactions synchronously; do not treat it as the secured pivot gateway.
+
+The local service loads model artifacts at FastAPI startup, so train and export artifacts before expecting a ready model. See `src/api_contracts.py` and `src/serve.py` for the **current** API schema and behavior.
+
+### Run the existing Python pipeline locally
+
+Requires Python 3.11+, raw input datasets under `data/raw/` for ingestion, and the dependencies in `requirements.txt`. Datasets, generated artifacts and service credentials must remain outside version control.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
+
+python -m src.ingest_multisource --mode macro_lookup --output data/processed/macro_lookup_table.json
+python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/processed/macro_lookup_table.json --output data/processed/harmonized_marketplace_corpus.parquet
+python -m src.train_pipeline --mode evaluate --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --artifact-dir artifacts --no-enforce-quality-gate
+uvicorn src.serve:app --host 127.0.0.1 --port 8000
 ```
 
----
+The training command above disables the evaluation quality gate for local exploration; inspect its reported metrics before relying on its artifacts. Use `/docs` for the current request schema and `/health` for model readiness. Android build/run instructions will be added when the client exists (#74-#76).
 
-## Running Automated Tests
-```bash
-pytest tests/ -v
-```
+## Pivot delivery sequence
 
----
+| Stage | Milestone | Outcome |
+| --- | --- | --- |
+| 1 | [Milestone 9](https://github.com/tyejaedon/Price-Optimization-Model/milestone/9) | Adopt the new blueprint and reconcile reusable ML artifacts |
+| 2 | [Milestone 10](https://github.com/tyejaedon/Price-Optimization-Model/milestone/10) | Migrate the API contract and secure pricing with Firebase |
+| 3 | [Milestone 11](https://github.com/tyejaedon/Price-Optimization-Model/milestone/11) | Align Firestore collections, tariffs and asynchronous audit |
+| 4 | [Milestone 12](https://github.com/tyejaedon/Price-Optimization-Model/milestone/12) | Build the Android Compose shell and Firebase sign-in |
+| 5 | [Milestone 13](https://github.com/tyejaedon/Price-Optimization-Model/milestone/13) | Integrate Retrofit pricing and prepare Docker/CI delivery |
 
-## Academic Attribution
+Contributions follow the issue-first, draft-PR workflow in [CONTRIBUTING.md](CONTRIBUTING.md). The current project structure is `src/` for Python modules, `tests/` for tests, `docs/` for architecture and planning, and `data/` for ignored local datasets.
+
+## Academic attribution
+
 Developed as an academic thesis project at the **School of Computing and Engineering Sciences, Strathmore University, Nairobi, Kenya**.
 
 ```bibtex
@@ -282,10 +123,6 @@ Developed as an academic thesis project at the **School of Computing and Enginee
 }
 ```
 
----
-
 ## License
-Distributed under the **MIT License**.
 
----
-
+Distributed under the [MIT License](LICENSE.md).
