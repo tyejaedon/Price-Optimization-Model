@@ -139,7 +139,7 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
         self.assertEqual(second["base_predicted_rate"], 4200.0)
         self.assertEqual(first["nearest_neighbors"][0]["distance"], 0.0)
         self.assertEqual(first["nearest_neighbors"][0]["similarity_score"], 1.0)
-        self.assertEqual(first["nearest_neighbors"][0]["idw_weight"], 1.0)
+        self.assertGreater(first["nearest_neighbors"][0]["idw_weight"], 0.999)
 
     def test_similarity_scores_stay_bounded(self) -> None:
         indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
@@ -172,7 +172,25 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
         self.assertEqual(baseline["base_predicted_rate"], reloaded["base_predicted_rate"])
         self.assertEqual(baseline["nearest_neighbors"], reloaded["nearest_neighbors"])
 
+    def test_quadratic_idw_uses_epsilon_and_handles_duplicate_exact_matches(self) -> None:
+        weights = DomainPartitionedKDTreeIndexer.compute_inverse_distance_weights([0.0, 0.0, 1.0])
+        expected = np.array([1e6, 1e6, 1 / (1 + 1e-6)])
+        np.testing.assert_allclose(weights, expected / expected.sum())
+        np.testing.assert_allclose(
+            DomainPartitionedKDTreeIndexer.compute_inverse_distance_weights([1.0, 2.0]),
+            np.array([1 / (1 + 1e-6), 1 / (4 + 1e-6)]) / (1 / (1 + 1e-6) + 1 / (4 + 1e-6)),
+        )
+
+    def test_five_peer_fallback_requires_general_tech_capacity(self) -> None:
+        vectors = np.vstack([self._make_vector(float(index)) for index in range(10)])
+        indexer = DomainPartitionedKDTreeIndexer()
+        indexer.fit(vectors, ["mobile"] * 4 + ["general_tech"] * 6, verified_rates=[1000.0] * 10)
+        result = indexer.predict_base_rate(vectors[0], requested_partition="mobile")
+        self.assertEqual(result["routed_partition"], "general_tech")
+        self.assertEqual(result["k_neighbors_used"], 5)
+        with self.assertRaisesRegex(KeyError, "No partition"):
+            indexer.predict_base_rate(vectors[0], requested_partition="data_ai", k=7)
+
 
 if __name__ == "__main__":
     unittest.main()
-

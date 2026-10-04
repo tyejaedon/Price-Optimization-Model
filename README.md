@@ -26,7 +26,7 @@ Firebase ID tokens will be supplied by the Android client and verified on the ba
 
 **Offline training:** Harmonize historical freelance rates and macroeconomic data into parquet; sanitize and lemmatize service text; fit unigram/bigram TF-IDF (up to 12,000 features) and a 50-component Truncated SVD; scale three macro/market features; fuse them into 53-dimensional coordinates; build industry-partitioned KD-Trees; and export reloadable joblib artifacts.
 
-**Online inference:** Transform the submitted text and metadata with those *same fitted artifacts*, find up to five peers in the requested industry, and apply inverse-distance weighting to their rates. The target design uses a quadratic distance penalty (`p=2`, `epsilon=1e-6`). The base predicted rate plus any applicable Kenyan M-Pesa tariff produces the final quote:
+**Online inference:** Transform the submitted text and metadata with those *same fitted artifacts*, retrieve five peers in the requested industry (or `general_tech` if that niche has fewer than five), and apply quadratic inverse-distance weighting (`1 / (distance² + 1e-6)`). If neither partition has five peers, inference fails rather than silently changing industries. The base predicted rate plus any applicable Kenyan M-Pesa tariff produces the final quote:
 
 ```text
 finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
@@ -77,6 +77,8 @@ Rates in this example are illustrative KES/hour values. The proposed DTO limits 
 The existing Python service exposes `POST /api/v1/optimize-price` using snake_case fields such as `raw_description`, `selected_industry`, `mentor_country`, `client_country`, `competitiveness_score` and `market_saturation_score`. Its response uses `base_predicted_rate`, `mpesa_tariff_surcharge`, `final_quoted_rate` and `nearest_neighbors`. It also exposes `GET /health` and Swagger UI at `/docs`. Pricing currently lacks Firebase token verification and writes transactions synchronously; do not treat it as the secured pivot gateway.
 
 The local service loads model artifacts at FastAPI startup, so train and export artifacts before expecting a ready model. See `src/api_contracts.py` and `src/serve.py` for the **current** API schema and behavior.
+
+The current production feature schema remains `[bilateral_arbitrage_factor, market_saturation_score, industry_relative_density]`, in that order after 50 text features. The training export includes `inference_config.json` (feature schema, partition-level training density, KNN settings and feature-block weights) and `macro_lookup_table.json` alongside the fitted joblib files; deploy the entire artifact directory together and retrain to replace older, incompatible sets. Online density is the median training value for the selected partition, not the legacy request's `competitiveness_score`. That legacy input is accepted but **does not affect the trained coordinate**; competitiveness and optional mentor cost-of-living overrides require a separately versioned retraining/DTO migration under #83. The existing trained third feature is density, not the proposed mentor cost-of-living feature, and the existing TF-IDF training `min_df=1` differs from the proposed `df>=2`; neither is relabeled as though it were already migrated. The existing stratified evaluation is not chronological OOT evidence (#81). No generated model or data files belong in Git.
 
 ### Run the existing Python pipeline locally
 

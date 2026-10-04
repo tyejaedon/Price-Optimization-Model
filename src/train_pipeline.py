@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -22,13 +23,16 @@ from src.ingest_multisource import (
 )
 from src.macro_arbitrage import (
     DEFAULT_MACRO_LOOKUP,
+    DEFAULT_FEATURE_NAMES,
+    DEFAULT_INFERENCE_CONFIG_ARTIFACT,
+    DEFAULT_BUNDLED_MACRO_LOOKUP,
     METADATA_VECTOR_DIMENSIONS,
     TEXT_VECTOR_DIMENSIONS,
     ContinuousMetadataNormalizer,
     fuse_coordinate_batches,
 )
-from src.nlp_pipeline import TextFeatureReducer
-from src.spatial_engine import DomainPartitionedKDTreeIndexer
+from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
+from src.spatial_engine import DEFAULT_IDW_EPSILON, DEFAULT_MIN_PARTITION_SIZE, DomainPartitionedKDTreeIndexer
 
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
 DEFAULT_ARTIFACT_DIR = "artifacts"
@@ -139,18 +143,7 @@ def build_stratified_splits(
 
 
 def _ensure_text_dimensions(matrix: np.ndarray, expected_dimensions: int = TEXT_VECTOR_DIMENSIONS) -> np.ndarray:
-    if matrix.ndim != 2:
-        raise ValueError(f"Expected a 2-D text matrix; got shape {matrix.shape}.")
-
-    cols = matrix.shape[1]
-    if cols == expected_dimensions:
-        return matrix
-    if cols > expected_dimensions:
-        return matrix[:, :expected_dimensions]
-
-    pad_width = expected_dimensions - cols
-    padded = np.pad(matrix, ((0, 0), (0, pad_width)), mode="constant", constant_values=0.0)
-    return padded.astype(float, copy=False)
+    return ensure_text_dimensions(matrix, expected_dimensions)
 
 
 def _fit_feature_matrices(
@@ -168,6 +161,8 @@ def _fit_feature_matrices(
         raise ValueError("text_weight must be finite and non-negative.")
     if not np.isfinite(float(metadata_weight)) or float(metadata_weight) < 0.0:
         raise ValueError("metadata_weight must be finite and non-negative.")
+    if n_components != TEXT_VECTOR_DIMENSIONS and save_artifacts:
+        raise ValueError("Production artifacts require a 50-component text reducer.")
     train_texts = [str(value) for value in split_data.train["raw_description"].tolist()]
     validation_texts = [str(value) for value in split_data.validation["raw_description"].tolist()]
     test_texts = [str(value) for value in split_data.test["raw_description"].tolist()]
@@ -283,7 +278,7 @@ def _predict_idw(
     partitions: List[str],
     k_neighbors: int,
     allow_fallback: bool = True,
-    epsilon: float = 1e-9,
+    epsilon: float = DEFAULT_IDW_EPSILON,
 ) -> np.ndarray:
     predictions: List[float] = []
     for row_number, partition in enumerate(partitions):
@@ -390,10 +385,14 @@ def evaluate_and_serialize_training(
     enforce_quality_gate: bool = True,
     text_weight: float = 1.0,
     metadata_weight: float = 1.0,
-    minimum_partition_size: int = 1,
-    idw_epsilon: float = 1e-9,
+    minimum_partition_size: int = DEFAULT_MIN_PARTITION_SIZE,
+    idw_epsilon: float = DEFAULT_IDW_EPSILON,
     allow_fallback: bool = True,
 ) -> Dict[str, Any]:
+    if n_components != TEXT_VECTOR_DIMENSIONS:
+        raise ValueError("Production artifacts require a 50-component text reducer.")
+    if int(k_neighbors) < 1 or not np.isfinite(idw_epsilon) or idw_epsilon <= 0:
+        raise ValueError("KNN neighbors and IDW epsilon must be positive.")
     frame = load_harmonized_parquet(harmonized_parquet_path)
     split_data = build_stratified_splits(
         frame,
@@ -436,6 +435,25 @@ def evaluate_and_serialize_training(
         verified_rates=matrices.y_train.tolist(),
     )
     idw_indexer.save_artifacts(artifact_dir)
+    bundled_macro = os.path.join(artifact_dir, DEFAULT_BUNDLED_MACRO_LOOKUP)
+    if os.path.abspath(macro_lookup_path) != os.path.abspath(bundled_macro):
+        shutil.copyfile(macro_lookup_path, bundled_macro)
+    density_by_partition = {
+        str(partition): float(values.median())
+        for partition, values in frame.groupby("industry_partition")["industry_relative_density"]
+    }
+    inference_config = {
+        "version": 1,
+        "text_dimensions": TEXT_VECTOR_DIMENSIONS,
+        "metadata_features": list(DEFAULT_FEATURE_NAMES),
+        "k_neighbors": int(k_neighbors),
+        "idw_epsilon": float(idw_epsilon),
+        "text_weight": float(text_weight),
+        "metadata_weight": float(metadata_weight),
+        "partition_density": density_by_partition,
+    }
+    with open(os.path.join(artifact_dir, DEFAULT_INFERENCE_CONFIG_ARTIFACT), "w", encoding="utf-8") as handle:
+        json.dump(inference_config, handle, indent=2, sort_keys=True)
 
     frozen_indexer = DomainPartitionedKDTreeIndexer.load_artifacts(artifact_dir)
     validation_predictions = _predict_idw(
@@ -666,4 +684,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

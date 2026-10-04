@@ -1,4 +1,6 @@
+import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +70,18 @@ class ServeApiTests(unittest.TestCase):
             verified_rates=[3000.0, 3200.0, 3400.0, 3600.0, 3800.0],
         )
         indexer.save_artifacts(artifact_dir)
+        shutil.copyfile(macro_lookup_path, os.path.join(artifact_dir, "macro_lookup_table.json"))
+        with open(os.path.join(artifact_dir, "inference_config.json"), "w", encoding="utf-8") as handle:
+            json.dump({
+                "version": 1,
+                "text_dimensions": 50,
+                "metadata_features": ["bilateral_arbitrage_factor", "market_saturation_score", "industry_relative_density"],
+                "k_neighbors": 5,
+                "idw_epsilon": 1e-6,
+                "text_weight": 1.0,
+                "metadata_weight": 1.0,
+                "partition_density": {"web_backend": 0.5},
+            }, handle)
         return artifact_dir, macro_lookup_path, tariff_csv_path
 
     def test_health_reports_ready_when_artifacts_load(self) -> None:
@@ -131,7 +145,37 @@ class ServeApiTests(unittest.TestCase):
             self.assertEqual(response.json()["status"], "DEGRADED")
             self.assertFalse(response.json()["models_loaded"])
 
+    def test_incompatible_feature_manifest_is_unready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
+            config_path = os.path.join(artifact_dir, "inference_config.json")
+            with open(config_path, encoding="utf-8") as handle:
+                config = json.load(handle)
+            config["metadata_features"][1] = "competitiveness_score"
+            with open(config_path, "w", encoding="utf-8") as handle:
+                json.dump(config, handle)
+            with TestClient(create_app(artifact_dir, macro_path, tariff_path)) as client:
+                self.assertFalse(client.get("/health").json()["models_loaded"])
+                self.assertEqual(client.post("/api/v1/optimize-price", json={
+                    "raw_description": "Senior web backend engineer",
+                    "selected_industry": "web_backend", "mentor_country": "KE", "client_country": "US",
+                }).status_code, 503)
+
+    def test_short_vocabulary_still_produces_53d_query(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
+            reducer = TextFeatureReducer(n_components=50)
+            reducer.fit_transform(["python api engineering", "python backend", "api backend"])
+            reducer.save_artifacts(artifact_dir)
+            app = create_app(artifact_dir, macro_path, tariff_path)
+            with TestClient(app) as client:
+                self.assertTrue(client.get("/health").json()["models_loaded"])
+                result = client.post("/api/v1/optimize-price", json={
+                    "raw_description": "Python backend engineering",
+                    "selected_industry": "web_backend", "mentor_country": "KE", "client_country": "US",
+                })
+                self.assertEqual(result.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()
-

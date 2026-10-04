@@ -8,6 +8,8 @@ FirestoreRepository and a loaded model callable without exposing credentials her
 from __future__ import annotations
 
 import hmac
+import json
+import math
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -28,11 +30,20 @@ from src.api_contracts import (
 )
 from src.mlops_service import MLOpsService
 from src.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS, map_industry_partition
-from src.macro_arbitrage import DEFAULT_MACRO_LOOKUP, ContinuousMetadataNormalizer, fuse_coordinates
-from src.nlp_pipeline import TextFeatureReducer
+from src.macro_arbitrage import (
+    DEFAULT_BUNDLED_MACRO_LOOKUP,
+    DEFAULT_FEATURE_NAMES,
+    DEFAULT_INFERENCE_CONFIG_ARTIFACT,
+    DEFAULT_MACRO_LOOKUP,
+    HYBRID_VECTOR_DIMENSIONS,
+    TEXT_VECTOR_DIMENSIONS,
+    ContinuousMetadataNormalizer,
+    fuse_coordinates,
+)
+from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
 from src.observability import MetricsRegistry
 from src.repository import InMemoryRepository, Repository
-from src.spatial_engine import DEFAULT_QUERY_NEIGHBORS, DomainPartitionedKDTreeIndexer
+from src.spatial_engine import DomainPartitionedKDTreeIndexer
 from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator
 
 InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any]]
@@ -67,10 +78,11 @@ class InferenceRuntime:
         self.spatial_indexer: Optional[DomainPartitionedKDTreeIndexer] = None
         self.tariff_evaluator: Optional[MpesaTariffEvaluator] = None
         self.load_error: Optional[str] = None
+        self.inference_config: Optional[Dict[str, Any]] = None
 
     @property
     def models_loaded(self) -> bool:
-        return all(component is not None for component in (self.reducer, self.metadata_normalizer, self.spatial_indexer, self.tariff_evaluator))
+        return self.inference_config is not None and all(component is not None for component in (self.reducer, self.metadata_normalizer, self.spatial_indexer, self.tariff_evaluator))
 
     @property
     def database_status(self) -> Literal["firestore", "unconfigured", "unavailable"]:
@@ -84,16 +96,51 @@ class InferenceRuntime:
 
     def load(self) -> None:
         try:
+            with open(os.path.join(self.artifact_dir, DEFAULT_INFERENCE_CONFIG_ARTIFACT), encoding="utf-8") as handle:
+                config = json.load(handle)
+            if (
+                config["version"] != 1
+                or config["text_dimensions"] != TEXT_VECTOR_DIMENSIONS
+                or config["metadata_features"] != list(DEFAULT_FEATURE_NAMES)
+            ):
+                raise ValueError("Incompatible inference feature schema.")
+            if (
+                not isinstance(config["k_neighbors"], int) or config["k_neighbors"] < 1
+                or not isinstance(config["idw_epsilon"], (int, float))
+                or not (0 < config["idw_epsilon"] <= 1)
+            ):
+                raise ValueError("Invalid inference KNN configuration.")
+            if not all(
+                isinstance(config[key], (int, float)) and math.isfinite(config[key]) and config[key] >= 0
+                for key in ("text_weight", "metadata_weight")
+            ):
+                raise ValueError("Invalid inference feature weights.")
+            if not isinstance(config["partition_density"], dict) or not all(
+                isinstance(value, (int, float)) and math.isfinite(value)
+                for value in config["partition_density"].values()
+            ):
+                raise ValueError("Missing partition density mapping.")
+            macro_path = os.path.join(self.artifact_dir, DEFAULT_BUNDLED_MACRO_LOOKUP)
             self.reducer = TextFeatureReducer.load_artifacts(self.artifact_dir)
-            self.metadata_normalizer = ContinuousMetadataNormalizer.load_artifacts(self.artifact_dir)
+            if self.reducer.n_components_requested != TEXT_VECTOR_DIMENSIONS or self.reducer.reducer.n_components > TEXT_VECTOR_DIMENSIONS:
+                raise ValueError("Incompatible fitted text dimensions.")
+            self.metadata_normalizer = ContinuousMetadataNormalizer.load_artifacts(self.artifact_dir, macro_lookup_path=macro_path)
             self.spatial_indexer = DomainPartitionedKDTreeIndexer.load_artifacts(self.artifact_dir)
+            if (
+                self.spatial_indexer.hybrid_dimensions != HYBRID_VECTOR_DIMENSIONS
+                or not self.spatial_indexer.partition_verified_rates
+                or not set(self.spatial_indexer.active_partitions()).issubset(config["partition_density"])
+            ):
+                raise ValueError("Incompatible inference KD-Tree artifact.")
             self.tariff_evaluator = MpesaTariffEvaluator.from_csv(self.tariff_csv_path)
+            self.inference_config = config
             self.load_error = None
-        except (FileNotFoundError, KeyError, RuntimeError, ValueError, OSError) as exc:
+        except (FileNotFoundError, KeyError, RuntimeError, ValueError, OSError, TypeError, json.JSONDecodeError) as exc:
             self.reducer = None
             self.metadata_normalizer = None
             self.spatial_indexer = None
             self.tariff_evaluator = None
+            self.inference_config = None
             self.load_error = str(exc)
 
     def _partition(self, selected_industry: str) -> str:
@@ -104,17 +151,21 @@ class InferenceRuntime:
         if not self.models_loaded:
             raise RuntimeError(self.load_error or "Inference artifacts are not loaded.")
         assert self.reducer is not None and self.metadata_normalizer is not None
-        assert self.spatial_indexer is not None and self.tariff_evaluator is not None
-        text_vector = self.reducer.transform([query.raw_description])
+        assert self.spatial_indexer is not None and self.tariff_evaluator is not None and self.inference_config is not None
+        config = self.inference_config
+        partition = self._partition(query.selected_industry)
+        if partition not in config["partition_density"]:
+            raise ValueError(f"No trained density for partition '{partition}'.")
+        text_vector = ensure_text_dimensions(self.reducer.transform([query.raw_description]))
         raw_metadata = self.metadata_normalizer.build_live_metadata_vector(
-            query.mentor_country, query.client_country, query.market_saturation_score, query.competitiveness_score
+            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition]
         )
         normalized_metadata = self.metadata_normalizer.transform_live_metadata(
-            query.mentor_country, query.client_country, query.market_saturation_score, query.competitiveness_score
+            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition]
         )
-        fused = fuse_coordinates(text_vector, normalized_metadata)
+        fused = fuse_coordinates(text_vector * config["text_weight"], normalized_metadata * config["metadata_weight"])
         prediction = self.spatial_indexer.predict_base_rate(
-            fused, requested_partition=self._partition(query.selected_industry), k=DEFAULT_QUERY_NEIGHBORS, allow_fallback=True
+            fused, requested_partition=partition, k=config["k_neighbors"], allow_fallback=True, epsilon=config["idw_epsilon"]
         )
         quote = self.tariff_evaluator.evaluate_quote(float(prediction["base_predicted_rate"]), query.mentor_country)
         return PredictionResultDTO(
@@ -277,4 +328,3 @@ def create_app(
 
 
 app = create_app()
-

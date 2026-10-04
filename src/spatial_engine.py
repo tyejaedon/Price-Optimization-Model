@@ -20,7 +20,7 @@ DEFAULT_LEAF_SIZE = 40
 DEFAULT_MIN_PARTITION_SIZE = 5
 DEFAULT_QUERY_NEIGHBORS = 5
 DEFAULT_FALLBACK_PARTITION = "general_tech"
-DEFAULT_IDW_EPSILON = 1e-9
+DEFAULT_IDW_EPSILON = 1e-6
 
 
 def _normalize_partition(partition: Any) -> str:
@@ -154,16 +154,7 @@ class DomainPartitionedKDTreeIndexer:
         if not active:
             return []
 
-        candidates: List[str] = []
-        if self.fallback_partition in self.partition_counts and self.fallback_partition != requested_partition:
-            candidates.append(self.fallback_partition)
-
-        ranked = sorted(
-            (partition for partition in active if partition != requested_partition and partition not in candidates),
-            key=lambda partition: (-self.partition_counts[partition], partition),
-        )
-        candidates.extend(ranked)
-        return candidates
+        return [self.fallback_partition] if self.fallback_partition in active and self.fallback_partition != requested_partition else []
 
     def resolve_query_partition(
         self,
@@ -176,7 +167,7 @@ class DomainPartitionedKDTreeIndexer:
 
         requested = _normalize_partition(requested_partition)
         requested_count = self.partition_counts.get(requested, 0)
-        required_count = max(1, min(int(k), self.minimum_partition_size))
+        required_count = max(1, int(k), self.minimum_partition_size)
 
         if requested in self.partition_trees and requested_count >= required_count:
             return {
@@ -198,7 +189,7 @@ class DomainPartitionedKDTreeIndexer:
             raise KeyError(f"No KD-Tree exists for requested partition '{requested}'.")
 
         for candidate in self._fallback_candidates(requested):
-            if self.partition_counts.get(candidate, 0) >= 1:
+            if self.partition_counts[candidate] >= required_count:
                 trigger_reason = (
                     "requested partition unavailable" if requested_count == 0 else "low-volume partition fallback triggered"
                 )
@@ -209,15 +200,7 @@ class DomainPartitionedKDTreeIndexer:
                     "reason": trigger_reason,
                 }
 
-        if requested in self.partition_trees:
-            return {
-                "requested_partition": requested,
-                "routed_partition": requested,
-                "fallback_triggered": False,
-                "reason": "no alternate fallback partition available",
-            }
-
-        raise KeyError(f"No KD-Tree exists for requested partition '{requested}' and no fallback partition is available.")
+        raise KeyError(f"No partition with at least {required_count} peers exists for '{requested}'.")
 
     def _query_partition_tree(
         self,
@@ -255,16 +238,10 @@ class DomainPartitionedKDTreeIndexer:
         if np.any(distance_array < 0.0):
             raise ValueError("distances cannot contain negative values.")
 
-        effective_epsilon = max(float(epsilon), 1e-12)
-        exact_match_mask = distance_array <= effective_epsilon
-        if np.any(exact_match_mask):
-            weights = np.zeros_like(distance_array, dtype=float)
-            weights[exact_match_mask] = 1.0 / float(np.count_nonzero(exact_match_mask))
-            return weights
-
-        inverse_distances = 1.0 / np.maximum(distance_array, effective_epsilon)
-        total_weight = float(np.sum(inverse_distances))
-        return (inverse_distances / total_weight).astype(float, copy=False)
+        if not np.isfinite(epsilon) or epsilon <= 0:
+            raise ValueError("epsilon must be finite and positive.")
+        weights = 1.0 / (np.square(distance_array) + epsilon)
+        return (weights / np.sum(weights)).astype(float, copy=False)
 
     @staticmethod
     def distance_to_similarity_score(distance: float) -> float:
@@ -504,4 +481,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
