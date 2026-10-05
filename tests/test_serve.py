@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from fastapi.testclient import TestClient
 
+from src.artifact_contract import MANIFEST_NAME, file_sha256, write_manifest
 from src.ingest_multisource import build_macro_lookup
 from src.macro_arbitrage import ContinuousMetadataNormalizer, HYBRID_VECTOR_DIMENSIONS
 from src.nlp_pipeline import TextFeatureReducer
@@ -71,8 +72,7 @@ class ServeApiTests(unittest.TestCase):
         )
         indexer.save_artifacts(artifact_dir)
         shutil.copyfile(macro_lookup_path, os.path.join(artifact_dir, "macro_lookup_table.json"))
-        with open(os.path.join(artifact_dir, "inference_config.json"), "w", encoding="utf-8") as handle:
-            json.dump({
+        config = {
                 "version": 1,
                 "text_dimensions": 50,
                 "metadata_features": ["bilateral_arbitrage_factor", "market_saturation_score", "industry_relative_density"],
@@ -80,14 +80,26 @@ class ServeApiTests(unittest.TestCase):
                 "idw_epsilon": 1e-6,
                 "text_weight": 1.0,
                 "metadata_weight": 1.0,
+                "minimum_partition_size": 1,
+                "fallback_partition": "general_tech",
+                "allow_fallback": True,
                 "partition_density": {"web_backend": 0.5},
-            }, handle)
+        }
+        with open(os.path.join(artifact_dir, "inference_config.json"), "w", encoding="utf-8") as handle:
+            json.dump(config, handle)
+        write_manifest(artifact_dir, config, dataset_version="synthetic-fixture-v1",
+                       source_type="synthetic proxy fixture", split_policy="synthetic fixed fixture")
         return artifact_dir, macro_lookup_path, tariff_csv_path
+
+    @staticmethod
+    def _app(artifact_dir: str, macro_path: str, tariff_path: str):
+        return create_app(artifact_dir, macro_path, tariff_path,
+                          trusted_manifest_sha256=file_sha256(os.path.join(artifact_dir, MANIFEST_NAME)))
 
     def test_health_reports_ready_when_artifacts_load(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
-            app = create_app(artifact_dir, macro_path, tariff_path)
+            app = self._app(artifact_dir, macro_path, tariff_path)
 
             with TestClient(app) as client:
                 response = client.get("/health")
@@ -96,11 +108,14 @@ class ServeApiTests(unittest.TestCase):
             self.assertEqual(response.json()["status"], "HEALTHY")
             self.assertTrue(response.json()["models_loaded"])
             self.assertEqual(response.json()["database"], "unconfigured")
+            self.assertTrue(response.json()["artifact_version"].startswith("v1:"))
+            self.assertEqual(response.json()["dataset_version"], "synthetic-fixture-v1")
+            self.assertEqual(response.json()["validation_status"], "exploratory_not_empirically_approved")
 
     def test_optimize_price_returns_complete_prediction_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
-            app = create_app(artifact_dir, macro_path, tariff_path)
+            app = self._app(artifact_dir, macro_path, tariff_path)
             payload = {
                 "raw_description": "Senior web backend engineer building Python APIs and cloud services.",
                 "selected_industry": "web_backend",
@@ -122,7 +137,7 @@ class ServeApiTests(unittest.TestCase):
     def test_invalid_optimize_request_returns_422(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
-            app = create_app(artifact_dir, macro_path, tariff_path)
+            app = self._app(artifact_dir, macro_path, tariff_path)
 
             with TestClient(app) as client:
                 response = client.post(
@@ -144,6 +159,7 @@ class ServeApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["status"], "DEGRADED")
             self.assertFalse(response.json()["models_loaded"])
+            self.assertIn("Untrusted artifacts", response.json()["readiness_reason"])
 
     def test_incompatible_feature_manifest_is_unready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -154,8 +170,9 @@ class ServeApiTests(unittest.TestCase):
             config["metadata_features"][1] = "competitiveness_score"
             with open(config_path, "w", encoding="utf-8") as handle:
                 json.dump(config, handle)
-            with TestClient(create_app(artifact_dir, macro_path, tariff_path)) as client:
+            with TestClient(self._app(artifact_dir, macro_path, tariff_path)) as client:
                 self.assertFalse(client.get("/health").json()["models_loaded"])
+                self.assertIn("SHA-256 mismatch", client.get("/ready").json()["readiness_reason"])
                 self.assertEqual(client.post("/api/v1/optimize-price", json={
                     "raw_description": "Senior web backend engineer",
                     "selected_industry": "web_backend", "mentor_country": "KE", "client_country": "US",
@@ -167,7 +184,11 @@ class ServeApiTests(unittest.TestCase):
             reducer = TextFeatureReducer(n_components=50)
             reducer.fit_transform(["python api engineering", "python backend", "api backend"])
             reducer.save_artifacts(artifact_dir)
-            app = create_app(artifact_dir, macro_path, tariff_path)
+            with open(os.path.join(artifact_dir, "inference_config.json"), encoding="utf-8") as handle:
+                config = json.load(handle)
+            write_manifest(artifact_dir, config, dataset_version="synthetic-fixture-v1",
+                           source_type="synthetic proxy fixture", split_policy="synthetic fixed fixture")
+            app = self._app(artifact_dir, macro_path, tariff_path)
             with TestClient(app) as client:
                 self.assertTrue(client.get("/health").json()["models_loaded"])
                 result = client.post("/api/v1/optimize-price", json={

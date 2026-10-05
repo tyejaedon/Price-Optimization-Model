@@ -34,6 +34,7 @@ from src.macro_arbitrage import (
     fuse_coordinate_batches,
 )
 from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
+from src.artifact_contract import write_manifest
 from src.oot_gate import validate_oot_report
 from src.spatial_engine import DEFAULT_IDW_EPSILON, DEFAULT_MIN_PARTITION_SIZE, DomainPartitionedKDTreeIndexer
 
@@ -252,6 +253,9 @@ def evaluate_chronological_oot(
             "idw_epsilon": DEFAULT_IDW_EPSILON,
             "text_weight": 1.0,
             "metadata_weight": 1.0,
+            "minimum_partition_size": indexer.minimum_partition_size,
+            "fallback_partition": indexer.fallback_partition,
+            "allow_fallback": True,
             "partition_density": {
                 str(partition): float(values.median())
                 for partition, values in split.train.groupby("industry_partition")["industry_relative_density"]
@@ -300,6 +304,9 @@ def evaluate_chronological_oot(
             raise RuntimeError(f"Quality gate failed: {exc}; inspect {summary_path} and acquire reliable labels/timestamps.") from exc
         for name in os.listdir(staged):
             shutil.move(os.path.join(staged, name), os.path.join(artifact_dir, name))
+        write_manifest(artifact_dir, config, dataset_version=dataset_version,
+                       source_type="harmonized KES/hour proxy labels; not verified mentor transactions",
+                       split_policy="chronological_out_of_time", dataset_sha256=digest)
         return report
 
 
@@ -549,6 +556,7 @@ def evaluate_and_serialize_training(
     minimum_partition_size: int = DEFAULT_MIN_PARTITION_SIZE,
     idw_epsilon: float = DEFAULT_IDW_EPSILON,
     allow_fallback: bool = True,
+    dataset_version: str | None = None,
 ) -> Dict[str, Any]:
     if n_components != TEXT_VECTOR_DIMENSIONS:
         raise ValueError("Production artifacts require a 50-component text reducer.")
@@ -611,6 +619,9 @@ def evaluate_and_serialize_training(
         "idw_epsilon": float(idw_epsilon),
         "text_weight": float(text_weight),
         "metadata_weight": float(metadata_weight),
+        "minimum_partition_size": idw_indexer.minimum_partition_size,
+        "fallback_partition": idw_indexer.fallback_partition,
+        "allow_fallback": bool(allow_fallback),
         "partition_density": density_by_partition,
     }
     with open(os.path.join(artifact_dir, DEFAULT_INFERENCE_CONFIG_ARTIFACT), "w", encoding="utf-8") as handle:
@@ -682,6 +693,8 @@ def evaluate_and_serialize_training(
     quality_gate_passed = bool(model_validation_metrics["r2"] >= float(quality_gate_r2))
 
     summary = {
+        "evaluation_protocol": "stratified_random_exploratory",
+        "validation_status": "exploratory_not_empirically_approved",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "input_rows": int(len(frame)),
         "split_rows": {
@@ -727,6 +740,7 @@ def evaluate_and_serialize_training(
             "metric": "validation_r2",
             "threshold": float(quality_gate_r2),
             "passed": quality_gate_passed,
+            "enforced": bool(enforce_quality_gate),
         },
         "pipeline_config": {
             "k_neighbors": int(max(1, int(k_neighbors))),
@@ -749,9 +763,21 @@ def evaluate_and_serialize_training(
         raise RuntimeError(
             f"Quality gate failed: validation R2 {model_validation_metrics['r2']} is below threshold {quality_gate_r2}."
         )
-    if not outperforms_baseline:
+    if enforce_quality_gate and not outperforms_baseline:
         raise RuntimeError("Model did not outperform category-mean baseline on validation and test metrics.")
 
+    with open(harmonized_parquet_path, "rb") as handle:
+        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+    sources = set(str(value) for value in frame["source_dataset"].dropna().unique()) if "source_dataset" in frame else set()
+    known_sources = {"upwork_jobs", "upwork_data_scientists"}
+    source_labels = sorted(sources & known_sources)
+    if sources - known_sources:
+        source_labels.append("other/unclassified")
+    source_labels.sort()
+    write_manifest(artifact_dir, inference_config, dataset_version=dataset_version or f"sha256:{digest}",
+                   source_type="proxy marketplace data: " + (", ".join(source_labels) if source_labels else "unspecified source"),
+                   split_policy=f"stratified_random_seed_{random_state}; exploratory, not OOT",
+                   dataset_sha256=digest)
     return summary
 
 
