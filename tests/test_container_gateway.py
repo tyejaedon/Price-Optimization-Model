@@ -6,6 +6,7 @@ import tempfile
 import time
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -36,6 +37,7 @@ class UnavailableFirestore(FakeFirestore):
 
 
 PAYLOAD = {
+    "mentorId": "fixture-user",
     "raw_description": "Senior web backend engineer building Python APIs and cloud services.",
     "selected_industry": "web_backend",
     "mentor_country": "KE",
@@ -49,6 +51,77 @@ class ContainerGatewayTests(unittest.TestCase):
         with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": ""}):
             with self.assertRaisesRegex(ValueError, "FIREBASE_PROJECT_ID"):
                 DeploymentConfig.from_env()
+
+    def test_deployment_rejects_firebase_emulator_configuration(self):
+        for name in ("FIREBASE_AUTH_EMULATOR_HOST", "FIRESTORE_EMULATOR_HOST"):
+            with self.subTest(name=name), patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing", name: "localhost:9099"}, clear=True):
+                with self.assertRaisesRegex(ValueError, "emulators are not allowed"):
+                    DeploymentConfig.from_env()
+
+    def test_pricing_requires_token_and_own_mentor_before_inference_or_audit(self):
+        repository = FakeFirestore()
+        calls = []
+
+        def inference(query):
+            calls.append(query)
+            return {"base_predicted_rate": 100.0, "mpesa_tariff_surcharge": 0.0,
+                    "final_quoted_rate": 100.0}
+
+        def verifier(token):
+            if token != "valid-id-token":
+                raise ValueError("invalid or expired token")
+            return {"uid": "fixture-user"}
+
+        app = create_app(repository=repository, inference=inference, token_verifier=verifier,
+                         admin_token="admin-secret")
+        with TestClient(app) as client:
+            for headers in ({}, {"Authorization": "Bearer expired-id-token"},
+                            {"Authorization": "Basic valid-id-token"},
+                            {"Authorization": "Bearer valid-id-token extra"},
+                            {"Authorization": "Bearer  valid-id-token"},
+                            {"X-Admin-Token": "admin-secret"}):
+                with self.subTest(headers=headers):
+                    response = client.post("/api/v1/optimize-price", json=PAYLOAD, headers=headers)
+                    self.assertEqual(response.status_code, 401, response.text)
+
+            headers = {"Authorization": "Bearer valid-id-token"}
+            for payload in ({key: value for key, value in PAYLOAD.items() if key != "mentorId"},
+                            {**PAYLOAD, "mentorId": "other-user"}):
+                with self.subTest(payload=payload):
+                    response = client.post("/api/v1/optimize-price", json=payload, headers=headers)
+                    self.assertEqual(response.status_code, 403, response.text)
+
+            self.assertEqual(calls, [])
+            self.assertEqual(repository.list_transactions(), [])
+            self.assertEqual(client.get("/api/v1/admin/profiles", headers=headers).status_code, 403)
+            self.assertEqual(client.get("/api/v1/admin/profiles", headers={"X-Admin-Token": "admin-secret"}).status_code, 200)
+
+            response = client.post("/api/v1/optimize-price", json=PAYLOAD, headers=headers)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(repository.list_transactions()[0]["mentor_id"], "fixture-user")
+
+    def test_pricing_rejects_missing_or_malformed_verified_uid(self):
+        repository = FakeFirestore()
+        calls = []
+
+        def forbidden_inference(query):
+            calls.append(query)
+            return {}
+
+        for claims in (None, {}, {"uid": None}, {"uid": ""}, {"uid": " "}, {"uid": 123}):
+            with self.subTest(claims=claims):
+                def verifier(token: str) -> Any:
+                    return claims
+
+                app = create_app(repository=repository, inference=forbidden_inference,
+                                 token_verifier=verifier)
+                with TestClient(app) as client:
+                    response = client.post("/api/v1/optimize-price", json=PAYLOAD,
+                                           headers={"Authorization": "Bearer token"})
+                    self.assertEqual(response.status_code, 401, response.text)
+        self.assertEqual(calls, [])
+        self.assertEqual(repository.list_transactions(), [])
 
     def test_protected_pricing_never_falls_back_to_memory(self):
         repository = InMemoryRepository()
@@ -105,6 +178,7 @@ class ContainerGatewayTests(unittest.TestCase):
                 self.assertTrue(quote["nearest_neighbors"])
                 self.assertEqual(len(repository.list_transactions()), 1)
                 self.assertEqual(repository.list_transactions()[0]["final_quoted_rate"], quote["final_quoted_rate"])
+                self.assertEqual(repository.list_transactions()[0]["mentor_id"], "fixture-user")
 
                 # Warmed in-process inference and full TestClient HTTP (not network RTT).
                 runtime = app.state.inference_runtime
