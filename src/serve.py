@@ -13,7 +13,7 @@ import math
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Literal, Optional, cast
+from typing import Any, Callable, Dict, Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -21,7 +21,6 @@ from fastapi.responses import JSONResponse
 from src.api_contracts import (
     GridSearchConfigDTO,
     HealthResponseDTO,
-    HistoricalTransactionDTO,
     MetricsResponseDTO,
     PredictionResultDTO,
     PricingQueryDTO,
@@ -46,7 +45,7 @@ from src.repository import InMemoryRepository, Repository
 from src.spatial_engine import DomainPartitionedKDTreeIndexer
 from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator
 
-InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any]]
+InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any] | PredictionResultDTO]
 
 
 class ServiceDependencies:
@@ -55,7 +54,7 @@ class ServiceDependencies:
         repository: Repository,
         mlops: MLOpsService,
         metrics: MetricsRegistry,
-        inference: Optional[InferenceCallable],
+        inference: InferenceCallable,
         admin_token: Optional[str],
     ) -> None:
         self.repository = repository
@@ -202,17 +201,18 @@ def create_app(
     metrics: Optional[MetricsRegistry] = None,
     inference: Optional[InferenceCallable] = None,
     admin_token: Optional[str] = None,
+    token_verifier: Optional[Callable[[str], Dict[str, Any]]] = None,
+    readiness_probe: Optional[Callable[[], bool]] = None,
 ) -> FastAPI:
     runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled)
     runtime_inference = inference is None
-    if inference is None:
-        inference = runtime.predict
+    resolved_inference: InferenceCallable = inference if inference is not None else runtime.predict
     resolved_metrics = metrics or MetricsRegistry()
     dependencies = ServiceDependencies(
         repository=repository or InMemoryRepository(),
         mlops=mlops or MLOpsService(),
         metrics=resolved_metrics,
-        inference=inference,
+        inference=resolved_inference,
         admin_token=admin_token if admin_token is not None else os.getenv("MLOPS_ADMIN_TOKEN"),
     )
     @asynccontextmanager
@@ -242,9 +242,14 @@ def create_app(
         return JSONResponse(status_code=500, content={"detail": "internal server error"})
 
     def current_health() -> HealthResponseDTO:
-        database = runtime.database_status if runtime_inference and repository is None else dependencies.repository.health()
+        try:
+            database = runtime.database_status if runtime_inference and repository is None else dependencies.repository.health()
+        except Exception:
+            database = "unavailable"
         models_loaded = runtime.models_loaded if runtime_inference else dependencies.inference is not None
         healthy = models_loaded and database in {"firestore", "memory", "unconfigured"}
+        if token_verifier is not None:
+            healthy = healthy and database == "firestore"
         return HealthResponseDTO(
             status="HEALTHY" if healthy else "DEGRADED",
             models_loaded=models_loaded,
@@ -255,8 +260,36 @@ def create_app(
     async def health() -> HealthResponseDTO:
         return current_health()
 
+    @app.get("/ready", response_model=HealthResponseDTO)
+    async def ready() -> Any:
+        health_state = current_health()
+        if health_state.status == "HEALTHY" and readiness_probe is not None:
+            try:
+                if not readiness_probe():
+                    raise RuntimeError("repository unavailable")
+            except Exception:
+                health_state = HealthResponseDTO(status="DEGRADED", models_loaded=health_state.models_loaded, database="unavailable")
+        if health_state.status != "HEALTHY":
+            return JSONResponse(status_code=503, content=health_state.model_dump())
+        return health_state
+
+    def require_pricing_token(authorization: Optional[str] = Header(default=None)) -> None:
+        if token_verifier is None:
+            return
+        scheme, _, token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not token or not token.strip() or len(token.split()) != 1:
+            raise HTTPException(status_code=401, detail="valid bearer token required")
+        try:
+            claims = token_verifier(token.strip())
+            if not isinstance(claims, dict) or not claims.get("uid"):
+                raise ValueError("missing verified UID")
+        except Exception as exc:
+            raise HTTPException(status_code=401, detail="valid bearer token required") from exc
+        if current_health().database != "firestore":
+            raise HTTPException(status_code=503, detail="pricing repository unavailable")
+
     @app.post("/api/v1/optimize-price", response_model=PredictionResultDTO)
-    async def optimize_price(query: PricingQueryDTO) -> PredictionResultDTO:
+    async def optimize_price(query: PricingQueryDTO, _: None = Depends(require_pricing_token)) -> PredictionResultDTO:
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail="model artifacts are not loaded")
         try:
@@ -281,7 +314,7 @@ def create_app(
 
     @app.get("/api/v1/admin/metrics", response_model=MetricsResponseDTO)
     async def admin_metrics(_: ServiceDependencies = Depends(require_admin)) -> MetricsResponseDTO:
-        return MetricsResponseDTO(metrics=resolved_metrics.snapshot(), tuning=dependencies.mlops.get_tuning().to_dict())
+        return MetricsResponseDTO(metrics=resolved_metrics.snapshot(), tuning=GridSearchConfigDTO.model_validate(dependencies.mlops.get_tuning().to_dict()))
 
     @app.get("/api/v1/admin/grid-search", response_model=GridSearchConfigDTO)
     async def get_grid_search(_: ServiceDependencies = Depends(require_admin)) -> GridSearchConfigDTO:

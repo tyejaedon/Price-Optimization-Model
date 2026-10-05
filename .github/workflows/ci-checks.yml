@@ -126,3 +126,68 @@ jobs:
 
           echo "No pytest-discoverable tests found in tests/ or Test/. Skipping test run."
 
+  container-build:
+    name: Container Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build protected pricing image
+        run: docker build --tag pricing-api:ci .
+      - name: Inspect image for excluded data and credentials
+        run: |
+          docker run --rm --entrypoint python pricing-api:ci -c '
+          from pathlib import Path
+          root = Path("/app")
+          assert (root / "src" / "deployment.py").is_file()
+          assert not any(root.glob("**/*.json")), "JSON/credential files must not be baked into image"
+          assert not (root / "data").exists() and not (root / "artifacts").exists()
+          assert not (root / "tests").exists()
+          '
+      - name: Reject startup without Firebase configuration
+        run: |
+          if docker run --rm pricing-api:ci > startup.log 2>&1; then
+            echo '::error::Deployment must fail closed without Firebase configuration'
+            exit 1
+          fi
+          if ! grep -q 'FIREBASE_PROJECT_ID is required' startup.log; then
+            echo '::error::Deployment failed for an unexpected reason (expected missing Firebase project).'
+            cat startup.log
+            exit 1
+          fi
+
+  protected-pricing:
+    name: Protected Pricing Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt pytest
+      - name: Gate auth, contract, quote and audit using fakes
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest tests/test_container_gateway.py tests/test_oot_gate.py -q -s
+
+  android-build:
+    name: Android Build and Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Require Android module and run local tests
+        run: |
+          if [ ! -f gradlew ] && [ ! -f app/build.gradle.kts ]; then
+            echo '::notice::Android module not present yet (#74/#76); no Android tests were run.'
+            exit 0
+          fi
+          if [ ! -f gradlew ] || [ ! -f app/build.gradle.kts ]; then
+            echo '::error::Incomplete Android module; expected gradlew and app/build.gradle.kts.'
+            exit 1
+          fi
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
+
