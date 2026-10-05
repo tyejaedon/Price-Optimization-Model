@@ -122,3 +122,8 @@ class FirestoreRepository(Repository):
     def health(self) -> str:
         return "firestore"
 
+    def probe_readiness(self) -> bool:
+        """Verify the configured Firestore backend is reachable without writing data."""
+        self._client.collection("mentors").limit(1).get(timeout=3)
+        return True
+
