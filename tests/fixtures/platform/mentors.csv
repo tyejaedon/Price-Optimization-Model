@@ -1,0 +1,8 @@
+mentor_profile_id,mentor_user_id,first_name,last_name,specialization,category,mentor_type,tier,hourly_rate_kes,rating,total_reviews,verification_status,experience_years,city,county,languages,follower_count,joined_at
+p1,u1,Amina,Otieno,Data Analytics,Technology & IT,PROFESSIONAL,CERTIFIED,5000.00,4.60,12,VERIFIED,7,Nairobi,Nairobi,English|Swahili,40,2026-09-21 14:04:02.134
+p2,u2,Brian,Wekesa,Cybersecurity,Technology & IT,PROFESSIONAL,EXPERIENCED,6000.00,4.10,3,PENDING,4,Kisumu,Kisumu,English,5,2026-09-21 14:04:02.134
+p3,u3,Carol,Njeri,Digital Marketing,Marketing & Communications,PROFESSIONAL,EXPERIENCED,4000.00,4.80,9,VERIFIED,6,Mombasa,Mombasa,English|Swahili,120,2026-09-21 14:04:02.134
+p4,u4,David,Kiprop,Leadership & Project Management,Business & Management,PROFESSIONAL,CERTIFIED,5000.00,4.00,1,VERIFIED,10,Nairobi,Nairobi,English,0,2026-09-21 14:04:02.134
+p5,u5,Esther,Wanjiru,Professional Cooking,Culinary & Hospitality,VOCATIONAL,CERTIFIED,2500.00,4.90,30,VERIFIED,12,Nakuru,Nakuru,Swahili,200,2026-09-21 14:04:02.134
+p6,u6,Felix,Mutua,Plumbing,Construction & Building,VOCATIONAL,ENTRY_LEVEL,1500.00,3.90,2,PENDING,1,Eldoret,Uasin Gishu,Swahili,0,2026-09-21 14:04:02.134
+p7,u7,Grace,Achieng,Data Analytics,Technology & IT,PROFESSIONAL,ENTRY_LEVEL,300.00,3.50,0,PENDING,1,Nairobi,Nairobi,English,0,

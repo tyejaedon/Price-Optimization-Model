@@ -1,0 +1,4 @@
+review_id,booking_id,client_user_id,mentor_user_id,rating,comment,created_at
+r1,b1,c1,u1,5,Clear and practical.,2026-04-03 16:10:00
+r2,b2,c1,u1,4,Good session.,2026-04-05 16:10:00
+r3,b7,c1,u3,5,Great.,2026-04-03 16:10:00
