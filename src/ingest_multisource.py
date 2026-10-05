@@ -300,6 +300,18 @@ def _normalize_text(value: Any) -> str:
     return " ".join(str(value or "").split())
 
 
+def parse_observation_timestamp_utc(value: Any) -> Optional[str]:
+    """Accept source-observed, timezone-aware instants only; never invent an observation time."""
+    text = _normalize_text(value)
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
 def map_country_to_iso2(country_value: Any, default_iso2_code: str = "KE") -> str:
     normalized = _normalize_text(country_value).strip()
     if not normalized:
@@ -384,6 +396,7 @@ def parse_upwork_jobs_dataset(csv_path: str) -> List[Dict[str, Any]]:
                     "source_country": _normalize_text(row.get("country")),
                     "hourly_rate_usd": hourly_rate_usd,
                     "industry_partition": map_industry_partition(text_blob),
+                    "observation_timestamp_utc": parse_observation_timestamp_utc(row.get("published_date")),
                 }
             )
 
@@ -411,10 +424,32 @@ def parse_data_scientist_upwork_dataset(csv_path: str) -> List[Dict[str, Any]]:
                     "source_country": _normalize_text(row.get("country")),
                     "hourly_rate_usd": hourly_rate_usd,
                     "industry_partition": map_industry_partition(text_blob),
+                    "observation_timestamp_utc": None,
                 }
             )
 
     return rows
+
+
+def marketplace_exclusion_reason(
+    row: Dict[str, Any],
+    usd_to_kes_rate_anchor: float = USD_TO_KES_RATE_ANCHOR,
+    min_description_length: int = MIN_DESCRIPTION_LENGTH,
+    min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
+    max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
+) -> Optional[str]:
+    """Return the first pre-arbitrage ingestion exclusion reason, or None if retained."""
+    if len(_normalize_text(row.get("raw_description"))) < min_description_length:
+        return "short_description"
+    if not _normalize_text(row.get("industry_partition")):
+        return "missing_industry"
+    hourly_usd = _safe_float_any(row.get("hourly_rate_usd"))
+    if hourly_usd is None or not math.isfinite(hourly_usd) or hourly_usd <= 0:
+        return "invalid_hourly_usd"
+    hourly_kes = hourly_usd * float(usd_to_kes_rate_anchor)
+    if not math.isfinite(hourly_kes) or not min_hourly_rate_kes <= hourly_kes <= max_hourly_rate_kes:
+        return "pre_arbitrage_kes_out_of_bounds"
+    return None
 
 
 def harmonize_marketplace_corpus(
@@ -435,22 +470,15 @@ def harmonize_marketplace_corpus(
 
     records: List[Dict[str, Any]] = []
     for row in staged:
+        if marketplace_exclusion_reason(
+            row, usd_to_kes_rate_anchor, min_description_length, min_hourly_rate_kes, max_hourly_rate_kes
+        ) is not None:
+            continue
+
         description = _normalize_text(row.get("raw_description"))
-        if len(description) < min_description_length:
-            continue
-
         industry_partition = _normalize_text(row.get("industry_partition"))
-        if not industry_partition:
-            continue
-
-        hourly_rate_usd = _safe_float_any(row.get("hourly_rate_usd"))
-        if hourly_rate_usd is None or hourly_rate_usd <= 0:
-            continue
-
+        hourly_rate_usd = float(_safe_float_any(row.get("hourly_rate_usd")))
         hourly_rate_kes = hourly_rate_usd * float(usd_to_kes_rate_anchor)
-        if hourly_rate_kes < min_hourly_rate_kes or hourly_rate_kes > max_hourly_rate_kes:
-            continue
-
         records.append(
             {
                 "source_dataset": row["source_dataset"],
@@ -462,6 +490,7 @@ def harmonize_marketplace_corpus(
                 "hourly_rate_usd": round(hourly_rate_usd, 2),
                 "currency": "KES",
                 "usd_to_kes_rate_anchor": float(usd_to_kes_rate_anchor),
+                "observation_timestamp_utc": row.get("observation_timestamp_utc"),
             }
         )
 
@@ -508,6 +537,7 @@ def export_harmonized_records(records: List[Dict[str, Any]], output_path: str) -
         "hourly_rate_usd",
         "currency",
         "usd_to_kes_rate_anchor",
+        "observation_timestamp_utc",
     ]
     with open(output_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

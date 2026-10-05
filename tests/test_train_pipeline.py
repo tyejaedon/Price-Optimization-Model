@@ -11,6 +11,8 @@ from src.ingest_multisource import build_macro_lookup, compute_bilateral_arbitra
 from src.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
 from src.train_pipeline import (
     DEFAULT_TRAINING_SUMMARY_ARTIFACT,
+    SplitData,
+    _fit_feature_matrices,
     _metric_summary,
     build_stratified_splits,
     evaluate_and_serialize_training,
@@ -20,7 +22,7 @@ from src.train_pipeline import (
     transform_target_log1p,
 )
 from src.validation_diagnostics import run_validation_diagnostics
-from src.macro_arbitrage import ContinuousMetadataNormalizer, fuse_coordinates
+from src.macro_arbitrage import DEFAULT_FEATURE_NAMES, ContinuousMetadataNormalizer, fuse_coordinates
 from src.nlp_pipeline import TextFeatureReducer
 from src.serve import InferenceRuntime
 from src.api_contracts import PricingQueryDTO
@@ -117,6 +119,23 @@ class TrainPipelineTests(unittest.TestCase):
                 for partition_name, full_ratio in full_dist.items():
                     self.assertIn(partition_name, split_dist)
                     self.assertLess(abs(float(split_dist[partition_name]) - float(full_ratio)), 0.08)
+
+    def test_rate_labels_cannot_enter_training_features(self) -> None:
+        self.assertFalse(set(DEFAULT_FEATURE_NAMES) & {
+            "hourly_rate", "hourly_rate_usd", "harmonized_hourly_rate", "target_rate"
+        })
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro, parquet = self._write_input_artifacts(tmp_dir)
+            split = build_stratified_splits(load_harmonized_parquet(parquet))
+            altered = SplitData(*(part.assign(
+                hourly_rate=999999.0, hourly_rate_usd=999999.0,
+                harmonized_hourly_rate=999999.0, target_rate=999999.0,
+            ) for part in (split.train, split.validation, split.test)))
+            baseline = _fit_feature_matrices(split, macro, n_components=5, save_artifacts=False)
+            changed = _fit_feature_matrices(altered, macro, n_components=5, save_artifacts=False)
+            for name in ("x_train", "x_validation", "x_test"):
+                np.testing.assert_allclose(getattr(baseline, name), getattr(changed, name))
+            self.assertFalse(np.array_equal(baseline.y_train, changed.y_train))
 
     def test_orchestration_runs_end_to_end_to_feature_matrices(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

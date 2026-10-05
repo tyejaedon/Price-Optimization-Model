@@ -4,6 +4,8 @@ This is the canonical **target architecture and migration plan** for the Content
 
 **Decisions that override the proposal below:** Keep the existing `POST /api/v1/optimize-price` and `GET /health` routes; do not introduce `POST /price`. Extend the existing `src/api_contracts.py` (or add a documented adapter) instead of creating a competing `src/schemas.py`. Use this repository's `docs/`, `src/`, `tests/`, `data/` and `artifacts/` paths. Preserve `src/repository.py`, `src/observability.py` and `src/mlops_service.py`; the tree below lists pivot additions, not replacements. The browser demo is a future test harness (#85), not the Android client. The migration and ownership decisions in section 9 govern any examples below.
 
+**Scope update (#91, 2026-10-04):** This is currently a computer-science implementation project. Verified mentor transaction data acquisition, empirical pricing validation and the proposed chronological OOT `R^2 >= 0.75` quality gate are deferred, **not prerequisites** for the M10-M14 API, Firestore, Android or deployment work. The existing training labels are proxy job budgets/profile asking rates, not verified mentor earnings. Retain deterministic software tests, artifact/train-serve parity, security and pricing invariants; label demo outputs and historical metrics honestly. The OOT/gate steps below describe a future research option, not the current definition of done. See [issue #91 audit](Label_Provenance_Audit_91.md).
+
 ---
 
 ## 1. System Topology & Technology Stack
@@ -16,7 +18,7 @@ This is the canonical **target architecture and migration plan** for the Content
 | **ML Inference Engine** | Scikit-Learn, NLTK (WordNet), NumPy, SciPy | 50D SVD NLP reduction, 3D metadata scaling, 53D coordinate fusion, partitioned KD-Tree spatial indexing, IDW regression. |
 | **Persistence Tier** | Google Cloud Firestore (NoSQL Document Store) | User aggregate documents, service listings with native vector arrays, append-only historical audit telemetry, cached tariff schedules. |
 | **Authentication** | Firebase Authentication & Firebase Admin SDK | RS256 cryptographic JSON Web Token issuance and remote validation. |
-| **Containerization & CI** | Docker, Uvicorn worker manager, GitHub Actions, Pytest | Containerized microservice deployment on port 8000, automated PR governance, temporal OOT quality gating ($R^2 \ge 0.75$). |
+| **Containerization & CI** | Docker, Uvicorn worker manager, GitHub Actions, Pytest | Containerized microservice deployment on port 8000, automated PR governance and software tests; empirical OOT quality gating is deferred. |
 
 ---
 
@@ -400,7 +402,7 @@ These are delivery stages, not instructions to reimplement completed M1-M8 work.
      $$S_{train} = \{x_t \mid t \le T_{split}\},\quad S_{eval} = \{x_t \mid t > T_{split}\}$$
   3. Fit NLTK Lemmatizer + TF-IDF (12,000 features) + Truncated SVD (50 components) exclusively on $S_{train}$.
   4. Build Scikit-Learn `KDTree(metric='euclidean', leaf_size=40)` across 8 industry categories.
-  5. Assert Quality Gate: $R^2 \ge 0.75$, serialize `.joblib` artifacts into `artifacts/`.
+  5. **Deferred empirical option:** Assess the proposed $R^2 \ge 0.75$ OOT target on an appropriate dated population. For current engineering work, serialize compatible `.joblib` demonstration artifacts without claiming validated mentor-pricing accuracy.
 
 ### Sprint 2: In-memory inference, corridor and protected gateway (Milestone 10: #69, #70, #82, #83)
 * **Target File:** `src/spatial_engine.py`, `src/tariff_evaluator.py`, `src/interval_synthesizer.py`
@@ -446,7 +448,7 @@ These are delivery stages, not instructions to reimplement completed M1-M8 work.
 
 | Boundary | Existing M1-M8 work | Pivot decision and owner |
 | :--- | :--- | :--- |
-| Data and model | Harmonized marketplace parquet, macro lookup, 50D SVD + 3 scaled metadata features, partitioned KD-Trees, IDW and joblib artifacts already exist. Rates and targets are **KES/hour**. | #67 reconciles fitted offline/online transforms, `k=5`, quadratic IDW (`p=2`, `epsilon=1e-6`) and artifact parity; #81 adds chronological OOT evaluation and the `R^2 >= 0.75` gate. Do not treat old stratified 70/15/15 reports as OOT evidence. |
+| Data and model | Harmonized marketplace parquet, macro lookup, 50D SVD + 3 scaled metadata features, partitioned KD-Trees, IDW and joblib artifacts already exist. Rates and targets are **KES/hour**; labels are proxy job budgets/profile asking rates. | #67 reconciles fitted offline/online transforms, `k=5`, quadratic IDW (`p=2`, `epsilon=1e-6`) and artifact parity. #91 records data limits; #81's empirical OOT/R2 gate is deferred and does not block engineering or require verified mentor transactions. #95 tracks artifact compatibility/inference parity without score-based readiness. Do not treat old stratified 70/15/15 reports as OOT or real-world mentor-price evidence. |
 | Metadata | Training uses `industry_partition`, mentor cost of living from the macro lookup, `market_saturation_score` and `competitiveness_score`; current API takes `selected_industry`. | The pivot wire field `industry` maps to an accepted partition key (`industry_id` in Firestore, `industry_partition` in training); reject unknown keys instead of silently mapping unrelated industries. `costOfLivingIndex` is an optional validated mentor CoL override, **not** an alias for saturation. `competitivenessScore` and training saturation remain distinct: #67/#83 must specify and test their feature mapping without changing the trained scaler's column order. |
 | Identity and listings | Current pricing DTO has no mentor ID or token. Existing repository and admin endpoints are not a Firebase-protected pricing gateway. Peer payloads carry positional indices, not durable listing IDs. | #69 verifies server-side Firebase ID tokens and binds the authenticated UID to the requested `mentorId`; never trust a body ID as authentication. #71 binds actual root `/service_listings/{listing_id}` to peer coordinates; do not fabricate `listingId`, `jobTitle` or `verifiedRate`. #84 hydrates missing fields only from authorized records and fails explicitly when required data is absent. |
 | API contract | `src/api_contracts.py` defines snake_case DTOs; `src/serve.py` implements `POST /api/v1/optimize-price` and `GET /health`. | #83 extends that module or supplies a clearly documented adapter for camelCase DTOs on **the same route**. Preserve old callers during a measured compatibility window, document deprecation in OpenAPI and README, and remove the legacy shape only in a separately tracked, versioned breaking change after client migration; #68 is closed as superseded, not reopened. #82 owns corridor invariants and handling of out-of-range floors. Missing artifacts return explicit unready health and HTTP 503, not invented predictions. |
