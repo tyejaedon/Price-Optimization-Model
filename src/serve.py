@@ -29,6 +29,7 @@ from src.api_contracts import (
     ProfileDTO,
     RetrainResponseDTO,
 )
+from src.interval_synthesizer import FloorExceedsCeilingError, synthesize_corridor
 from src.mlops_service import MLOpsService
 from src.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS, map_industry_partition
 from src.macro_arbitrage import (
@@ -208,13 +209,21 @@ class InferenceRuntime:
             fused, requested_partition=partition, k=config["k_neighbors"],
             allow_fallback=config["allow_fallback"], epsilon=config["idw_epsilon"]
         )
+        bilateral_factor = float(raw_metadata[0, 0])
+        corridor = synthesize_corridor(
+            base_rate=float(prediction["base_predicted_rate"]),
+            peer_stddev=float(prediction["peer_stddev"]),
+            bilateral_factor=bilateral_factor,
+            base_rate_floor=query.base_rate_floor,
+        )
         quote = self.tariff_evaluator.evaluate_quote(float(prediction["base_predicted_rate"]), query.mentor_country)
         return PredictionResultDTO(
             base_predicted_rate=quote["base_predicted_rate"],
             mpesa_tariff_surcharge=quote["mpesa_tariff_surcharge"],
             final_quoted_rate=quote["final_quoted_rate"],
+            **corridor,
             currency="KES",
-            bilateral_arbitrage_factor=float(raw_metadata[0, 0]),
+            bilateral_arbitrage_factor=bilateral_factor,
             mentor_country_iso2=quote["mentor_country_iso2"],
             nearest_neighbors=prediction["nearest_neighbors"],
         )
@@ -360,6 +369,8 @@ def create_app(
             with resolved_metrics.timer("database.append_transaction"):
                 dependencies.repository.append_transaction(audit_payload)
             return prediction
+        except FloorExceedsCeilingError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except HTTPException:
             raise
         except Exception as exc:

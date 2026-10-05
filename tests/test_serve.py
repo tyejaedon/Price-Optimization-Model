@@ -134,6 +134,58 @@ class ServeApiTests(unittest.TestCase):
             self.assertGreaterEqual(body["final_quoted_rate"], body["base_predicted_rate"])
             self.assertGreaterEqual(len(body["nearest_neighbors"]), 1)
 
+    def test_live_corridor_floor_and_fee_invariants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
+            app = self._app(artifact_dir, macro_path, tariff_path)
+            payload = {
+                "raw_description": "Senior web backend engineer building Python APIs and cloud services.",
+                "selected_industry": "web_backend", "mentor_country": "KE", "client_country": "KE",
+            }
+            with TestClient(app) as client:
+                response = client.post("/api/v1/optimize-price", json=payload)
+                self.assertEqual(response.status_code, 200, response.text)
+                body = response.json()
+                self.assertEqual(body["bilateral_arbitrage_factor"], 1.0)
+                self.assertEqual(len(body["nearest_neighbors"]), 5)
+                self.assertLessEqual(body["min_quoted_rate"], body["max_quoted_rate"])
+                self.assertEqual(body["final_quoted_rate"],
+                                 round(body["base_predicted_rate"] + body["mpesa_tariff_surcharge"], 2))
+                sigma = app.state.inference_runtime.spatial_indexer.predict_base_rate(
+                    self._query_coordinates(app, payload), "web_backend", k=5, epsilon=1e-6,
+                )["peer_stddev"]
+                self.assertAlmostEqual(body["min_quoted_rate"], max(0.5 * body["base_predicted_rate"],
+                                                                    body["base_predicted_rate"] - 0.75 * sigma))
+                self.assertAlmostEqual(body["max_quoted_rate"], body["base_predicted_rate"] + 1.25 * sigma)
+
+                requested_floor = (body["base_predicted_rate"] + body["max_quoted_rate"]) / 2
+                raised = client.post("/api/v1/optimize-price", json={**payload, "base_rate_floor": requested_floor})
+                self.assertEqual(raised.status_code, 200, raised.text)
+                self.assertAlmostEqual(raised.json()["min_quoted_rate"], requested_floor)
+                self.assertEqual(raised.json()["final_quoted_rate"], body["final_quoted_rate"])
+
+                before = len(app.state.dependencies.repository.list_transactions())
+                impossible = client.post("/api/v1/optimize-price", json={**payload, "base_rate_floor": body["max_quoted_rate"] + 1})
+                self.assertEqual(impossible.status_code, 422)
+                self.assertIn("exceeds", impossible.json()["detail"])
+                self.assertEqual(len(app.state.dependencies.repository.list_transactions()), before)
+                for value in (-1, "NaN", "Infinity"):
+                    self.assertEqual(client.post("/api/v1/optimize-price", json={**payload, "base_rate_floor": value}).status_code, 422)
+
+    @staticmethod
+    def _query_coordinates(app, payload):
+        from src.macro_arbitrage import fuse_coordinates
+        from src.nlp_pipeline import ensure_text_dimensions
+
+        runtime = app.state.inference_runtime
+        config = runtime.inference_config
+        text = ensure_text_dimensions(runtime.reducer.transform([payload["raw_description"]]))
+        metadata = runtime.metadata_normalizer.transform_live_metadata(
+            payload["mentor_country"], payload["client_country"], 0.5,
+            config["partition_density"][payload["selected_industry"]],
+        )
+        return fuse_coordinates(text * config["text_weight"], metadata * config["metadata_weight"])
+
     def test_invalid_optimize_request_returns_422(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             artifact_dir, macro_path, tariff_path = self._build_artifacts(tmp_dir)
