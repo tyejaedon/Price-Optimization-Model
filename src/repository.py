@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
@@ -31,6 +32,7 @@ class Repository(ABC):
 
     @abstractmethod
     def append_transaction(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Create an audit with a unique transaction_id; never replace an existing one."""
         raise NotImplementedError
 
     @abstractmethod
@@ -44,6 +46,8 @@ class InMemoryRepository(Repository):
     def __init__(self) -> None:
         self._profiles: Dict[str, Dict[str, Any]] = {}
         self._transactions: List[Dict[str, Any]] = []
+        self._transaction_ids: set[str] = set()
+        self._transaction_lock = threading.Lock()
 
     def list_profiles(self) -> List[Dict[str, Any]]:
         return deepcopy(list(self._profiles.values()))
@@ -57,11 +61,19 @@ class InMemoryRepository(Repository):
         return self._profiles.pop(profile_id, None) is not None
 
     def list_transactions(self, limit: int = 100) -> List[Dict[str, Any]]:
-        return deepcopy(self._transactions[-max(1, min(int(limit), 1000)) :])
+        with self._transaction_lock:
+            return deepcopy(self._transactions[-max(1, min(int(limit), 1000)) :])
 
     def append_transaction(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         stored = deepcopy(payload)
-        self._transactions.append(stored)
+        transaction_id = stored.get("transaction_id")
+        if not isinstance(transaction_id, str) or not transaction_id or "/" in transaction_id:
+            raise RepositoryError("valid transaction_id is required")
+        with self._transaction_lock:
+            if transaction_id in self._transaction_ids:
+                raise RepositoryError("transaction_id already exists")
+            self._transactions.append(stored)
+            self._transaction_ids.add(transaction_id)
         return deepcopy(stored)
 
     def health(self) -> str:
@@ -115,8 +127,10 @@ class FirestoreRepository(Repository):
         return self._timed(lambda: [{"transaction_id": doc.id, **doc.to_dict()} for doc in query.stream()])
 
     def append_transaction(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        transaction_id = str(payload["transaction_id"])
-        self._timed(lambda: self._client.collection("historical_transactions").document(transaction_id).set(payload))
+        transaction_id = payload.get("transaction_id")
+        if not isinstance(transaction_id, str) or not transaction_id or "/" in transaction_id:
+            raise RepositoryError("valid transaction_id is required")
+        self._timed(lambda: self._client.collection("historical_transactions").document(transaction_id).create(payload))
         return deepcopy(payload)
 
     def health(self) -> str:

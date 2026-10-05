@@ -9,14 +9,16 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import math
 import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Literal, Optional
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from src.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
@@ -50,6 +52,25 @@ from src.spatial_engine import DomainPartitionedKDTreeIndexer
 from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator
 
 InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any] | PredictionResultDTO]
+logger = logging.getLogger(__name__)
+
+
+def _append_pricing_audit(repository: Repository, metrics: MetricsRegistry, payload: Dict[str, Any]) -> None:
+    """Try a create-only write twice; never let a background exception disappear."""
+    try:
+        with metrics.timer("audit.persist"):
+            for attempt in range(2):
+                try:
+                    with metrics.timer("database.append_transaction"):
+                        repository.append_transaction(payload)
+                    return
+                except Exception:
+                    if attempt == 1:
+                        raise
+    except Exception as exc:
+        # Exception messages and tracebacks may contain credentials or profile text.
+        logger.error("pricing audit not persisted transaction_id=%s attempts=2 error_type=%s",
+                     payload["transaction_id"], type(exc).__name__)
 
 
 class ServiceDependencies:
@@ -354,7 +375,8 @@ def create_app(
         return uid
 
     @app.post("/api/v1/optimize-price", response_model=PredictionResultDTO)
-    async def optimize_price(query: PricingQueryDTO, uid: Optional[str] = Depends(require_pricing_token)) -> PredictionResultDTO:
+    async def optimize_price(query: PricingQueryDTO, background_tasks: BackgroundTasks,
+                             uid: Optional[str] = Depends(require_pricing_token)) -> PredictionResultDTO:
         # Until #84 introduces an explicit owner mapping, only a Firebase UID
         # can be used as mentorId. Body-supplied IDs never authenticate a caller.
         if uid is not None and query.mentor_id != uid:
@@ -365,18 +387,21 @@ def create_app(
             with resolved_metrics.timer("inference.optimize_price"):
                 payload = dependencies.inference(query)
             prediction = PredictionResultDTO.model_validate(payload)
+            executed_at = datetime.now(timezone.utc).isoformat()
             audit_payload = {
-                "transaction_id": f"api-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}",
+                "transaction_id": f"api-{uuid4().hex}",
+                "schema_version": 1,
+                "selected_industry": query.selected_industry,
+                "mentor_country_code": query.mentor_country,
                 "client_country_code": query.client_country,
                 "base_predicted_rate": prediction.base_predicted_rate,
                 "mpesa_tariff_surcharge": prediction.mpesa_tariff_surcharge,
                 "final_quoted_rate": prediction.final_quoted_rate,
-                "executed_at": datetime.now(timezone.utc).isoformat(),
+                "executed_at": executed_at,
             }
             if uid is not None:
                 audit_payload["mentor_id"] = uid
-            with resolved_metrics.timer("database.append_transaction"):
-                dependencies.repository.append_transaction(audit_payload)
+            background_tasks.add_task(_append_pricing_audit, dependencies.repository, resolved_metrics, audit_payload)
             return prediction
         except FloorExceedsCeilingError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
