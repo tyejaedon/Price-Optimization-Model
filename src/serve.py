@@ -19,6 +19,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from src.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
+from src.platform_price import register_platform_price
 from src.api_contracts import (
     GridSearchConfigDTO,
     HealthResponseDTO,
@@ -267,6 +268,8 @@ def create_app(
 
     app = FastAPI(title="Price Optimization Model API", version="m8.7", lifespan=lifespan)
     app.state.dependencies = dependencies
+    # Career Mentor OS platform contract (#99). Closed unless PLATFORM_PRICE_KEY is set.
+    register_platform_price(app, dependencies)
 
     def require_admin(
         admin_token: Optional[str] = Header(default=None, alias="X-Admin-Token"),
