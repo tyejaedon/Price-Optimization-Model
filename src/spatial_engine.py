@@ -11,6 +11,7 @@ except ImportError as exc:
     raise RuntimeError("Missing spatial-index dependencies. Install from requirements.txt") from exc
 
 from src.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS
+from src.interval_synthesizer import weighted_peer_stddev
 from src.macro_arbitrage import HYBRID_VECTOR_DIMENSIONS
 
 DEFAULT_ARTIFACT_DIR = "artifacts"
@@ -294,6 +295,7 @@ class DomainPartitionedKDTreeIndexer:
         verified_rates = self.partition_verified_rates[routed_partition][local_neighbor_positions]
         idw_weights = self.compute_inverse_distance_weights(distance_array, epsilon=epsilon)
         weighted_rate = float(np.dot(verified_rates, idw_weights))
+        peer_stddev = weighted_peer_stddev(verified_rates.tolist(), idw_weights.tolist())
 
         nearest_neighbors: List[Dict[str, Any]] = []
         for peer_index, verified_rate, distance, weight in zip(
@@ -317,6 +319,7 @@ class DomainPartitionedKDTreeIndexer:
             {
                 "k_neighbors_used": int(len(nearest_neighbors)),
                 "base_predicted_rate": round(weighted_rate, 2),
+                "peer_stddev": peer_stddev,
                 "nearest_neighbors": nearest_neighbors,
             }
         )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -22,6 +22,7 @@ class PricingQueryDTO(StrictModel):
         description="Legacy compatibility input; not part of the fitted 53D feature schema.",
     )
     market_saturation_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    base_rate_floor: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
 
     @field_validator("mentor_country", "client_country")
     @classmethod
@@ -44,6 +45,8 @@ class PredictionResultDTO(StrictModel):
     base_predicted_rate: float = Field(ge=0.0)
     mpesa_tariff_surcharge: float = Field(ge=0.0)
     final_quoted_rate: float = Field(ge=0.0)
+    min_quoted_rate: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
+    max_quoted_rate: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
     currency: str = "KES"
     bilateral_arbitrage_factor: Optional[float] = None
     mentor_country_iso2: str = "ZZ"
@@ -57,6 +60,14 @@ class PredictionResultDTO(StrictModel):
         if base is not None and surcharge is not None and value + 1e-9 < base + surcharge:
             raise ValueError("final_quoted_rate must cover base rate plus surcharge")
         return value
+
+    @model_validator(mode="after")
+    def valid_corridor(self) -> "PredictionResultDTO":
+        if (self.min_quoted_rate is None) != (self.max_quoted_rate is None):
+            raise ValueError("pricing corridor must provide both min_quoted_rate and max_quoted_rate")
+        if self.min_quoted_rate is not None and self.min_quoted_rate > self.max_quoted_rate:
+            raise ValueError("min_quoted_rate cannot exceed max_quoted_rate")
+        return self
 
 
 class HealthResponseDTO(StrictModel):

@@ -36,6 +36,17 @@ class ApiContractsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             PricingQueryDTO(**valid_payload)
 
+    def test_optional_base_rate_floor_is_finite_and_non_negative(self) -> None:
+        payload = {
+            "raw_description": "Senior Android mentor with mobile engineering experience.",
+            "selected_industry": "mobile", "mentor_country": "KE", "client_country": "US",
+        }
+        self.assertIsNone(PricingQueryDTO(**payload).base_rate_floor)
+        self.assertEqual(PricingQueryDTO(**payload, base_rate_floor=0).base_rate_floor, 0.0)
+        for floor in (-1, float("nan"), float("inf")):
+            with self.subTest(floor=floor), self.assertRaises(ValidationError):
+                PricingQueryDTO(**payload, base_rate_floor=floor)
+
     def test_prediction_response_matches_documented_schema(self) -> None:
         response = PredictionResultDTO(
             base_predicted_rate=4700.0,
@@ -73,6 +84,17 @@ class ApiContractsTests(unittest.TestCase):
                     PeerMatchDTO(peer_index=1, distance=0.2, verified_rate=1000.0, similarity_score=0.8)
                 ],
             )
+
+    def test_response_corridor_must_be_finite_complete_and_ordered(self) -> None:
+        payload = {"base_predicted_rate": 100.0, "mpesa_tariff_surcharge": 7.0, "final_quoted_rate": 107.0}
+        self.assertIsNone(PredictionResultDTO(**payload).min_quoted_rate)  # injected legacy inference
+        self.assertEqual(PredictionResultDTO(**payload, min_quoted_rate=100, max_quoted_rate=125).max_quoted_rate, 125)
+        for bounds in ({"min_quoted_rate": 100}, {"max_quoted_rate": 125},
+                       {"min_quoted_rate": 126, "max_quoted_rate": 125},
+                       {"min_quoted_rate": -1, "max_quoted_rate": 125},
+                       {"min_quoted_rate": 100, "max_quoted_rate": float("inf")}):
+            with self.subTest(bounds=bounds), self.assertRaises(ValidationError):
+                PredictionResultDTO(**payload, **bounds)
 
     def test_health_response_is_explicit_about_firestore_state(self) -> None:
         response = HealthResponseDTO(status="HEALTHY", models_loaded=True, database="firestore")
