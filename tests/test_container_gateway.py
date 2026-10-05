@@ -196,7 +196,9 @@ class ContainerGatewayTests(unittest.TestCase):
                                  token_verifier=verifier, readiness_probe=lambda: True, trusted_manifest_sha256=digest)
             with TestClient(failing) as client:
                 self.assertEqual(client.post("/api/v1/optimize-price", json=PAYLOAD,
-                                             headers={"Authorization": "Bearer fixture-id-token"}).status_code, 500)
+                                             headers={"Authorization": "Bearer fixture-id-token"}).status_code, 200)
+                self.assertEqual(failing.state.dependencies.repository.list_transactions(), [])
+                self.assertEqual(failing.state.dependencies.metrics.snapshot()["operations"]["audit.persist"]["failures"], 1)
 
     def test_deployment_entrypoint_binds_firebase_and_firestore(self):
         with tempfile.TemporaryDirectory() as temp:
