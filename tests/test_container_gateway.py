@@ -3,7 +3,6 @@
 import os
 import importlib
 import tempfile
-import time
 import unittest
 from types import SimpleNamespace
 from typing import Any
@@ -180,23 +179,6 @@ class ContainerGatewayTests(unittest.TestCase):
                 self.assertEqual(repository.list_transactions()[0]["final_quoted_rate"], quote["final_quoted_rate"])
                 self.assertEqual(repository.list_transactions()[0]["mentor_id"], "fixture-user")
 
-                # Warmed in-process inference and full TestClient HTTP (not network RTT).
-                runtime = app.state.inference_runtime
-                from src.api_contracts import PricingQueryDTO
-                query = PricingQueryDTO.model_validate(PAYLOAD)
-                for _ in range(2):
-                    runtime.predict(query)
-                    client.post("/api/v1/optimize-price", json=PAYLOAD, headers=headers)
-                runs = 5
-                start = time.perf_counter()
-                for _ in range(runs):
-                    runtime.predict(query)
-                inference_ms = (time.perf_counter() - start) * 1000 / runs
-                start = time.perf_counter()
-                for _ in range(runs):
-                    self.assertEqual(client.post("/api/v1/optimize-price", json=PAYLOAD, headers=headers).status_code, 200)
-                http_ms = (time.perf_counter() - start) * 1000 / runs
-                print(f"fixture warm inference={inference_ms:.2f}ms; TestClient HTTP={http_ms:.2f}ms ({runs} runs)")
 
             unavailable = create_app(artifact_dir, macro_path, tariff_path, repository=FakeFirestore(),
                                      token_verifier=verifier, readiness_probe=lambda: False, trusted_manifest_sha256=digest)

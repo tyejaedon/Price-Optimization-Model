@@ -10,11 +10,20 @@ from src.performance_profiling import (
     profile_http_endpoint,
     profile_inference_components,
     profile_memory_stability,
+    summarize_latency_samples,
     write_profile_report,
 )
 
 
 class PerformanceProfilingTests(unittest.TestCase):
+    def test_timed_suboperation_samples_use_linear_percentiles(self) -> None:
+        summary = summarize_latency_samples("stub", [1.0, 2.0, 3.0, 4.0, 5.0])
+        self.assertEqual(summary.p95_ms, 4.8)
+        self.assertEqual(summary.iterations, 5)
+        self.assertEqual(summary.failed_requests, 0)
+        with self.assertRaisesRegex(ValueError, "At least one"):
+            summarize_latency_samples("empty", [])
+
     def test_callable_profile_counts_failures_without_polluting_latency_stats(self) -> None:
         calls = 0
 
