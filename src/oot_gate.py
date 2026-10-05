@@ -16,6 +16,10 @@ def validate_oot_report(report: dict) -> float:
         r2 = report["test"]["r2"]
         if train_end.tzinfo is None or test_start.tzinfo is None or train_end >= test_start:
             raise ValueError("test timestamps must follow training with explicit time zones")
+        if "time_cutoff" in report:
+            cutoff = datetime.fromisoformat(report["time_cutoff"])
+            if cutoff.tzinfo is None or not train_end <= cutoff < test_start:
+                raise ValueError("OOT cutoff must separate training from strictly later test records")
         if isinstance(r2, bool) or not isinstance(r2, (float, int)) or not math.isfinite(r2):
             raise ValueError("test R2 must be finite")
         if r2 < 0.75:

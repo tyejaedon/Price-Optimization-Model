@@ -1,7 +1,9 @@
 import argparse
+import hashlib
 import json
 import os
 import shutil
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -32,6 +34,7 @@ from src.macro_arbitrage import (
     fuse_coordinate_batches,
 )
 from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
+from src.oot_gate import validate_oot_report
 from src.spatial_engine import DEFAULT_IDW_EPSILON, DEFAULT_MIN_PARTITION_SIZE, DomainPartitionedKDTreeIndexer
 
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
@@ -40,6 +43,9 @@ DEFAULT_RANDOM_STATE = 42
 DEFAULT_TRAINING_SUMMARY_ARTIFACT = "training_summary.json"
 DEFAULT_IDW_NEIGHBORS = 5
 DEFAULT_QUALITY_GATE_R2 = 0.75
+OOT_TIMESTAMP_COLUMN = "observation_timestamp_utc"
+OOT_RATE_MIN = 500.0
+OOT_RATE_MAX = 35000.0
 
 REQUIRED_COLUMNS = (
     "raw_description",
@@ -140,6 +146,161 @@ def build_stratified_splits(
         validation=validation_frame.sort_values("record_id").reset_index(drop=True),
         test=test_frame.sort_values("record_id").reset_index(drop=True),
     )
+
+
+def build_chronological_splits(frame: pd.DataFrame, cutoff: str) -> SplitData:
+    """Require real, timezone-aware observation times and a prespecified cutoff."""
+    if OOT_TIMESTAMP_COLUMN not in frame.columns:
+        raise ValueError(f"Missing {OOT_TIMESTAMP_COLUMN}; source observation times are required for OOT training.")
+    try:
+        boundary = pd.Timestamp(cutoff)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("OOT cutoff must be an ISO-8601 timezone-aware timestamp.") from exc
+    if pd.isna(boundary) or boundary.tzinfo is None:
+        raise ValueError("OOT cutoff must be an ISO-8601 timezone-aware timestamp.")
+    times = frame[OOT_TIMESTAMP_COLUMN]
+    if times.isna().any():
+        raise ValueError("Missing observation timestamps; do not substitute ingestion or export times.")
+    try:
+        parsed = times.map(lambda value: pd.Timestamp(value))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid observation timestamps in OOT input.") from exc
+    if parsed.map(lambda value: pd.isna(value) or value.tzinfo is None).any():
+        raise ValueError("Observation timestamps must all be timezone-aware; no inferred dates allowed.")
+    normalized = pd.to_datetime(parsed, utc=True)
+    frame = frame.copy()
+    frame[OOT_TIMESTAMP_COLUMN] = normalized
+    boundary = boundary.tz_convert("UTC")
+    train = frame.loc[normalized <= boundary].sort_values([OOT_TIMESTAMP_COLUMN, "record_id"]).reset_index(drop=True)
+    test = frame.loc[normalized > boundary].sort_values([OOT_TIMESTAMP_COLUMN, "record_id"]).reset_index(drop=True)
+    if len(train) < 2 or len(test) < 2:
+        raise ValueError("OOT requires at least two historical and two strictly later eligible records.")
+    # The common feature fitter transforms both held-out slots, but fits ONLY train.
+    return SplitData(train=train, validation=test, test=test)
+
+
+def _oot_train_derived_metadata(split: SplitData) -> SplitData:
+    """Replace corpus-wide frequency features with train-only counts for all rows."""
+    counts = split.train["industry_partition"].value_counts()
+    total = len(split.train)
+    maximum = int(counts.max())
+
+    def transform(frame: pd.DataFrame) -> pd.DataFrame:
+        result = frame.copy()
+        frequency = result["industry_partition"].map(counts).fillna(0).astype(int)
+        result["industry_frequency"] = frequency
+        result["market_saturation_score"] = (frequency / total).round(6)
+        result["industry_relative_density"] = (frequency / maximum).round(6)
+        return result
+
+    return SplitData(train=transform(split.train), validation=transform(split.validation), test=transform(split.test))
+
+
+def evaluate_chronological_oot(
+    harmonized_parquet_path: str,
+    macro_lookup_path: str,
+    cutoff: str,
+    artifact_dir: str = DEFAULT_ARTIFACT_DIR,
+    dataset_version: str = "",
+) -> Dict[str, Any]:
+    """Train/export only if the strictly future raw-KES holdout clears R² >= 0.75.
+
+    The input must carry trustworthy source observation times; the current local
+    corpus does not. Dataset version is recorded with its exact input SHA-256.
+    """
+    if not dataset_version.strip():
+        raise ValueError("Provide an immutable dataset_version for chronological OOT provenance.")
+    if os.path.exists(artifact_dir) and os.listdir(artifact_dir):
+        raise ValueError("OOT artifact_dir must be empty; use a fresh directory to avoid stale deployable models.")
+    frame = load_harmonized_parquet(harmonized_parquet_path)
+    if OOT_TIMESTAMP_COLUMN not in frame.columns:
+        raise ValueError(f"Missing {OOT_TIMESTAMP_COLUMN}; current parquet cannot support chronological OOT.")
+    if "harmonized_hourly_rate" not in frame.columns:
+        raise ValueError("OOT requires harmonized_hourly_rate (KES/hour); do not use raw or unverified target_rate.")
+    if frame[OOT_TIMESTAMP_COLUMN].isna().any():
+        raise ValueError("Missing observation timestamps; do not substitute ingestion or export times.")
+    rates = pd.Series(pd.to_numeric(frame["harmonized_hourly_rate"].to_numpy(), errors="coerce"), index=frame.index)
+    eligible = cast(pd.Series, rates.notna() & rates.ge(OOT_RATE_MIN) & rates.le(OOT_RATE_MAX))
+    frame = frame.loc[eligible].copy()
+    frame["target_rate"] = rates.loc[eligible]
+    split = _oot_train_derived_metadata(build_chronological_splits(frame, cutoff))
+    train_end = split.train[OOT_TIMESTAMP_COLUMN].max()
+    test_start = split.test[OOT_TIMESTAMP_COLUMN].min()
+    train_rates = split.train["target_rate"].to_numpy(dtype=float)
+    q1, q3 = np.percentile(train_rates, [25, 75])
+    iqr = q3 - q1
+    with open(harmonized_parquet_path, "rb") as handle:
+        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+
+    # Stage all fitted files outside the final export. Failed gates never publish models.
+    with tempfile.TemporaryDirectory() as staged:
+        matrices = _fit_feature_matrices(split, macro_lookup_path, artifact_dir=staged)
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=DEFAULT_MIN_PARTITION_SIZE)
+        indexer.fit(
+            hybrid_vectors=matrices.x_train,
+            industry_partitions=split.train["industry_partition"].tolist(),
+            record_indices=split.train["record_id"].tolist(),
+            verified_rates=matrices.y_train.tolist(),
+        )
+        indexer.save_artifacts(staged)
+        shutil.copyfile(macro_lookup_path, os.path.join(staged, DEFAULT_BUNDLED_MACRO_LOOKUP))
+        config = {
+            "version": 1,
+            "text_dimensions": TEXT_VECTOR_DIMENSIONS,
+            "metadata_features": list(DEFAULT_FEATURE_NAMES),
+            "k_neighbors": DEFAULT_IDW_NEIGHBORS,
+            "idw_epsilon": DEFAULT_IDW_EPSILON,
+            "text_weight": 1.0,
+            "metadata_weight": 1.0,
+            "partition_density": {
+                str(partition): float(values.median())
+                for partition, values in split.train.groupby("industry_partition")["industry_relative_density"]
+            },
+        }
+        with open(os.path.join(staged, DEFAULT_INFERENCE_CONFIG_ARTIFACT), "w", encoding="utf-8") as handle:
+            json.dump(config, handle, indent=2, sort_keys=True)
+        frozen = DomainPartitionedKDTreeIndexer.load_artifacts(staged)
+        predictions = _predict_idw(
+            frozen, matrices.x_test, split.test["industry_partition"].tolist(), DEFAULT_IDW_NEIGHBORS,
+            epsilon=DEFAULT_IDW_EPSILON,
+        )
+        if not np.isfinite(predictions).all() or np.var(matrices.y_test) == 0:
+            raise ValueError("OOT holdout has non-finite predictions or constant labels; R2 is undefined.")
+        metrics = _metric_summary(matrices.y_test, predictions)
+        metrics["r2"] = float(r2_score(matrices.y_test, predictions))  # Do not round across the quality threshold.
+        report = {
+            "evaluation_protocol": "chronological_out_of_time",
+            "dataset_version": dataset_version,
+            "dataset_sha256": digest,
+            "label_provenance": "harmonized KES/hour proxy labels; not verified mentor transactions",
+            "rate_policy": {
+                "target_kes_per_hour_min": OOT_RATE_MIN,
+                "target_kes_per_hour_max": OOT_RATE_MAX,
+                "excluded_out_of_bounds_or_invalid": int(len(eligible) - eligible.sum()),
+                "iqr_policy": "diagnostic only; no holdout-dependent exclusions",
+                "train_iqr_lower": float(q1 - 1.5 * iqr),
+                "train_iqr_upper": float(q3 + 1.5 * iqr),
+            },
+            "time_cutoff": pd.Timestamp(cutoff).tz_convert("UTC").isoformat(),
+            "train_end": train_end.isoformat(),
+            "test_start": test_start.isoformat(),
+            "split_rows": {"train": len(split.train), "test": len(split.test)},
+            "test": metrics,
+            "quality_gate": {"metric": "test_r2", "threshold": DEFAULT_QUALITY_GATE_R2,
+                             "passed": bool(metrics["r2"] >= DEFAULT_QUALITY_GATE_R2)},
+        }
+        os.makedirs(artifact_dir, exist_ok=True)
+        summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            json.dump(report, handle, indent=2, sort_keys=True)
+        # The gate checks the held-out score and strict timestamp ordering.
+        try:
+            validate_oot_report(report)
+        except ValueError as exc:
+            raise RuntimeError(f"Quality gate failed: {exc}; inspect {summary_path} and acquire reliable labels/timestamps.") from exc
+        for name in os.listdir(staged):
+            shutil.move(os.path.join(staged, name), os.path.join(artifact_dir, name))
+        return report
 
 
 def _ensure_text_dimensions(matrix: np.ndarray, expected_dimensions: int = TEXT_VECTOR_DIMENSIONS) -> np.ndarray:
@@ -609,8 +770,10 @@ def _ensure_demo_inputs(raw_dir: str, macro_lookup_path: str, harmonized_parquet
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="M6.1/M6.2 training and evaluation pipeline")
-    parser.add_argument("--mode", choices=("orchestrate", "evaluate"), default="orchestrate")
+    parser = argparse.ArgumentParser(description="Training and chronological OOT evaluation pipeline")
+    parser.add_argument("--mode", choices=("orchestrate", "evaluate", "oot"), default="orchestrate")
+    parser.add_argument("--oot-cutoff", help="Prespecified ISO-8601 timezone-aware train/evaluation cutoff")
+    parser.add_argument("--dataset-version", help="Immutable version of the timestamped source dataset")
     parser.add_argument("--raw-dir", default=os.path.join("data", "raw"), help="Raw data directory used for demo fallbacks")
     parser.add_argument("--harmonized-parquet", default=DEFAULT_HARMONIZED_PARQUET, help="Input harmonized parquet path")
     parser.add_argument("--macro-lookup", default=DEFAULT_MACRO_LOOKUP, help="Macro lookup JSON path")
@@ -632,22 +795,30 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    os.makedirs(args.artifact_dir, exist_ok=True)
+    if args.mode == "oot" and (not args.oot_cutoff or not args.dataset_version):
+        raise ValueError("OOT mode requires --oot-cutoff and --dataset-version.")
+    if args.mode != "oot":
+        os.makedirs(args.artifact_dir, exist_ok=True)
     macro_lookup_path = args.macro_lookup
     harmonized_parquet_path = args.harmonized_parquet
 
-    if macro_lookup_path == DEFAULT_MACRO_LOOKUP and not os.path.exists(macro_lookup_path):
+    if args.mode != "oot" and macro_lookup_path == DEFAULT_MACRO_LOOKUP and not os.path.exists(macro_lookup_path):
         macro_lookup_path = os.path.join(args.artifact_dir, "demo_macro_lookup_table.json")
-    if harmonized_parquet_path == DEFAULT_HARMONIZED_PARQUET and not os.path.exists(harmonized_parquet_path):
+    if args.mode != "oot" and harmonized_parquet_path == DEFAULT_HARMONIZED_PARQUET and not os.path.exists(harmonized_parquet_path):
         harmonized_parquet_path = os.path.join(args.artifact_dir, "demo_harmonized_marketplace_corpus.parquet")
 
-    macro_lookup_path, harmonized_parquet_path = _ensure_demo_inputs(
-        raw_dir=args.raw_dir,
-        macro_lookup_path=macro_lookup_path,
-        harmonized_parquet_path=harmonized_parquet_path,
-    )
+    if args.mode != "oot":
+        macro_lookup_path, harmonized_parquet_path = _ensure_demo_inputs(
+            raw_dir=args.raw_dir,
+            macro_lookup_path=macro_lookup_path,
+            harmonized_parquet_path=harmonized_parquet_path,
+        )
 
-    if args.mode == "evaluate":
+    if args.mode == "oot":
+        payload = evaluate_chronological_oot(
+            harmonized_parquet_path, macro_lookup_path, args.oot_cutoff, args.artifact_dir, args.dataset_version,
+        )
+    elif args.mode == "evaluate":
         payload = evaluate_and_serialize_training(
             harmonized_parquet_path=harmonized_parquet_path,
             macro_lookup_path=macro_lookup_path,
