@@ -23,6 +23,8 @@ class OotGateTests(unittest.TestCase):
             {},
             {**valid, "evaluation_protocol": "stratified"},
             {**valid, "train_end": "2025-03-01T00:00:00+00:00"},
+            {**valid, "time_cutoff": "2025-01-02T00:00:00+00:00", "test_start": "2025-01-02T00:00:00+00:00"},
+            {**valid, "time_cutoff": "2024-12-01T00:00:00+00:00"},
             {**valid, "test": {"r2": 0.749}},
             {**valid, "test": {"r2": float("nan")}},
         ):
