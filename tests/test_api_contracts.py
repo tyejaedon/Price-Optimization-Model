@@ -77,7 +77,8 @@ class ApiContractsTests(unittest.TestCase):
     def test_health_response_is_explicit_about_firestore_state(self) -> None:
         response = HealthResponseDTO(status="HEALTHY", models_loaded=True, database="firestore")
 
-        self.assertEqual(response.model_dump(), {"status": "HEALTHY", "models_loaded": True, "database": "firestore"})
+        self.assertEqual(response.model_dump(exclude_none=True), {"status": "HEALTHY", "models_loaded": True, "database": "firestore"})
+        self.assertIsNone(response.validation_status)
 
 
 if __name__ == "__main__":

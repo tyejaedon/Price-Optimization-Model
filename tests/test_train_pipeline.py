@@ -26,6 +26,7 @@ from src.macro_arbitrage import DEFAULT_FEATURE_NAMES, ContinuousMetadataNormali
 from src.nlp_pipeline import TextFeatureReducer
 from src.serve import InferenceRuntime
 from src.api_contracts import PricingQueryDTO
+from src.artifact_contract import MANIFEST_NAME, file_sha256
 from src.spatial_engine import DomainPartitionedKDTreeIndexer
 
 
@@ -247,7 +248,8 @@ class TrainPipelineTests(unittest.TestCase):
             ])
             os.remove(macro_path)
             tariff_path = str(Path(__file__).resolve().parent / "fixtures" / "raw" / "Mpesa_Tarrifs" / "tarrifs_full_schedule.csv")
-            runtime = InferenceRuntime(artifact_dir, macro_path, tariff_path)
+            runtime = InferenceRuntime(artifact_dir, macro_path, tariff_path,
+                                       trusted_manifest_sha256=file_sha256(os.path.join(artifact_dir, MANIFEST_NAME)))
             runtime.load()
             self.assertTrue(runtime.models_loaded, runtime.load_error)
             query = PricingQueryDTO(

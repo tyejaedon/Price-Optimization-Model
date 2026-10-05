@@ -11,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from src.config import DeploymentConfig
+from src.artifact_contract import MANIFEST_NAME, file_sha256
 from src.repository import InMemoryRepository
 from src.serve import create_app
 from tests import test_serve
@@ -78,6 +79,7 @@ class ContainerGatewayTests(unittest.TestCase):
     def test_protected_quote_and_audit_and_unready_state(self):
         with tempfile.TemporaryDirectory() as temp:
             artifact_dir, macro_path, tariff_path = test_serve.ServeApiTests()._build_artifacts(temp)
+            digest = file_sha256(os.path.join(artifact_dir, MANIFEST_NAME))
             repository = FakeFirestore()
             probe = lambda: True
 
@@ -87,7 +89,7 @@ class ContainerGatewayTests(unittest.TestCase):
                 return {"uid": "fixture-user"}
 
             app = create_app(artifact_dir, macro_path, tariff_path, repository=repository,
-                             token_verifier=verifier, readiness_probe=probe)
+                             token_verifier=verifier, readiness_probe=probe, trusted_manifest_sha256=digest)
             with TestClient(app) as client:
                 self.assertEqual(client.get("/ready").status_code, 200)
                 for headers in ({}, {"Authorization": "Bearer invalid"}, {"Authorization": "Basic fixture-id-token"},
@@ -123,7 +125,7 @@ class ContainerGatewayTests(unittest.TestCase):
                 print(f"fixture warm inference={inference_ms:.2f}ms; TestClient HTTP={http_ms:.2f}ms ({runs} runs)")
 
             unavailable = create_app(artifact_dir, macro_path, tariff_path, repository=FakeFirestore(),
-                                     token_verifier=verifier, readiness_probe=lambda: False)
+                                     token_verifier=verifier, readiness_probe=lambda: False, trusted_manifest_sha256=digest)
             with TestClient(unavailable) as client:
                 self.assertEqual(client.get("/ready").status_code, 503)
 
@@ -135,7 +137,7 @@ class ContainerGatewayTests(unittest.TestCase):
                                             headers={"Authorization": "Bearer fixture-id-token"}).status_code, 503)
 
             failing = create_app(artifact_dir, macro_path, tariff_path, repository=FailingFirestore(),
-                                 token_verifier=verifier, readiness_probe=lambda: True)
+                                 token_verifier=verifier, readiness_probe=lambda: True, trusted_manifest_sha256=digest)
             with TestClient(failing) as client:
                 self.assertEqual(client.post("/api/v1/optimize-price", json=PAYLOAD,
                                              headers={"Authorization": "Bearer fixture-id-token"}).status_code, 500)
@@ -145,7 +147,8 @@ class ContainerGatewayTests(unittest.TestCase):
             artifact_dir, _, tariff_path = test_serve.ServeApiTests()._build_artifacts(temp)
             repository = FakeFirestore()
             env = {"FIREBASE_PROJECT_ID": "demo-pricing", "PRICING_ARTIFACT_DIR": artifact_dir,
-                   "PRICING_TARIFF_CSV": tariff_path}
+                   "PRICING_TARIFF_CSV": tariff_path,
+                   "PRICING_ARTIFACT_MANIFEST_SHA256": file_sha256(os.path.join(artifact_dir, MANIFEST_NAME))}
             with patch.dict(os.environ, env), patch("firebase_admin.get_app", return_value=SimpleNamespace(project_id="demo-pricing")), \
                     patch("src.repository.FirestoreRepository", return_value=repository), \
                     patch("firebase_admin.auth.verify_id_token", return_value={"uid": "fixture-user"}) as verify:

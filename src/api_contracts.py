@@ -63,6 +63,11 @@ class HealthResponseDTO(StrictModel):
     status: Literal["HEALTHY", "DEGRADED", "UNHEALTHY"]
     models_loaded: bool
     database: Literal["firestore", "memory", "unconfigured", "unavailable"]
+    artifact_version: Optional[str] = None
+    dataset_version: Optional[str] = None
+    source_type: Optional[str] = None
+    validation_status: Optional[str] = None
+    readiness_reason: Optional[str] = None
 
 
 class GridSearchConfigDTO(StrictModel):

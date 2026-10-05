@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Literal, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from src.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
 from src.platform_price import register_platform_price
 from src.api_contracts import (
     GridSearchConfigDTO,
@@ -68,7 +69,8 @@ class ServiceDependencies:
 class InferenceRuntime:
     """Loads the merged M7 artifacts and exposes the production prediction path."""
 
-    def __init__(self, artifact_dir: str, macro_lookup_path: str, tariff_csv_path: str, firestore_enabled: bool = False) -> None:
+    def __init__(self, artifact_dir: str, macro_lookup_path: str, tariff_csv_path: str, firestore_enabled: bool = False,
+                 trusted_manifest_sha256: Optional[str] = None) -> None:
         self.artifact_dir = artifact_dir
         self.macro_lookup_path = macro_lookup_path
         self.tariff_csv_path = tariff_csv_path
@@ -79,10 +81,12 @@ class InferenceRuntime:
         self.tariff_evaluator: Optional[MpesaTariffEvaluator] = None
         self.load_error: Optional[str] = None
         self.inference_config: Optional[Dict[str, Any]] = None
+        self.trusted_manifest_sha256 = trusted_manifest_sha256
+        self.manifest: Optional[Dict[str, Any]] = None
 
     @property
     def models_loaded(self) -> bool:
-        return self.inference_config is not None and all(component is not None for component in (self.reducer, self.metadata_normalizer, self.spatial_indexer, self.tariff_evaluator))
+        return self.manifest is not None and self.inference_config is not None and all(component is not None for component in (self.reducer, self.metadata_normalizer, self.spatial_indexer, self.tariff_evaluator))
 
     @property
     def database_status(self) -> Literal["firestore", "unconfigured", "unavailable"]:
@@ -96,6 +100,7 @@ class InferenceRuntime:
 
     def load(self) -> None:
         try:
+            manifest = verify_manifest(self.artifact_dir, self.trusted_manifest_sha256)
             with open(os.path.join(self.artifact_dir, DEFAULT_INFERENCE_CONFIG_ARTIFACT), encoding="utf-8") as handle:
                 config = json.load(handle)
             if (
@@ -105,21 +110,29 @@ class InferenceRuntime:
             ):
                 raise ValueError("Incompatible inference feature schema.")
             if (
-                not isinstance(config["k_neighbors"], int) or config["k_neighbors"] < 1
-                or not isinstance(config["idw_epsilon"], (int, float))
+                type(config["k_neighbors"]) is not int or config["k_neighbors"] < 1
+                or type(config["idw_epsilon"]) not in (int, float)
+                or not math.isfinite(config["idw_epsilon"])
                 or not (0 < config["idw_epsilon"] <= 1)
             ):
                 raise ValueError("Invalid inference KNN configuration.")
             if not all(
-                isinstance(config[key], (int, float)) and math.isfinite(config[key]) and config[key] >= 0
+                type(config[key]) in (int, float) and math.isfinite(config[key]) and config[key] >= 0
                 for key in ("text_weight", "metadata_weight")
             ):
                 raise ValueError("Invalid inference feature weights.")
             if not isinstance(config["partition_density"], dict) or not all(
-                isinstance(value, (int, float)) and math.isfinite(value)
+                type(value) in (int, float) and math.isfinite(value) and value >= 0
                 for value in config["partition_density"].values()
             ):
                 raise ValueError("Missing partition density mapping.")
+            if (manifest["query_policy"] != {key: config[key] for key in ("k_neighbors", "idw_epsilon", "text_weight", "metadata_weight")}
+                or manifest["partition_policy"] != {key: config[key] for key in ("minimum_partition_size", "fallback_partition", "allow_fallback", "partition_density")}):
+                raise ValueError("Incompatible manifest query or partition policy")
+            if (type(config["minimum_partition_size"]) is not int or config["minimum_partition_size"] < 1
+                or type(config["allow_fallback"]) is not bool
+                or config["fallback_partition"] not in SUPPORTED_INDUSTRY_PARTITIONS):
+                raise ValueError("Invalid partition policy")
             macro_path = os.path.join(self.artifact_dir, DEFAULT_BUNDLED_MACRO_LOOKUP)
             self.reducer = TextFeatureReducer.load_artifacts(self.artifact_dir)
             if self.reducer.n_components_requested != TEXT_VECTOR_DIMENSIONS or self.reducer.reducer.n_components > TEXT_VECTOR_DIMENSIONS:
@@ -130,18 +143,45 @@ class InferenceRuntime:
                 self.spatial_indexer.hybrid_dimensions != HYBRID_VECTOR_DIMENSIONS
                 or not self.spatial_indexer.partition_verified_rates
                 or not set(self.spatial_indexer.active_partitions()).issubset(config["partition_density"])
+                or set(self.spatial_indexer.partition_counts) != set(self.spatial_indexer.active_partitions())
+                or set(self.spatial_indexer.partition_verified_rates) != set(self.spatial_indexer.active_partitions())
+                or self.spatial_indexer.minimum_partition_size != config["minimum_partition_size"]
+                or self.spatial_indexer.fallback_partition != config["fallback_partition"]
+                or any(len(self.spatial_indexer.partition_verified_rates[key]) != count
+                       or len(self.spatial_indexer.partition_row_indices[key]) != count
+                       for key, count in self.spatial_indexer.partition_counts.items())
             ):
                 raise ValueError("Incompatible inference KD-Tree artifact.")
             self.tariff_evaluator = MpesaTariffEvaluator.from_csv(self.tariff_csv_path)
             self.inference_config = config
+            self.manifest = manifest
             self.load_error = None
-        except (FileNotFoundError, KeyError, RuntimeError, ValueError, OSError, TypeError, json.JSONDecodeError) as exc:
+        except Exception as exc:
             self.reducer = None
             self.metadata_normalizer = None
             self.spatial_indexer = None
             self.tariff_evaluator = None
             self.inference_config = None
-            self.load_error = str(exc)
+            self.manifest = None
+            # Do not expose absolute paths, pickle contents or exception payloads via health.
+            if isinstance(exc, FileNotFoundError):
+                name = os.path.basename(exc.filename or "")
+                self.load_error = f"missing artifact file: {name}" if name in (*ARTIFACT_FILES, MANIFEST_NAME) else "missing artifact file"
+            elif isinstance(exc, ValueError) and str(exc).startswith((
+                "Untrusted artifacts:", "Untrusted artifact manifest:", "Incompatible artifact manifest",
+                "Incompatible artifact model", "Missing or incompatible exploratory artifact provenance",
+                "Incompatible artifact provenance fields", "Invalid or sensitive artifact provenance",
+                "Invalid artifact dataset digest",
+                "Incomplete artifact manifest", "Invalid artifact digest:", "Corrupted artifact:",
+                "Incompatible artifact preprocessing policy", "Incompatible inference feature schema",
+                "Invalid inference KNN configuration", "Invalid inference feature weights",
+                "Missing partition density mapping", "Incompatible manifest query or partition policy",
+                "Invalid partition policy", "Incompatible fitted text dimensions",
+                "Incompatible inference KD-Tree artifact",
+            )):
+                self.load_error = str(exc)
+            else:
+                self.load_error = "invalid or corrupted artifact set"
 
     def _partition(self, selected_industry: str) -> str:
         normalized = selected_industry.strip().lower()
@@ -165,7 +205,8 @@ class InferenceRuntime:
         )
         fused = fuse_coordinates(text_vector * config["text_weight"], normalized_metadata * config["metadata_weight"])
         prediction = self.spatial_indexer.predict_base_rate(
-            fused, requested_partition=partition, k=config["k_neighbors"], allow_fallback=True, epsilon=config["idw_epsilon"]
+            fused, requested_partition=partition, k=config["k_neighbors"],
+            allow_fallback=config["allow_fallback"], epsilon=config["idw_epsilon"]
         )
         quote = self.tariff_evaluator.evaluate_quote(float(prediction["base_predicted_rate"]), query.mentor_country)
         return PredictionResultDTO(
@@ -204,8 +245,10 @@ def create_app(
     admin_token: Optional[str] = None,
     token_verifier: Optional[Callable[[str], Dict[str, Any]]] = None,
     readiness_probe: Optional[Callable[[], bool]] = None,
+    trusted_manifest_sha256: Optional[str] = None,
 ) -> FastAPI:
-    runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled)
+    runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled,
+                               trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"))
     runtime_inference = inference is None
     resolved_inference: InferenceCallable = inference if inference is not None else runtime.predict
     resolved_metrics = metrics or MetricsRegistry()
@@ -257,6 +300,12 @@ def create_app(
             status="HEALTHY" if healthy else "DEGRADED",
             models_loaded=models_loaded,
             database=database if database in {"firestore", "memory", "unconfigured"} else "unavailable",
+            artifact_version=(f"v{runtime.manifest['schema_version']}:{runtime.trusted_manifest_sha256[:12]}"
+                              if models_loaded and runtime_inference else None),
+            dataset_version=runtime.manifest["provenance"]["dataset_version"] if models_loaded and runtime_inference else None,
+            source_type=runtime.manifest["provenance"]["source_type"] if models_loaded and runtime_inference else None,
+            validation_status=runtime.manifest["provenance"]["validation_status"] if models_loaded and runtime_inference else None,
+            readiness_reason=runtime.load_error if runtime_inference and not models_loaded else None,
         )
 
     @app.get("/health", response_model=HealthResponseDTO)
@@ -271,7 +320,8 @@ def create_app(
                 if not readiness_probe():
                     raise RuntimeError("repository unavailable")
             except Exception:
-                health_state = HealthResponseDTO(status="DEGRADED", models_loaded=health_state.models_loaded, database="unavailable")
+                health_state = health_state.model_copy(update={"status": "DEGRADED", "database": "unavailable",
+                                                        "readiness_reason": "repository unavailable"})
         if health_state.status != "HEALTHY":
             return JSONResponse(status_code=503, content=health_state.model_dump())
         return health_state
@@ -294,7 +344,7 @@ def create_app(
     @app.post("/api/v1/optimize-price", response_model=PredictionResultDTO)
     async def optimize_price(query: PricingQueryDTO, _: None = Depends(require_pricing_token)) -> PredictionResultDTO:
         if runtime_inference and not runtime.models_loaded:
-            raise HTTPException(status_code=503, detail="model artifacts are not loaded")
+            raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
         try:
             with resolved_metrics.timer("inference.optimize_price"):
                 payload = dependencies.inference(query)
