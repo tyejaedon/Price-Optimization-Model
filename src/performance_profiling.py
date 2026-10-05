@@ -157,6 +157,13 @@ def _latency_summary(
     )
 
 
+def summarize_latency_samples(name: str, durations_ms: Sequence[float]) -> LatencySummary:
+    """Summarize measured sub-operations with the same percentile policy as callable profiles."""
+    if not durations_ms:
+        raise ValueError("At least one latency sample is required.")
+    return _latency_summary(name, durations_ms, len(durations_ms), ())
+
+
 def profile_callable_latency(
     operation: Callable[[], Any],
     *,
