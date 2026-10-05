@@ -1,0 +1,11 @@
+mentor_profile_id,skill_id,skill,category,demand
+p1,s1,Data Analytics,Technology & IT,HIGH
+p1,s2,Agile/Scrum,Technology & IT,MEDIUM
+p2,s3,Cybersecurity,Technology & IT,HIGH
+p3,s4,Digital Marketing,Marketing & Communications,HIGH
+p3,s5,Sales Training,Marketing & Communications,MEDIUM
+p4,s6,Leadership,Business & Management,HIGH
+p4,s7,Project Management,Business & Management,HIGH
+p5,s8,Professional Cooking,Culinary & Hospitality,MEDIUM
+p6,s9,Plumbing,Construction & Building,HIGH
+p7,s1,Data Analytics,Technology & IT,HIGH
