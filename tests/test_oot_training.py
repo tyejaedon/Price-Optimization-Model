@@ -24,7 +24,7 @@ class OotTrainingTests(unittest.TestCase):
         build_macro_lookup(str(fixture), str(self.macro))
         self.parquet = self.root / "input.parquet"
         frame = TrainPipelineTests()._build_synthetic_harmonized_frame()
-        frame["observation_timestamp"] = [
+        frame["observation_timestamp_utc"] = [
             "2025-03-01T00:00:00+00:00" if i % 7 == 0 else "2025-01-01T00:00:00+00:00"
             for i in range(len(frame))
         ]
@@ -39,10 +39,10 @@ class OotTrainingTests(unittest.TestCase):
 
     def test_duplicate_timestamps_stay_together_and_order_is_strict(self):
         splits = build_chronological_splits(load_harmonized_parquet(str(self.parquet)), self.cutoff)
-        self.assertTrue(pd.Timestamp(splits.train.observation_timestamp.max()) < pd.Timestamp(splits.test.observation_timestamp.min()))
+        self.assertTrue(pd.Timestamp(splits.train.observation_timestamp_utc.max()) < pd.Timestamp(splits.test.observation_timestamp_utc.min()))
         self.assertFalse(set(splits.train.record_id) & set(splits.test.record_id))
         frame = pd.read_parquet(self.parquet)
-        frame.loc[:5, "observation_timestamp"] = self.cutoff
+        frame.loc[:5, "observation_timestamp_utc"] = self.cutoff
         frame.to_parquet(self.parquet, index=False)
         splits = build_chronological_splits(load_harmonized_parquet(str(self.parquet)), self.cutoff)
         self.assertTrue(set(range(6)).issubset(set(splits.train.record_id)))
@@ -53,14 +53,14 @@ class OotTrainingTests(unittest.TestCase):
             evaluate_chronological_oot(str(self.parquet), str(self.macro), self.cutoff, str(self.out))
         for value, message in [(None, "Missing observation"), ("2025-01-01", "timezone-aware")]:
             broken = frame.copy()
-            broken.loc[0, "observation_timestamp"] = value
+            broken.loc[0, "observation_timestamp_utc"] = value
             broken.to_parquet(self.parquet, index=False)
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, message):
                 self._run()
-        frame.drop(columns=["observation_timestamp"]).to_parquet(self.parquet, index=False)
+        frame.drop(columns=["observation_timestamp_utc"]).to_parquet(self.parquet, index=False)
         with self.assertRaisesRegex(ValueError, "cannot support chronological OOT"):
             self._run()
-        frame["observation_timestamp"] = "2025-01-01T00:00:00+00:00"
+        frame["observation_timestamp_utc"] = "2025-01-01T00:00:00+00:00"
         frame.to_parquet(self.parquet, index=False)
         with self.assertRaisesRegex(ValueError, "strictly later"):
             self._run()
@@ -68,7 +68,7 @@ class OotTrainingTests(unittest.TestCase):
 
     def test_train_only_transform_and_indexer_and_reload(self):
         frame = pd.read_parquet(self.parquet)
-        late = frame.observation_timestamp.str.startswith("2025-03")
+        late = frame.observation_timestamp_utc.str.startswith("2025-03")
         frame.loc[late, "raw_description"] += " futureonlytoken"
         frame.loc[late, "market_saturation_score"] = 999.0
         frame.loc[late, "industry_relative_density"] = 999.0
@@ -113,7 +113,7 @@ class OotTrainingTests(unittest.TestCase):
 
     def test_gate_uses_future_raw_labels_and_never_exports_failure(self):
         frame = pd.read_parquet(self.parquet)
-        future = frame.observation_timestamp.str.startswith("2025-03")
+        future = frame.observation_timestamp_utc.str.startswith("2025-03")
         frame.loc[future, "harmonized_hourly_rate"] = np.linspace(500.0, 35000.0, future.sum())
         frame.to_parquet(self.parquet, index=False)
         with self.assertRaisesRegex(RuntimeError, "Quality gate failed.*acquire reliable labels"):
