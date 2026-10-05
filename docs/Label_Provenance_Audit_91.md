@@ -81,7 +81,15 @@ for all countries and segments.
 
 ## Optional future OOT eligibility design (deferred)
 
-**Current parquet: no chronological OOT split.** It has no observation-time
+**Later local snapshot (2026-10-05; #93 research only):** A subsequently rebuilt,
+ignored parquet has 22,547 dated job postings and 130 undated profiles. This
+does **not** retroactively timestamp the 2026-10-04 snapshot described below,
+verify source-event IDs or turn posted budgets into mentor transaction labels.
+The optional [#93 benchmark](M9_93_Inference_Safe_Benchmark.md) uses only eligible,
+dated proxy budgets, predeclared chronological windows and a frozen final test;
+the #81 mentor-pricing gate remains deferred.
+
+**Audited 2026-10-04 parquet: no chronological OOT split.** It has no observation-time
 column: 0/22,677 timestamps are present. Among retained raw job candidates,
 22,547/22,547 have parseable timezone-aware publication times (22,041 distinct,
 from 2023-12-02 through 2024-02-23 UTC); none of 130 profiles have observation
@@ -99,7 +107,7 @@ policy **before fitting or inspecting held-out outcomes**:
    source/industry count. With this exact snapshot, at most 16,498 job rows
    would qualify after a timestamp-preserving rebuild (22,547 - 6,049 post-
    bound exclusions), conditional on row-level provenance checks. The
-   **existing** parquet qualifies zero dated rows. These are prospective
+   **2026-10-04 audited** parquet qualifies zero dated rows. These are prospective
    population rules, not tuned to a model's validation score.
 2. Use a chronological cutoff determined without looking at held-out rates.
    Assign all equal source timestamps to the same side; training dates must

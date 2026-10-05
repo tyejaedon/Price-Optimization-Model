@@ -6,6 +6,8 @@ This is the canonical **target architecture and migration plan** for the Content
 
 **Scope update (#91, 2026-10-04):** This is currently a computer-science implementation project. Verified mentor transaction data acquisition, empirical pricing validation and the proposed chronological OOT `R^2 >= 0.75` quality gate are deferred, **not prerequisites** for the M10-M14 API, Firestore, Android or deployment work. The existing training labels are proxy job budgets/profile asking rates, not verified mentor earnings. Retain deterministic software tests, artifact/train-serve parity, security and pricing invariants; label demo outputs and historical metrics honestly. The OOT/gate steps below describe a future research option, not the current definition of done. See [issue #91 audit](Label_Provenance_Audit_91.md).
 
+**Optional issue #93 research:** A [non-promoting inference-safe benchmark](M9_93_Inference_Safe_Benchmark.md) compares request-computable 53D text and distance settings on dated job-posting proxy budgets using predeclared chronological train/validation/test windows. This does not verify mentor prices, reinstate the #81 gate or change M10-M14 prerequisites. Any online contract/schema or latency change still belongs to #67/#70.
+
 ---
 
 ## 1. System Topology & Technology Stack
