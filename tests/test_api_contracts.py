@@ -19,6 +19,18 @@ class ApiContractsTests(unittest.TestCase):
         self.assertEqual(payload.mentor_country, "KE")
         self.assertEqual(payload.client_country, "US")
         self.assertEqual(payload.competitiveness_score, 0.65)
+        self.assertIsNone(payload.mentor_id)  # legacy local requests still work
+
+    def test_pricing_query_accepts_mentor_id_alias_without_loose_ids(self) -> None:
+        payload = {
+            "raw_description": "Senior Android mentor with mobile engineering experience.",
+            "selected_industry": "mobile", "mentor_country": "KE", "client_country": "US",
+        }
+        self.assertEqual(PricingQueryDTO(**payload, mentorId="user-123").mentor_id, "user-123")
+        self.assertEqual(PricingQueryDTO(**payload, mentor_id="user-123").mentor_id, "user-123")
+        for mentor_id in ("", "   ", "x" * 129):
+            with self.subTest(mentor_id=mentor_id), self.assertRaises(ValidationError):
+                PricingQueryDTO(**payload, mentorId=mentor_id)
 
     def test_pricing_query_rejects_bad_bounds_and_unknown_fields(self) -> None:
         base_payload = {

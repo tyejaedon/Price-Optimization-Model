@@ -13,6 +13,11 @@ class StrictModel(BaseModel):
 
 
 class PricingQueryDTO(StrictModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
+
+    # The deployed gateway requires this to equal the verified Firebase UID.
+    # Keep it optional here for existing local callers until the #83 wire migration.
+    mentor_id: Optional[str] = Field(default=None, alias="mentorId", min_length=1, max_length=128)
     raw_description: str = Field(min_length=3, max_length=10_000)
     selected_industry: str = Field(min_length=1, max_length=100)
     mentor_country: str = Field(min_length=2, max_length=2)

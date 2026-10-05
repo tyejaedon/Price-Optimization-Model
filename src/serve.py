@@ -11,6 +11,7 @@ import hmac
 import json
 import math
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Literal, Optional
@@ -335,23 +336,29 @@ def create_app(
             return JSONResponse(status_code=503, content=health_state.model_dump())
         return health_state
 
-    def require_pricing_token(authorization: Optional[str] = Header(default=None)) -> None:
+    def require_pricing_token(authorization: Optional[str] = Header(default=None)) -> Optional[str]:
         if token_verifier is None:
-            return
-        scheme, _, token = (authorization or "").partition(" ")
-        if scheme.lower() != "bearer" or not token or not token.strip() or len(token.split()) != 1:
+            return None
+        bearer = re.fullmatch(r"Bearer ([^\s]+)", authorization or "", flags=re.IGNORECASE)
+        if bearer is None:
             raise HTTPException(status_code=401, detail="valid bearer token required")
         try:
-            claims = token_verifier(token.strip())
-            if not isinstance(claims, dict) or not claims.get("uid"):
+            claims = token_verifier(bearer.group(1))
+            uid = claims.get("uid") if isinstance(claims, dict) else None
+            if not isinstance(uid, str) or not uid or uid != uid.strip():
                 raise ValueError("missing verified UID")
         except Exception as exc:
             raise HTTPException(status_code=401, detail="valid bearer token required") from exc
         if current_health().database != "firestore":
             raise HTTPException(status_code=503, detail="pricing repository unavailable")
+        return uid
 
     @app.post("/api/v1/optimize-price", response_model=PredictionResultDTO)
-    async def optimize_price(query: PricingQueryDTO, _: None = Depends(require_pricing_token)) -> PredictionResultDTO:
+    async def optimize_price(query: PricingQueryDTO, uid: Optional[str] = Depends(require_pricing_token)) -> PredictionResultDTO:
+        # Until #84 introduces an explicit owner mapping, only a Firebase UID
+        # can be used as mentorId. Body-supplied IDs never authenticate a caller.
+        if uid is not None and query.mentor_id != uid:
+            raise HTTPException(status_code=403, detail="mentor authorization required")
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
         try:
@@ -366,6 +373,8 @@ def create_app(
                 "final_quoted_rate": prediction.final_quoted_rate,
                 "executed_at": datetime.now(timezone.utc).isoformat(),
             }
+            if uid is not None:
+                audit_payload["mentor_id"] = uid
             with resolved_metrics.timer("database.append_transaction"):
                 dependencies.repository.append_transaction(audit_payload)
             return prediction
