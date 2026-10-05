@@ -100,6 +100,16 @@ uvicorn src.serve:app --host 127.0.0.1 --port 8000
 
 The training command above disables the evaluation quality gate for local exploration; its proxy job-budget/profile-rate metrics do not validate real mentor earnings. Verified mentor transaction acquisition and empirical OOT/R2 gating are deferred, not prerequisites for the CS-focused API, security, artifact-parity and Android work (see [issue #91 audit](docs/Label_Provenance_Audit_91.md)). Continue software correctness and security tests. Use `/docs` for the current request schema and `/health` for model readiness. Android build/run instructions will be added when the client exists (#74-#76).
 
+### Chronological OOT training (#81; opt-in research)
+
+`--mode oot` requires a versioned parquet with the ingestion field `observation_timestamp_utc` containing genuine timezone-aware source observation times on **every input row**. Choose the UTC cutoff **before** examining future labels. Rebuilding the local parquet from raw sources preserves job `published_date` on 22,547 job rows, but the 130 profile rows have no source observation date and remain null. OOT training on this mixed parquet therefore fails closed; curate a **separately versioned, predeclared** timestamp-complete job-only dataset rather than fabricating dates or silently discarding undated profiles. Job-post timestamps measure posted *budgets*, not verified mentor transactions. This is non-blocking research, not a claim of validated mentor pricing or a deployment/CI prerequisite.
+
+```powershell
+python -m src.train_pipeline --mode oot --harmonized-parquet path/to/timestamped.parquet --macro-lookup data/processed/macro_lookup_table.json --oot-cutoff "2025-01-01T00:00:00+00:00" --dataset-version "source-snapshot-v1" --artifact-dir path/to/new-empty-export
+```
+
+The OOT policy excludes non-finite or out-of-range **harmonized target** rates outside 500–35,000 KES/hour before splitting (the ingestion bounds instead apply to pre-arbitrage rates). IQR fences are computed on training labels for diagnostics only; no IQR-based exclusions or outcome-driven tuning are performed. All observations at or before the cutoff train; only strictly later records evaluate. Precomputed corpus-wide saturation/density are replaced by train-only counts; WordNet preprocessing, max-12,000-feature unigram/bigram TF-IDF, 50D SVD, 3D scaler, and k=5 quadratic IDW KD-Trees fit on training rows only. The fresh export contains `training_summary.json` with source SHA-256/version, cutoff, counts, train-only IQR bounds, MAE, RMSE and full-precision raw-KES/hour holdout R². If R² < 0.75 or chronology/features are unusable, the command fails and **does not publish fitted model artifacts**; the failure summary remains for inspection. Never deploy a failed export or treat a synthetic test as empirical OOT evidence. Legacy `--mode evaluate` is stratified and **not** an OOT gate.
+
 ## Pivot delivery sequence
 
 | Stage | Milestone | Outcome |
