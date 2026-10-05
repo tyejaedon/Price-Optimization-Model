@@ -1,0 +1,10 @@
+skill_id,skill,category,mentor_type,level,demand
+s1,Data Analytics,Technology & IT,PROFESSIONAL,INTERMEDIATE,HIGH
+s2,Agile/Scrum,Technology & IT,PROFESSIONAL,INTERMEDIATE,MEDIUM
+s3,Cybersecurity,Technology & IT,PROFESSIONAL,ADVANCED,HIGH
+s4,Digital Marketing,Marketing & Communications,PROFESSIONAL,BEGINNER,HIGH
+s5,Sales Training,Marketing & Communications,PROFESSIONAL,BEGINNER,MEDIUM
+s6,Leadership,Business & Management,PROFESSIONAL,ADVANCED,HIGH
+s7,Project Management,Business & Management,PROFESSIONAL,INTERMEDIATE,HIGH
+s8,Professional Cooking,Culinary & Hospitality,VOCATIONAL,INTERMEDIATE,MEDIUM
+s9,Plumbing,Construction & Building,VOCATIONAL,BEGINNER,HIGH
