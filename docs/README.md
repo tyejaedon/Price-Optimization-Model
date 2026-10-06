@@ -1,6 +1,6 @@
 # Documentation: start here
 
-Start with the [project overview](../README.md): what a mentor supplies, what a quote means, and what exists today. Then run the [pipeline walkthrough notebook](../notebooks/pipeline_walkthrough.ipynb) to inspect each stage with synthetic marketplace inputs and read-only macro test fixtures. The notebook writes only to an OS temporary directory and needs no Firebase credentials.
+Start with the [project overview](../README.md): what a mentor supplies, what a quote means, and what exists today. Then run the [pipeline walkthrough notebook](../notebooks/pipeline_walkthrough.ipynb) on the **ignored local** harmonized parquet and macro lookup. It uses fixed chronological windows for dated job-budget proxies, not verified mentor rates. Research artifacts are temporary; no Firebase credentials are needed, and missing local inputs fail explicitly. See the [#93 benchmark](M9_93_Inference_Safe_Benchmark.md) for the separately documented OOT research protocol.
 
 ## Reading path
 
