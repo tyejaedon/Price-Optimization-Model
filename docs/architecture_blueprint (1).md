@@ -241,28 +241,29 @@ sequenceDiagram
 
 ## 5. Strict Data Contracts (Pydantic V2 Schemas)
 
-The following is an illustrative **target wire contract**, not executable code to paste over the currently deployed models in `src/api_contracts.py`. #83 owns validation, OpenAPI and backward-compatible translation on the existing route; #84 owns hydration of omitted fields. The legacy snake_case DTO remains in use until that migration is implemented.
+The following is an illustrative **target wire contract**, not executable code to paste over the deployed models in `src/api_contracts.py`. #83 implements camelCase `Canonical*DTO` models alongside the legacy DTOs on `POST /api/v1/optimize-price`, with a compatible translation and OpenAPI union. Legacy snake_case inputs and responses are deprecated but still supported on the same route. Current canonical calls require `rawText` (omission returns 422 until #84 adds authorized hydration); the typed optional field reserves that migration path. The optional positive `costOfLivingIndex` overrides mentor CoL in the bilateral factor only, while `competitivenessScore` maps to the fitted saturation feature. No scaler feature order is changed. Current artifacts have peer row indices but no listing IDs (#71), so `comparables` contains only listing-backed peers (normally empty), `kNeighborsUsed` is the count of indexed neighbors and `confidenceScore` is 0.0 (uncalibrated). `jobTitle` is optional pending #71. `GET /health` adds canonical fields alongside legacy health fields; all rates/corridor bounds use KES/hour, with M-Pesa fees excluded from the corridor. See README for the executable wire contract and compatibility/deprecation policy.
 
 ```python
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field
 
 class PricingQueryDTO(BaseModel):
     mentorId: str = Field(..., description="Mentor document ID authorized for the verified Firebase UID")
-    rawText: Optional[constr(min_length=20, max_length=2000)] = Field(
+    rawText: Optional[str] = Field(
         default=None,
+        min_length=20, max_length=2000,
         description="Unstructured capability description. If None, hydrated from Firestore."
     )
     industry: str = Field(
         ...,
         description="Industry partition key (e.g., data_ai, mobile)"
     )
-    mentorCountry: constr(min_length=2, max_length=2) = Field(
-        ..., description="ISO 3166-1 alpha-2 origin code"
+    mentorCountry: str = Field(
+        ..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 origin code"
     )
-    clientCountry: constr(min_length=2, max_length=2) = Field(
-        ..., description="ISO 3166-1 alpha-2 client destination code"
+    clientCountry: str = Field(
+        ..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 client destination code"
     )
     competitivenessScore: float = Field(
         default=0.5, ge=0.0, le=1.0, description="Self-reported saturation ratio"
@@ -292,7 +293,7 @@ class PredictionResultDTO(BaseModel):
     confidenceScore: float = Field(..., ge=0.0, le=1.0)
     comparables: List[PeerMatchDTO]
     reason: str = Field(..., description="Natural language justification of the rate")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class HealthStatusDTO(BaseModel):
     status: str = "healthy"

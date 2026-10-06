@@ -32,11 +32,11 @@ Firebase ID tokens will be supplied by the Android client and are verified by th
 finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
 ```
 
-The existing ML and tariff implementations are reused, not restarted. #67 tracks any training/inference feature, IDW or artifact changes needed to match this target; #71 owns real peer listing IDs, #82 the rate floor/corridor, and #83 the new response and confidence semantics. #68 is closed as superseded by #83.
+The existing ML and tariff implementations are reused, not restarted. #67 tracks training/inference artifact changes; #71 owns real peer listing IDs, #82 the rate floor/corridor, and #83 the canonical DTO adapter. #68 is closed as superseded by #83.
 
-## Target pricing contract (planned)
+## Canonical pricing contract (M10.5 / #83)
 
-The target `POST /api/v1/optimize-price` requires a verified Firebase ID token and a validated `PricingQueryDTO`. The following illustrates the **proposed** request and response shape, not the currently deployed API:
+`POST /api/v1/optimize-price` accepts a camelCase canonical request (a verified Firebase ID token is required in the deployment entrypoint; local `src.serve:app` is unauthenticated). The current protected gateway requires `mentorId` to equal the verified Firebase UID. This is an **example request**; `costOfLivingIndex` and `baseRateFloor` are optional:
 
 ```json
 {
@@ -56,25 +56,24 @@ The target `POST /api/v1/optimize-price` requires a verified Firebase ID token a
   "basePredictedRate": 4700.0,
   "mpesaTariffSurcharge": 57.0,
   "finalQuotedRate": 4757.0,
-  "kNeighborsUsed": 1,
-  "confidenceScore": 0.82,
+  "minQuotedRate": 3900.0,
+  "maxQuotedRate": 5100.0,
+  "kNeighborsUsed": 5,
   "bilateralArbitrageFactor": 0.51,
-  "comparables": [
-    {
-      "listingId": "listing-123",
-      "verifiedRate": 4900.0,
-      "similarityScore": 0.82
-    }
-  ],
-  "reason": "Illustrative peer-based recommendation with a Kenyan M-Pesa surcharge."
+  "confidenceScore": 0.0,
+  "comparables": [],
+  "reason": "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge. Listing-backed comparables are unavailable for some peers.",
+  "timestamp": "2026-10-06T12:00:00Z"
 }
 ```
 
-Rates in this example are illustrative KES/hour values. The proposed DTO limits `rawText` to 20-2,000 characters, uses two-letter country codes and bounds `competitivenessScore` to 0-1. #69 requires the verified UID to equal `mentorId` today; the arbitrary ID in this **future** example requires an explicit owner mapping (#84). #83 owns the camelCase contract migration on the same route. #84 also owns authorized hydration when text or metadata is missing. The legacy snake_case contract remains supported during the migration and must be deprecated explicitly before any versioned removal; **the current API does not accept this request or return this response**. `industry` maps to the training partition / Firestore `industry_id`; `costOfLivingIndex` is not a saturation score. Rates throughout are KES/hour.
+Rates above are illustrative KES/hour **proxy estimates**, not empirically verified mentor prices. Canonical requests require `mentorId`, `industry`, `mentorCountry`, `clientCountry` and (for now) `rawText` (20–2000 characters); omitted text returns 422 until verified Firestore hydration is added in #84. Countries must be two ASCII letters (uppercased); `competitivenessScore` defaults to 0.5, must be in [0, 1], and maps to the **fitted** `market_saturation_score` feature, not partition density. An optional finite `costOfLivingIndex` in [0.01, 1000] replaces only the mentor-side lookup value when computing the bilateral factor; it is **not** a fourth feature or an alias of saturation. An optional finite non-negative `baseRateFloor` is in KES/hour; if it exceeds the computed ceiling the API returns 422. All quote/corridor rates are KES/hour, and the corridor excludes M-Pesa fees, so `finalQuotedRate` can exceed `maxQuotedRate`. The returned `kNeighborsUsed` counts indexed peers actually used by IDW; `similarityScore = 1 / (1 + euclideanDistance)` (rounded in legacy index results). Only peers with real `listingId` provenance are returned in `comparables` (optional `jobTitle`); current index artifacts only have row indices, so `comparables` is empty until #71. `confidenceScore` is **0.0 = not empirically calibrated**, not a probability of accuracy. `reason` reports the number of peers and missing listing provenance; `timestamp` is a UTC response creation time. No peer IDs or confidence claims are invented.
+
+**Compatibility/deprecation:** Existing snake_case callers can continue to use the **same** `POST /api/v1/optimize-price` with `raw_description`, `selected_industry`, `mentor_country`, `client_country`, optional `market_saturation_score`, `base_rate_floor`, and (for protected calls) `mentorId`/`mentor_id`. They receive the original snake_case `PredictionResultDTO` with `nearest_neighbors` and a `Deprecation: true` response header. The OpenAPI operation exposes both request/response schemas and calls out the deprecated legacy DTO. Do not mix snake_case and camelCase fields in one request (422); there is no new endpoint or removal date. `GET /health` now adds `service`, `unit: "KES/hour"`, `modelsLoaded` and `version` while retaining all legacy health fields; `/ready` is unchanged. The separate platform integration `POST /price` (#99) is not the canonical API.
 
 ## What runs today
 
-The existing Python service exposes `POST /api/v1/optimize-price` using snake_case fields such as `raw_description`, `selected_industry`, `mentor_country`, `client_country`, `competitiveness_score` and `market_saturation_score`. The same DTO accepts an optional `mentorId` (also `mentor_id` in Python); the protected deployment **requires** it to match the verified Firebase UID, whereas legacy local requests may omit it. The deployed route returns 401 for missing/invalid/expired bearer tokens, 403 for a missing or other user's mentor ID, and never runs inference or writes an audit on these failures. Its response uses `base_predicted_rate`, `mpesa_tariff_surcharge`, `final_quoted_rate` and `nearest_neighbors`. With loaded artifacts, it also returns peer-based `min_quoted_rate` and `max_quoted_rate` (KES/hour), using the same fitted IDW neighbors as the base rate. An optional finite non-negative `base_rate_floor` overrides the default floor of half the base rate; an explicit floor above the peer-based ceiling returns 422 rather than an inverted interval. Bounds do **not** include the M-Pesa fee: `final_quoted_rate` remains base plus surcharge and need not lie inside the pre-fee corridor. Injected legacy inference implementations may omit the optional bounds. The camelCase contract, confidence semantics and real peer listing IDs still belong to #83/#71. The service also exposes `GET /health` and Swagger UI at `/docs`. Audits are still synchronous; the unauthenticated `src.serve:app` entrypoint is for local use only and **must not be deployed**.
+The protected deployment returns 401 for missing/invalid bearer tokens, 403 for a missing or mismatched mentor ID, 422 for invalid inputs or a floor above the ceiling, and 503 for missing/untrusted model artifacts. These failures never schedule an audit. Successful quotes schedule an observable append-only background audit (#72). Injected **legacy** inference implementations may still omit the optional corridor; canonical calls then return 503 rather than a fabricated range. The service also exposes Swagger UI at `/docs`. The unauthenticated `src.serve:app` entrypoint is for local use only and **must not be deployed**.
 
 The local service loads model artifacts at FastAPI startup, so train and export artifacts before expecting a ready model. See `src/api_contracts.py` and `src/serve.py` for the **current** API schema and behavior.
 
@@ -82,7 +81,7 @@ The local service loads model artifacts at FastAPI startup, so train and export 
 
 The current 53D feature schema remains `[bilateral_arbitrage_factor, market_saturation_score, industry_relative_density]`, in that order after 50 text features. Evaluation exports now include `inference_config.json`, bundled macro lookup and a **versioned `artifact_manifest.json`** alongside all fitted files. The manifest records preprocessing, partition/fallback and IDW query policy (default k=5, epsilon=1e-6), file and dataset SHA-256, source/split provenance, and `exploratory_not_empirically_approved`. Serve **only internally reviewed, immutable exports**: set `PRICING_ARTIFACT_MANIFEST_SHA256` to the SHA-256 of the manifest from an **independent trusted release record**, not one computed automatically from an arbitrary mounted artifact set. A missing pin, old unsigned set, mismatched hash, schema or corrupt file yields 503 `/ready` before joblib deserialization. `/health` reports the manifest revision, dataset version, source type and exploratory status (or a sanitized failure reason). A compatible proxy demo is **not** evidence of verified mentor pricing or OOT accuracy. See [#95 deployment steps](docs/M13.2_Container_and_CI.md).
 
-Online density is the median training value for the selected partition, not the legacy request's `competitiveness_score`. That legacy input is accepted but **does not affect the trained coordinate**; competitiveness and optional mentor cost-of-living overrides require a separately versioned retraining/DTO migration under #83. The existing trained third feature is density, not the proposed mentor cost-of-living feature, and the existing TF-IDF training `min_df=1` differs from the proposed `df>=2`; neither is relabeled as though it were already migrated. The existing stratified evaluation is not chronological OOT evidence (#81). No generated model or data files belong in Git.
+Online density is the median training value for the selected partition, not the legacy request's `competitiveness_score` (still accepted but unused). Canonical `competitivenessScore` maps to the trained **second** saturation feature; `costOfLivingIndex` affects only the existing bilateral factor, not a new scaler dimension. The trained third feature is density, not the proposed mentor cost-of-living feature. The existing TF-IDF training `min_df=1` differs from the proposed `df>=2`; neither is relabeled as though it were migrated. The existing stratified evaluation is not chronological OOT evidence (#81). No generated model or data files belong in Git.
 
 ### Run the existing Python pipeline locally
 

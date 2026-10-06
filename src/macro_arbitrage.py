@@ -17,6 +17,7 @@ from src.ingest_multisource import (
     build_macro_lookup,
     compute_bilateral_arbitrage_factor,
     export_harmonized_records_parquet,
+    get_macro_record,
     load_macro_lookup_table,
     map_country_to_iso2,
 )
@@ -61,13 +62,23 @@ class ContinuousMetadataNormalizer:
         client_country_iso2: str,
         market_saturation_score: float,
         industry_relative_density: float,
+        mentor_cost_of_living_index: float | None = None,
     ) -> np.ndarray:
         mentor_iso2 = map_country_to_iso2(mentor_country_iso2)
         client_iso2 = map_country_to_iso2(client_country_iso2)
+        macro_records = self.macro_records
+        if mentor_cost_of_living_index is not None:
+            if not np.isfinite(mentor_cost_of_living_index) or not 0.01 <= mentor_cost_of_living_index <= 1000.0:
+                raise ValueError("mentor_cost_of_living_index must be finite and between 0.01 and 1000")
+            # Keep the immutable training lookup and the three fitted scaler columns intact.
+            mentor_record = get_macro_record(macro_records, mentor_iso2, default_iso2_code="KE")
+            macro_records = {**macro_records, mentor_iso2: {
+                **mentor_record, "cost_of_living_index": mentor_cost_of_living_index,
+            }}
         bilateral_factor = compute_bilateral_arbitrage_factor(
             mentor_iso2_code=mentor_iso2,
             client_iso2_code=client_iso2,
-            macro_records=self.macro_records,
+            macro_records=macro_records,
             alpha=self.alpha,
         )
         vector = np.array(
@@ -112,6 +123,7 @@ class ContinuousMetadataNormalizer:
         client_country_iso2: str,
         market_saturation_score: float,
         industry_relative_density: float,
+        mentor_cost_of_living_index: float | None = None,
     ) -> np.ndarray:
         if not self.fitted:
             raise RuntimeError("ContinuousMetadataNormalizer must be fitted before transform_live_metadata().")
@@ -120,6 +132,7 @@ class ContinuousMetadataNormalizer:
             client_country_iso2=client_country_iso2,
             market_saturation_score=market_saturation_score,
             industry_relative_density=industry_relative_density,
+            mentor_cost_of_living_index=mentor_cost_of_living_index,
         )
         return self.scaler.transform(vector)
 
