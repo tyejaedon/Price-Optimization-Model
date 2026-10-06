@@ -1,4 +1,10 @@
-"""Protected ASGI entrypoint for container deployments (not the legacy local app)."""
+"""Protected ASGI entrypoint for deployments, unlike unauthenticated ``src.serve:app``.
+
+This module builds the production dependency set explicitly: Firebase Admin verifies
+bearer tokens, Firestore is required (there is no in-memory fallback), and ``/ready``
+probes repository availability. ``create_app`` also receives the independently
+configured manifest digest so artifact bytes are pinned before joblib loading.
+"""
 
 import firebase_admin
 from firebase_admin import auth
@@ -9,6 +15,7 @@ from src.serve import create_app
 
 
 def create_deployment_app():
+    """Construct the deployed gateway and reject Firebase project mismatches."""
     config = DeploymentConfig.from_env()
     try:
         firebase_app = firebase_admin.get_app()

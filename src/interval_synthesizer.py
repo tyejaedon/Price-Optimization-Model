@@ -1,4 +1,15 @@
-"""FR-06 peer-based negotiation bounds in KES/hour (before any payment fee)."""
+"""FR-06 fee-free negotiation corridor around the peer base rate in KES/hour.
+
+Inference computes the rounded base and full-precision peer dispersion, then
+applies the reservation floor/corridor here, before adding an approved Kenyan
+M-Pesa P2P fee to the point quote. The floor constrains the lower bound, not the
+base estimate. Consequently the point quote can be below a requested floor and
+the fee-inclusive final quote can be above the corridor ceiling.
+
+These bounds are engineering rules, not calibrated confidence intervals or
+empirical guarantees about paid mentor rates. See ../docs/README.md (glossary)
+and ../docs/M11.3_Mpesa_Tariff.md (quote/floor policy).
+"""
 
 from __future__ import annotations
 
@@ -52,9 +63,14 @@ def synthesize_corridor(
 ) -> dict[str, float]:
     """Apply FR-06 to the rounded base quote and full-precision peer dispersion.
 
-    Bounds remain unrounded to preserve the floor and formula; presentation/cent
-    rounding belongs to the future canonical contract (#83). Payment fees are
-    deliberately excluded from both bounds.
+    The lower bound is max(floor, base - 0.75*sigma); the upper bound is
+    (base + 1.25*sigma) multiplied by (2 - phi) only when phi < 1. The default
+    floor is half the base. Inputs must be finite/non-negative and phi positive;
+    a floor above the computed ceiling raises FloorExceedsCeilingError.
+
+    Bounds remain unrounded here to preserve the floor and formula; the API
+    contract owns presentation rounding. Payment fees are excluded from both
+    bounds and this function never clamps the base estimate to the floor.
     """
     base = _non_negative_finite(base_rate, "base rate")
     sigma = _non_negative_finite(peer_stddev, "peer standard deviation")

@@ -1,3 +1,17 @@
+"""Sanitize marketplace text and fit the TF-IDF/SVD text representation.
+
+Sanitized descriptions are converted to unigram/bigram TF-IDF and reduced to
+dense latent text coordinates. Production training pads or truncates that
+output to 50 coordinates before appending the three metadata coordinates
+defined in :mod:`src.macro_arbitrage`; the resulting hybrid order is fixed.
+Fit the vectorizer and SVD on training text only, then reuse their saved
+artifacts for validation, test, and inference transforms.
+
+See ``../README.md#how-a-price-is-calculated`` for the pipeline overview,
+``../docs/experiments/README.md`` for the evidence index, and
+``../docs/Label_Provenance_Audit_91.md`` for the proxy-label limitations.
+"""
+
 import argparse
 import json
 import os
@@ -52,6 +66,7 @@ DEFAULT_METADATA_ARTIFACT = "nlp_reducer_metadata.json"
 
 
 def ensure_text_dimensions(matrix: np.ndarray, expected_dimensions: int = 50) -> np.ndarray:
+    """Return a 2-D text matrix with the requested fixed column count."""
     if matrix.ndim != 2:
         raise ValueError(f"Expected a 2-D text matrix; got shape {matrix.shape}.")
     cols = matrix.shape[1]
@@ -91,7 +106,12 @@ def _clean_text(raw_text: str) -> str:
 
 
 def sanitize_text(raw_text: str) -> str:
-    """Normalize text for downstream NLP by cleaning and lemmatizing tokens."""
+    """Normalize one description into lowercase alphabetic lemmatized tokens.
+
+    URLs and nonletters are removed, short tokens and English stopwords are
+    discarded, and the remaining tokens are lemmatized. This is preprocessing,
+    not extraction of manually named semantic features.
+    """
     cleaned = _clean_text(raw_text)
     if not cleaned:
         return ""
@@ -116,11 +136,20 @@ def sanitize_text(raw_text: str) -> str:
 
 
 def sanitize_many(texts: Iterable[str]) -> List[str]:
+    """Sanitize each description with the same preprocessing as ``sanitize_text``."""
     return [sanitize_text(text) for text in texts]
 
 
 class TextFeatureReducer:
-    """TF-IDF + TruncatedSVD feature pipeline for marketplace profile text."""
+    """Fit and reuse the marketplace-description TF-IDF/SVD representation.
+
+    Text is sanitized before unigram/bigram TF-IDF; TruncatedSVD then maps the
+    sparse vocabulary to dense latent coordinates. The default requests 50
+    components, although small corpora can fit fewer; use
+    :func:`ensure_text_dimensions` when a fixed 50-coordinate model schema is
+    required. SVD dimensions are latent axes, not named words or interpretable
+    labels.
+    """
 
     def __init__(
         self,
@@ -160,6 +189,7 @@ class TextFeatureReducer:
         return np.divide(dense_vectors, norms, out=np.zeros_like(dense_vectors), where=norms > 0.0)
 
     def fit_transform(self, texts: Sequence[str]) -> np.ndarray:
+        """Fit vocabulary and SVD on the supplied training corpus and transform it."""
         cleaned_texts = sanitize_many(texts)
         tfidf_sparse = self.vectorizer.fit_transform(cleaned_texts)
 
@@ -170,6 +200,7 @@ class TextFeatureReducer:
         return self._normalize_dense_vectors(dense_vectors)
 
     def transform(self, texts: Sequence[str]) -> np.ndarray:
+        """Transform new text with the already-fitted vocabulary and SVD."""
         if not self.fitted:
             raise RuntimeError("TextFeatureReducer must be fitted before transform().")
 
@@ -178,6 +209,7 @@ class TextFeatureReducer:
         return self._normalize_dense_vectors(self.reducer.transform(tfidf_sparse))
 
     def explained_variance_sum(self) -> float:
+        """Return the finite sum of fitted SVD explained-variance ratios."""
         if not self.fitted:
             return 0.0
         values = getattr(self.reducer, "explained_variance_ratio_", None)
@@ -187,6 +219,7 @@ class TextFeatureReducer:
         return float(np.sum(finite_values))
 
     def save_artifacts(self, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> None:
+        """Persist the fitted vectorizer, reducer, and preprocessing metadata."""
         if not self.fitted:
             raise RuntimeError("TextFeatureReducer must be fitted before save_artifacts().")
 
@@ -212,6 +245,7 @@ class TextFeatureReducer:
 
     @classmethod
     def load_artifacts(cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> "TextFeatureReducer":
+        """Restore a fitted text pipeline for validation or inference transforms."""
         tfidf_path = os.path.join(artifact_dir, DEFAULT_TFIDF_ARTIFACT)
         svd_path = os.path.join(artifact_dir, DEFAULT_SVD_ARTIFACT)
         metadata_path = os.path.join(artifact_dir, DEFAULT_METADATA_ARTIFACT)
@@ -253,6 +287,7 @@ def _profile_transform_latency_ms(reducer: TextFeatureReducer, sample_text: str,
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse options for text sanitization or the artifact fit/transform demo."""
     parser = argparse.ArgumentParser(description="NLP sanitization and TF-IDF/SVD feature tooling.")
     parser.add_argument(
         "--mode",
@@ -269,6 +304,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run the requested CLI mode and print its text or demo result."""
     args = parse_args()
 
     if args.mode == "sanitize":

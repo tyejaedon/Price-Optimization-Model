@@ -1,3 +1,21 @@
+"""Scale the three metadata inputs and fuse them with latent text coordinates.
+
+The production hybrid coordinate is exactly 53 values in fixed order:
+50 sanitized-text TF-IDF/SVD coordinates, followed by
+``bilateral_arbitrage_factor``, ``market_saturation_score``, and
+``industry_relative_density``. This module fits a MinMax scaler on training
+metadata and reuses that scaler for held-out and live inputs. An optional
+mentor cost-of-living override affects only the bilateral factor calculation;
+it is not a fourth scaler column or hybrid coordinate.
+
+``LeakageSafeMetadataEnricher`` in ``metadata_enrichment.py`` supplies
+additional offline ablation groups, not additions to this production schema.
+See ``../README.md#how-a-price-is-calculated``,
+``../docs/experiments/README.md``, and
+``../docs/Label_Provenance_Audit_91.md`` for feature definitions and evidence
+limitations.
+"""
+
 import argparse
 import json
 import os
@@ -41,7 +59,17 @@ HYBRID_VECTOR_DIMENSIONS = TEXT_VECTOR_DIMENSIONS + METADATA_VECTOR_DIMENSIONS
 
 
 class ContinuousMetadataNormalizer:
-    """Fit and apply a MinMax scaler over continuous metadata features."""
+    """Fit and apply the fixed-order three-column metadata MinMax scaler.
+
+    The columns are country-pair bilateral factor, market saturation, then
+    industry-relative density. MinMax scaling fits the training extrema to
+    [0, 1]; held-out and live rows use those frozen statistics rather than
+    refitting and can fall outside [0, 1] because values are not clipped.
+    Record fields that are missing or falsey become zero before float conversion;
+    this is a numerical default, not an observed market value.
+    Saturation and industry density have different meanings and
+    occupy separate coordinates.
+    """
 
     def __init__(
         self,
@@ -64,6 +92,12 @@ class ContinuousMetadataNormalizer:
         industry_relative_density: float,
         mentor_cost_of_living_index: float | None = None,
     ) -> np.ndarray:
+        """Build a (1, 3) unscaled vector from live countries and unitless scores.
+
+        ``mentor_cost_of_living_index`` optionally replaces the mentor lookup
+        value only while calculating the bilateral factor. The original macro
+        lookup and three-column feature schema remain unchanged.
+        """
         mentor_iso2 = map_country_to_iso2(mentor_country_iso2)
         client_iso2 = map_country_to_iso2(client_country_iso2)
         macro_records = self.macro_records
@@ -95,6 +129,7 @@ class ContinuousMetadataNormalizer:
         return [float(record.get(feature_name, 0.0) or 0.0) for feature_name in self.feature_names]
 
     def fit(self, records: Sequence[Dict[str, Any]]) -> None:
+        """Fit scaler extrema from metadata records, without returning values."""
         matrix = np.array([self._record_to_row(record) for record in records], dtype=float)
         if matrix.size == 0:
             raise ValueError("Cannot fit metadata scaler on an empty record set.")
@@ -102,6 +137,7 @@ class ContinuousMetadataNormalizer:
         self.fitted = True
 
     def fit_transform(self, records: Sequence[Dict[str, Any]]) -> np.ndarray:
+        """Fit on the supplied training records and return their scaled values."""
         matrix = np.array([self._record_to_row(record) for record in records], dtype=float)
         if matrix.size == 0:
             raise ValueError("Cannot fit metadata scaler on an empty record set.")
@@ -110,6 +146,7 @@ class ContinuousMetadataNormalizer:
         return transformed
 
     def transform(self, records: Sequence[Dict[str, Any]]) -> np.ndarray:
+        """Scale records with fitted training extrema; never refit on new rows."""
         if not self.fitted:
             raise RuntimeError("ContinuousMetadataNormalizer must be fitted before transform().")
         matrix = np.array([self._record_to_row(record) for record in records], dtype=float)
@@ -125,6 +162,7 @@ class ContinuousMetadataNormalizer:
         industry_relative_density: float,
         mentor_cost_of_living_index: float | None = None,
     ) -> np.ndarray:
+        """Build and scale one live metadata row using the fitted training scaler."""
         if not self.fitted:
             raise RuntimeError("ContinuousMetadataNormalizer must be fitted before transform_live_metadata().")
         vector = self.build_live_metadata_vector(
@@ -137,11 +175,13 @@ class ContinuousMetadataNormalizer:
         return self.scaler.transform(vector)
 
     def fit_from_parquet(self, parquet_path: str) -> np.ndarray:
+        """Fit from parquet metadata records and return the scaled training matrix."""
         frame = pd.read_parquet(parquet_path)
         records = frame.to_dict(orient="records")
         return self.fit_transform(records)
 
     def save_artifacts(self, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> None:
+        """Persist fitted scaler coefficients and the ordered feature names."""
         if not self.fitted:
             raise RuntimeError("ContinuousMetadataNormalizer must be fitted before save_artifacts().")
 
@@ -164,6 +204,7 @@ class ContinuousMetadataNormalizer:
     def load_artifacts(
         cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR, macro_lookup_path: str | None = None
     ) -> "ContinuousMetadataNormalizer":
+        """Restore the fitted scaler after checking the fixed three-column schema."""
         scaler_path = os.path.join(artifact_dir, DEFAULT_SCALER_ARTIFACT)
         metadata_path = os.path.join(artifact_dir, DEFAULT_SCALER_METADATA)
 
@@ -205,7 +246,7 @@ def _coerce_feature_vector(vector: Any, expected_size: int, vector_name: str) ->
 
 
 def fuse_coordinates(dense_text_vector: Any, normalized_metadata: Any) -> np.ndarray:
-    """Concatenate a 50-D text vector and 3-D normalized metadata into an immutable 53-D vector."""
+    """Concatenate 50 text then 3 metadata values into an immutable 53-D vector."""
     text_array = _coerce_feature_vector(dense_text_vector, TEXT_VECTOR_DIMENSIONS, "dense_text_vector")
     metadata_array = _coerce_feature_vector(normalized_metadata, METADATA_VECTOR_DIMENSIONS, "normalized_metadata")
 
@@ -215,7 +256,7 @@ def fuse_coordinates(dense_text_vector: Any, normalized_metadata: Any) -> np.nda
 
 
 def fuse_coordinate_batches(text_vectors: Any, metadata_vectors: Any) -> np.ndarray:
-    """Fuse aligned text and metadata matrices row-wise into immutable hybrid coordinates."""
+    """Fuse aligned matrices as ``[50 text | factor, saturation, density]`` rows."""
     text_matrix = np.asarray(text_vectors, dtype=float)
     metadata_matrix = np.asarray(metadata_vectors, dtype=float)
 
@@ -290,6 +331,7 @@ def _ensure_demo_artifacts(raw_dir: str, macro_lookup_path: str, harmonized_parq
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse options for fitting/scaling metadata and the optional fusion demo."""
     parser = argparse.ArgumentParser(description="Fit and use the continuous metadata normalizer.")
     parser.add_argument("--mode", choices=("fit_demo", "transform_demo", "fuse_demo"), default="fit_demo")
     parser.add_argument("--raw-dir", default=os.path.join("data", "raw"), help="Raw data directory")
@@ -309,6 +351,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run the metadata fit/transform demo and print its summary."""
     args = parse_args()
     raw_dir = args.raw_dir
     macro_lookup_path = args.macro_lookup

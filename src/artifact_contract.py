@@ -1,7 +1,10 @@
 """Trust boundary for exported demonstration inference artifacts.
 
-The operator must pin the manifest's SHA-256 outside the artifact directory.
-Hashes in a self-supplied manifest alone do not make pickle/joblib safe to load.
+The operator must obtain and pin the manifest's SHA-256 through a trusted channel,
+outside the artifact directory. Verification compares that external pin with the
+manifest bytes and checks each listed file digest before any joblib deserialization.
+The manifest does not hash itself, and hashes supplied only by a downloaded bundle
+do not authenticate it or make pickle/joblib safe to load.
 """
 
 import hashlib
@@ -49,6 +52,7 @@ def _valid_provenance(dataset_version: Any, source_type: Any, split_policy: Any)
 
 
 def file_sha256(path: str) -> str:
+    """Return the SHA-256 digest of a file's exact bytes."""
     with open(path, "rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
 
@@ -67,7 +71,11 @@ def _preprocessing(artifact_dir: str) -> dict[str, Any]:
 
 def write_manifest(artifact_dir: str, config: dict[str, Any], *, dataset_version: str,
                    source_type: str, split_policy: str, dataset_sha256: str | None = None) -> str:
-    """Export the contract last, after all fitted files have been written."""
+    """Write the manifest after fitted files and return its digest for external pinning.
+
+    The returned digest is useful only when its expected value is independently
+    trusted; creating a manifest and trusting its own digest is not authentication.
+    """
     if not _valid_provenance(dataset_version, source_type, split_policy):
         raise ValueError("Artifact provenance must contain non-sensitive dataset/source/split identifiers")
     if dataset_sha256 is not None and not SHA256_PATTERN.fullmatch(dataset_sha256):
@@ -95,7 +103,12 @@ def write_manifest(artifact_dir: str, config: dict[str, Any], *, dataset_version
 
 
 def verify_manifest(artifact_dir: str, trusted_sha256: str | None) -> dict[str, Any]:
-    """Verify external trust and all bytes before invoking any joblib loader."""
+    """Verify the external manifest pin and listed artifact bytes before joblib loads.
+
+    A valid pin authenticates the exact manifest only when provisioned separately
+    from the bundle; the manifest itself has no self-hash and this function does not
+    make untrusted pickle/joblib content intrinsically safe.
+    """
     if not trusted_sha256 or not SHA256_PATTERN.fullmatch(trusted_sha256):
         raise ValueError("Untrusted artifacts: configure PRICING_ARTIFACT_MANIFEST_SHA256 with a pinned manifest digest")
     path = os.path.join(artifact_dir, MANIFEST_NAME)

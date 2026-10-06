@@ -1,3 +1,16 @@
+"""Generate exploratory split, coverage, and proxy-error diagnostics.
+
+The standard diagnostics use industry-stratified random splits and train-only
+feature fits; the industry report additionally groups equivalent sanitized
+descriptions. An OOT-availability field reports why the separate chronological
+protocol cannot run, but these reports neither execute nor pass the deferred
+empirical mentor-pricing gate #81/#91. Scores describe marketplace budget and
+asking-rate proxies, not verified mentor accuracy.
+
+See ``../docs/experiments/README.md`` and
+``../docs/Label_Provenance_Audit_91.md`` for interpretation and label limits.
+"""
+
 import argparse
 import hashlib
 import json
@@ -42,6 +55,7 @@ def detect_duplicate_records(
     frame: pd.DataFrame,
     key_columns: Sequence[str] = ("raw_description", "target_rate"),
 ) -> Dict[str, Any]:
+    """Summarize duplicate rows under normalized description/target keys."""
     available_columns = [column for column in key_columns if column in frame.columns]
     if not available_columns:
         raise ValueError("At least one duplicate-detection key column must exist in the frame.")
@@ -72,6 +86,7 @@ def compute_partition_metrics(
     predictions: np.ndarray,
     partition_column: str = "industry_partition",
 ) -> pd.DataFrame:
+    """Calculate regression metrics independently for each partition."""
     if len(frame) != len(predictions):
         raise ValueError("Frame rows and prediction rows must have equal length.")
 
@@ -85,6 +100,7 @@ def compute_partition_metrics(
 
 
 def compute_confidence_interval(values: Sequence[float], confidence: float = 0.95) -> Dict[str, float]:
+    """Return a descriptive normal-approximation interval across supplied values."""
     array = np.asarray(values, dtype=float)
     if array.size == 0 or not np.all(np.isfinite(array)):
         raise ValueError("Confidence interval values must be finite and non-empty.")
@@ -162,6 +178,12 @@ def run_validation_diagnostics(
     max_features: int = 12000,
     alpha: float = BILATERAL_ALPHA,
 ) -> Dict[str, Any]:
+    """Write repeated-seed stratified metrics, partition tables, and diagnostics.
+
+    Each seed gets a fresh split and training-only feature fits. The report is
+    exploratory proxy-label analysis, not chronological OOT evidence or a
+    mentor-pricing accuracy approval.
+    """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     frame = load_harmonized_parquet(harmonized_parquet_path)
@@ -264,7 +286,11 @@ def _description_groups(frame: pd.DataFrame) -> pd.Series:
 
 
 def build_description_group_splits(frame: pd.DataFrame, seed: int) -> SplitData:
-    """Approximate 70/15/15 exploratory split, grouping equivalent NLP descriptions."""
+    """Make random 70/15/15 splits without sharing sanitized descriptions.
+
+    This guards against equivalent text crossing splits but remains an
+    exploratory random split rather than chronological OOT evaluation.
+    """
     keys = _description_groups(frame)
     labels = frame.groupby(keys, sort=True)["industry_partition"].agg(lambda values: values.mode().iloc[0])
     if len(labels) < 4:
@@ -393,7 +419,13 @@ def run_industry_error_diagnostics(
     max_features: int = 12000,
     alpha: float = BILATERAL_ALPHA,
 ) -> Dict[str, Any]:
-    """Report proxy-label errors without fitting on, or selecting models by, held-out rows."""
+    """Write train-only, description-disjoint error/coverage diagnostics.
+
+    The test partition is deliberately left unscored; validation results are
+    reported across predeclared seeds. Labels are KES/hour marketplace proxies.
+    The report records whether source timestamps are available but does not run
+    or pass the deferred #81/#91 empirical mentor-pricing gate.
+    """
     seeds = tuple(int(seed) for seed in seeds)
     if not seeds or len(set(seeds)) != len(seeds) or k_neighbors < 1:
         raise ValueError("Provide distinct predeclared seeds and a positive neighbor count.")
@@ -444,6 +476,7 @@ def run_industry_error_diagnostics(
             "model_validation": model_metrics,
             "baseline_validation": baseline_metrics,
         })
+        # Segment tables use the first declared seed as a consistent reference split.
         if reference_segments is None:
             reference_segments = _coverage_segments(frame, split, predictions, baseline)
             reference_rows = results[-1]["split_rows"]
@@ -491,6 +524,7 @@ def run_industry_error_diagnostics(
     return report
 
 def parse_args() -> argparse.Namespace:
+    """Parse options for the repeated-seed or grouped industry diagnostics."""
     parser = argparse.ArgumentParser(description="Generate M6.7 leakage-safe validation diagnostics.")
     parser.add_argument("--mode", choices=("m6_7", "industry"), default="m6_7")
     parser.add_argument("--harmonized-parquet", required=True)
@@ -504,6 +538,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha", type=float, default=BILATERAL_ALPHA)
     return parser.parse_args()
 def main() -> None:
+    """Run the selected diagnostic and print its JSON summary."""
     args = parse_args()
     runner = run_industry_error_diagnostics if args.mode == "industry" else run_validation_diagnostics
     kwargs = dict(

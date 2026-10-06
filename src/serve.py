@@ -1,8 +1,10 @@
-"""FastAPI service and administrator boundary for UC8-UC11.
+"""FastAPI service, with an unauthenticated local entrypoint and injectable gateway.
 
-Firestore and model inference are dependency-injected. Local startup defaults to an
-in-memory repository and an unready inference state; production can construct a
-FirestoreRepository and a loaded model callable without exposing credentials here.
+``src.serve:app`` is for local use: it has no pricing token verifier, defaults to
+in-memory storage, and may be unready until a trusted model bundle is provided.
+Deployments should use ``src.deployment:app``, which injects Firebase verification,
+Firestore, a readiness probe, and an independently pinned artifact manifest digest.
+See ``docs/README.md`` (#123) for introductory definitions.
 """
 
 from __future__ import annotations
@@ -93,7 +95,11 @@ class ServiceDependencies:
 
 
 class InferenceRuntime:
-    """Loads the merged M7 artifacts and exposes the production prediction path."""
+    """Loads a pinned inference bundle once at startup and serves pricing predictions.
+
+    The separately trusted manifest digest is checked before joblib artifacts are
+    loaded. A failed load leaves the runtime unready; it does not substitute a model.
+    """
 
     def __init__(self, artifact_dir: str, macro_lookup_path: str, tariff_csv_path: str, firestore_enabled: bool = False,
                  trusted_manifest_sha256: Optional[str] = None, trusted_tariff_sha256: Optional[str] = None) -> None:
@@ -126,6 +132,11 @@ class InferenceRuntime:
         return "firestore"
 
     def load(self) -> None:
+        """Verify pins/schema, then load frozen components or retain an unready error.
+
+        The bundled macro lookup is authoritative for inference; this does not
+        fetch data, retrain, or promote the export's exploratory approval status.
+        """
         try:
             manifest = verify_manifest(self.artifact_dir, self.trusted_manifest_sha256)
             with open(os.path.join(self.artifact_dir, DEFAULT_INFERENCE_CONFIG_ARTIFACT), encoding="utf-8") as handle:
@@ -225,6 +236,12 @@ class InferenceRuntime:
         return normalized if normalized in SUPPORTED_INDUSTRY_PARTITIONS else map_industry_partition(selected_industry)
 
     def predict(self, query: PricingQueryDTO) -> PredictionResultDTO:
+        """Transform one request, estimate peers, then return corridor/fee KES/hour.
+
+        Uses frozen text/scaler and trained partition density, not request-time
+        fitting. Authentication and mentor-country authorization belong to the
+        gateway; direct library callers must establish those separately.
+        """
         if not self.models_loaded:
             raise RuntimeError(self.load_error or "Inference artifacts are not loaded.")
         assert self.reducer is not None and self.metadata_normalizer is not None
@@ -295,6 +312,18 @@ def create_app(
     trusted_manifest_sha256: Optional[str] = None,
     trusted_tariff_sha256: Optional[str] = None,
 ) -> FastAPI:
+    """Build a local app or a gateway by injecting its external dependencies.
+
+    With no ``token_verifier`` (the default), pricing is unauthenticated and is
+    intended only for local use. Supplying one requires a verified UID and checks
+    mentor ownership against ``repository`` before inference. Deployed callers
+    should provide a Firestore repository, Firebase token verifier, repository
+    ``readiness_probe``, and ``trusted_manifest_sha256`` pinned outside the bundle
+    (or configure ``PRICING_ARTIFACT_MANIFEST_SHA256``). The probe gates ``/ready``;
+    the pricing path separately requires the Firestore health state and loaded
+    runtime artifacts. ``inference`` may replace runtime inference for tests or
+    other explicitly injected callers.
+    """
     runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled,
                                trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"),
                                trusted_tariff_sha256)
@@ -377,6 +406,7 @@ def create_app(
         return health_state
 
     def require_pricing_token(authorization: Optional[str] = Header(default=None)) -> Optional[str]:
+        """Verify a bearer token when configured; ``None`` deliberately means local mode."""
         if token_verifier is None:
             return None
         bearer = re.fullmatch(r"Bearer ([^\s]+)", authorization or "", flags=re.IGNORECASE)
@@ -402,6 +432,12 @@ def create_app(
     async def optimize_price(query: CanonicalPricingQueryDTO | PricingQueryDTO, background_tasks: BackgroundTasks,
                              response: Response, uid: Optional[str] = Depends(require_pricing_token),
                              ) -> CanonicalPredictionResultDTO | PredictionResultDTO:
+        # Protected flow order: verify bearer UID and Firestore availability in
+        # the dependency; authorize its active mentor and country; require loaded
+        # artifacts; convert/infer/validate the quote; then queue its audit.
+        # Failures are 401 (token), 403 (mentor), 422 (request/country/floor),
+        # 503 (repository/artifacts/tariff or canonical result), or 500 (unexpected
+        # inference failure).
         canonical = isinstance(query, CanonicalPricingQueryDTO)
         if not canonical:
             response.headers["Deprecation"] = "true"
@@ -420,6 +456,8 @@ def create_app(
                 raise HTTPException(status_code=403, detail="mentor authorization required")
             if query.mentor_country != mentor.get("country_code"):
                 raise HTTPException(status_code=422, detail="mentorCountry must match verified mentor country")
+        # On the deployed runtime this follows mentor authorization and precedes
+        # all inference. The route never treats a body mentorId as a credential.
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
         inference_query: PricingQueryDTO
@@ -458,6 +496,8 @@ def create_app(
             if uid is not None:
                 audit_payload["mentor_id"] = query.mentor_id
                 audit_payload["auth_uid"] = uid
+            # The audit is create-only and runs after the response is formed; an
+            # audit persistence failure is logged, not converted into a quote error.
             background_tasks.add_task(_append_pricing_audit, dependencies.repository, resolved_metrics, audit_payload)
             return result
         except FloorExceedsCeilingError as exc:

@@ -1,8 +1,25 @@
 # AI Dynamic Pricing Platform for Technical Mentors
 
-A planned Android-to-cloud application that recommends market-aware hourly rates for technical mentors and freelancers. A mentor describes a service, selects an industry and the two countries involved, and receives a peer-informed quote with a transparent Kenyan M-Pesa surcharge where applicable.
+**"What hourly rate could I suggest for this mentoring service?"** This project turns a service description, industry, and mentor/client countries into a suggested rate in Kenyan shillings per hour (KES/hour). It compares the description with similar records, accounts for country and market context, and optionally adds a Kenyan M-Pesa fee. It does not negotiate, transfer money, or guarantee earnings.
 
-**Project status:** The Python data, training, pricing, and FastAPI foundations exist. The separate container entrypoint verifies Firebase ID tokens and authorizes a mentor ID before pricing; the local entrypoint remains unauthenticated. The native Android client, pivot camelCase DTOs, Firestore service listings, and asynchronous audit flow are **planned**, not available in this repository yet. The [canonical architecture and migration blueprint](docs/architecture_blueprint%20%281%29.md) is the target under #66; the [M1-M8 engineering blueprint](docs/Blueprint.md) records existing work. [Milestones 9-14](docs/Project_Milestones_and_Issues.md#pivot-roadmap-milestones-9-14) track the migration.
+The journey is **profile/service text -> comparable peers -> suggested KES/hour base rate and negotiation range -> optional M-Pesa fee -> final quote**. For example, an illustrative base rate of **4,700 KES/hour** plus the configured **57 KES** Kenyan transfer fee gives **4,757 KES/hour**. The negotiation range excludes the fee. This is arithmetic, not a measured price recommendation: today's training labels are advertised freelance rates and job budgets (**proxy labels**), not verified mentor payments.
+
+### Available now vs planned
+
+| Available in this repository | Planned or not established |
+| --- | --- |
+| Python ingestion, fitted text/metadata features, peer search, fee/corridor calculation, training and artifact export | Empirical accuracy against verified mentor transactions; the proposed out-of-time quality gate remains deferred (#81/#91) |
+| Local unauthenticated FastAPI app; separate Firebase-protected deployment entrypoint; camelCase contract with legacy compatibility | Evidence that a production mobile-to-cloud service is ready; local execution is not a deployed-service measurement |
+| In-memory and Firestore repositories, owner-bound mentor reads, root service-listing provenance, observable background quote audits | Automatic hydration of omitted request text (#84); durable audit retries are not guaranteed |
+| Docker/CI foundations and an in-process protected-pricing benchmark (#70) | Native Android client and live authenticated 3G round-trip-time measurement (#86) |
+
+The protected components need external reviewed artifacts, approved tariff pins, Firebase configuration and credentials supplied at runtime. Their presence in source is not proof of a working cloud deployment. The unauthenticated local app **must not be deployed**. A quote's confidence field is currently uncalibrated, not an accuracy probability.
+
+### Start here / read next
+
+Read this introduction, then try the [cell-by-cell local demo notebook](notebooks/pipeline_walkthrough.ipynb) without private datasets or Firebase. The [documentation index and plain-English glossary](docs/README.md) explain the terms used below and link implementation notes.
+
+For deeper reading, use the [M1-M8 historical baseline](docs/Blueprint.md), the [canonical M9-M14 target and migration decisions](docs/architecture_blueprint%20%281%29.md), and the [issue/milestone roadmap](docs/Project_Milestones_and_Issues.md). These are planning/history documents, not assertions that every proposed feature is implemented. See the [label provenance audit](docs/Label_Provenance_Audit_91.md) before interpreting any model metric.
 
 ## Why this application?
 
@@ -18,9 +35,9 @@ Independent consultants can underquote international clients, price local client
 | Persistence     | Firebase Authentication and Cloud Firestore                                                | Link mentors to identities, store service listings and append pricing audit records                                                                                |
 | Delivery        | Docker and GitHub Actions                                                                  | Package the API and validate backend/mobile integration without committing credentials or datasets                                                                 |
 
-The intended Firestore collections are `/mentors/{mentor_id}` (auth link and country), root `/service_listings/{listing_id}` (service text, `industry_id`, 50-float SVD vector and peer-rate metadata), and append-only `/historical_transactions/{transaction_id}`. A `mentorId` in the request must be authorized against the verified Firebase UID, not treated as authentication. For now, protected pricing accepts **only `mentorId` equal to the verified Firebase UID**; other document IDs fail with 403 until an explicit owner mapping is implemented (#84). Successful protected audit records include this authorized `mentor_id`. Pricing audits are intended to run through FastAPI `BackgroundTasks` after the response; reliability and failure reporting are tracked in #72.
+The Firestore adapter uses `/mentors/{mentor_id}` (auth link and country), root `/service_listings/{listing_id}` (service text, `industry_id`, 50-float SVD vector and peer-rate metadata), and append-only `/historical_transactions/{transaction_id}`. A `mentorId` in the request must be authorized against the verified Firebase UID, not treated as authentication. The stored mentor's `auth_uid` must equal that verified UID; the mentor document ID may differ. Successful protected audit records include the authorized `mentor_id`. Pricing audits run through FastAPI `BackgroundTasks` after the response is formed; failures are observable but there is no durable retry guarantee. See [audit semantics](docs/M11.2_Pricing_Audit.md).
 
-Firebase ID tokens will be supplied by the Android client and are verified by the deployed backend before pricing. The Android secure-storage approach is tracked in #75; backend Firebase credentials come from runtime secret management/application-default credentials, not the app or this repository. Local tests inject a fake verifier and use no live Firebase keys; `src.deployment:app` refuses to start with Firebase Auth or Firestore emulator environment variables set (the Auth emulator accepts unsigned tokens). Versioned model artifacts must be deployed as a complete set outside Git; missing/incompatible artifacts report unready status and pricing fails explicitly.
+The protected backend verifies Firebase ID tokens before pricing; the planned Android client will supply them. The Android secure-storage approach is tracked in #75; backend Firebase credentials come from runtime secret management/application-default credentials, not the app or this repository. Local tests inject a fake verifier and use no live Firebase keys; `src.deployment:app` refuses to start with Firebase Auth or Firestore emulator environment variables set (the Auth emulator accepts unsigned tokens). Versioned model artifacts must be deployed as a complete set outside Git; missing/incompatible artifacts report unready status and pricing fails explicitly.
 
 ## How a price is calculated
 
@@ -38,7 +55,7 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
 
 ## Canonical pricing contract (M10.5 / #83)
 
-`POST /api/v1/optimize-price` accepts a camelCase canonical request (a verified Firebase ID token is required in the deployment entrypoint; local `src.serve:app` is unauthenticated). The current protected gateway requires `mentorId` to equal the verified Firebase UID. This is an **example request**; `costOfLivingIndex` and `baseRateFloor` are optional:
+`POST /api/v1/optimize-price` accepts a camelCase canonical request (a verified Firebase ID token is required in the deployment entrypoint; local `src.serve:app` is unauthenticated). The protected gateway checks the mentor's stored `auth_uid` against the verified Firebase UID. This is an **example request**; `costOfLivingIndex` and `baseRateFloor` are optional:
 
 ```json
 {
@@ -58,8 +75,8 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
   "basePredictedRate": 4700.0,
   "mpesaTariffSurcharge": 57.0,
   "finalQuotedRate": 4757.0,
-  "minQuotedRate": 3900.0,
-  "maxQuotedRate": 5100.0,
+  "minQuotedRate": 4460.0,
+  "maxQuotedRate": 7599.0,
   "kNeighborsUsed": 5,
   "bilateralArbitrageFactor": 0.51,
   "confidenceScore": 0.0,
@@ -69,7 +86,7 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
 }
 ```
 
-Rates above are illustrative KES/hour **proxy estimates**, not empirically verified mentor prices. Canonical requests require `mentorId`, `industry`, `mentorCountry`, `clientCountry` and (for now) `rawText` (20–2000 characters); omitted text returns 422 until verified Firestore hydration is added in #84. Countries must be two ASCII letters (uppercased); `competitivenessScore` defaults to 0.5, must be in [0, 1], and maps to the **fitted** `market_saturation_score` feature, not partition density. An optional finite `costOfLivingIndex` in [0.01, 1000] replaces only the mentor-side lookup value when computing the bilateral factor; it is **not** a fourth feature or an alias of saturation. An optional finite non-negative `baseRateFloor` is in KES/hour; if it exceeds the computed ceiling the API returns 422. All quote/corridor rates are KES/hour, and the corridor excludes M-Pesa fees, so `finalQuotedRate` can exceed `maxQuotedRate`. The returned `kNeighborsUsed` counts indexed peers actually used by IDW; `similarityScore = 1 / (1 + euclideanDistance)` (rounded in legacy index results). Only peers explicitly matched during export to actual root `/service_listings/{listing_id}` documents are returned in `comparables` (with the stored `jobTitle`); existing proxy artifacts still have row indices only and yield empty comparables. `confidenceScore` is **0.0 = not empirically calibrated**, not a probability of accuracy. `reason` reports the number of peers and missing listing provenance; `timestamp` is a UTC response creation time. No peer IDs or confidence claims are invented.
+The response illustrates an assumed peer base of 4,700 KES/hour, weighted peer standard deviation of 320 KES/hour and bilateral factor of 0.51: the lower bound is `max(4000, 4700 - 0.75*320) = 4460`, and the upper bound is `(4700 + 1.25*320)*(2 - 0.51) = 7599`. These inputs are illustrative, not the output of the request against a particular trained bundle; actual rates and country factors depend on the fitted export and lookup. Rates above are KES/hour **proxy estimates**, not empirically verified mentor prices. Canonical requests require `mentorId`, `industry`, `mentorCountry`, `clientCountry` and (for now) `rawText` (20–2000 characters); omitted text returns 422 until verified Firestore hydration is added in #84. Countries must be two ASCII letters (uppercased); `competitivenessScore` defaults to 0.5, must be in [0, 1], and maps to the **fitted** `market_saturation_score` feature, not partition density. An optional finite `costOfLivingIndex` in [0.01, 1000] replaces only the mentor-side lookup value when computing the bilateral factor; it is **not** a fourth feature or an alias of saturation. An optional finite non-negative `baseRateFloor` is in KES/hour; if it exceeds the computed ceiling the API returns 422. All quote/corridor rates are KES/hour, and the corridor excludes M-Pesa fees, so `finalQuotedRate` can exceed `maxQuotedRate`. The returned `kNeighborsUsed` counts indexed peers actually used by IDW; `similarityScore = 1 / (1 + euclideanDistance)` (rounded in legacy index results). Only peers explicitly matched during export to actual root `/service_listings/{listing_id}` documents are returned in `comparables` (with the stored `jobTitle`); existing proxy artifacts still have row indices only and yield empty comparables. `confidenceScore` is **0.0 = not empirically calibrated**, not a probability of accuracy. `reason` reports the number of peers and missing listing provenance; `timestamp` is a UTC response creation time. No peer IDs or confidence claims are invented.
 
 **Compatibility/deprecation:** Existing snake_case callers can continue to use the **same** `POST /api/v1/optimize-price` with `raw_description`, `selected_industry`, `mentor_country`, `client_country`, optional `market_saturation_score`, `base_rate_floor`, and (for protected calls) `mentorId`/`mentor_id`. They receive the original snake_case `PredictionResultDTO` with `nearest_neighbors` and a `Deprecation: true` response header. The OpenAPI operation exposes both request/response schemas and calls out the deprecated legacy DTO. Do not mix snake_case and camelCase fields in one request (422); there is no new endpoint or removal date. `GET /health` now adds `service`, `unit: "KES/hour"`, `modelsLoaded` and `version` while retaining all legacy health fields; `/ready` is unchanged. The separate platform integration `POST /price` (#99) is not the canonical API.
 

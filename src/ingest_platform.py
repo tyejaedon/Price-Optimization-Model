@@ -16,7 +16,18 @@ Scope is handled honestly. The engine's industry partitions are technical
 Those are excluded with a counted reason rather than forced into
 ``general_tech``, which would poison the nearest-neighbour index.
 
-Every row in the dataset is synthetic. Say so in anything you report.
+The shared ingestion gate requires a description of at least 40 characters
+and a converted listing rate within 500-35,000 KES/hour. Listed rates and
+completed-booking realised rates are distinct fields; only the listed rate is
+the harmonized training target. Booking amounts and durations are both in KES
+and minutes, respectively, and completed rates are converted to KES/hour.
+The platform's naive ``joined_at`` timestamps are known by its source contract
+to be UTC; they are normalized as such, while marketplace source timestamps
+without an explicit zone remain unknown. Observation timestamps describe
+source records, never this ingestion run.
+
+The staging dataset is synthetic. Say so in anything you report; its labels
+are not verified production mentor transactions.
 """
 
 from __future__ import annotations
@@ -134,7 +145,7 @@ OUTPUT_FIELDS = HARMONIZED_FIELDS + PLATFORM_FIELDS
 
 
 class PlatformDatasetError(RuntimeError):
-    """Raised when the platform API refuses or the dataset is not served."""
+    """Raised when platform authentication fails or a sandbox dataset is unavailable."""
 
 
 class PlatformDatasetClient:
@@ -153,6 +164,12 @@ class PlatformDatasetClient:
         timeout_seconds: float = 120.0,
         transport: Optional[httpx.BaseTransport] = None,
     ) -> None:
+        """Create an authenticated-client session without logging credentials.
+
+        ``transport`` supports isolated HTTP tests. ``base_url``, email, and
+        password are required; credentials come from the environment through
+        :meth:`from_env` in normal command-line use.
+        """
         if not base_url.strip():
             raise ValueError(f"{PLATFORM_BASE_URL_ENV} is empty")
         if not email.strip() or not password:
@@ -164,6 +181,7 @@ class PlatformDatasetClient:
 
     @classmethod
     def from_env(cls, transport: Optional[httpx.BaseTransport] = None) -> "PlatformDatasetClient":
+        """Construct a client from platform environment variables and defaults."""
         return cls(
             base_url=os.getenv(PLATFORM_BASE_URL_ENV, DEFAULT_PLATFORM_BASE_URL),
             email=os.getenv(PLATFORM_EMAIL_ENV, ""),
@@ -172,6 +190,11 @@ class PlatformDatasetClient:
         )
 
     def login(self) -> None:
+        """Authenticate and retain the access token only in the HTTP client headers.
+
+        Non-success responses or a missing ``data.accessToken`` raise
+        :class:`PlatformDatasetError`; the token is not written to disk.
+        """
         response = self._client.post("/auth/login", json={"email": self._email, "password": self._password})
         if response.status_code != 200 and response.status_code != 201:
             raise PlatformDatasetError(f"platform login failed with HTTP {response.status_code}")
@@ -183,13 +206,18 @@ class PlatformDatasetClient:
         self._authenticated = True
 
     def index(self) -> Dict[str, Any]:
+        """Return the authenticated sandbox dataset index."""
         self._ensure_login()
         response = self._client.get("/sandbox/dataset")
         self._raise_for_dataset(response)
         return response.json()["data"]
 
     def download(self, name: str, dest_dir: str) -> str:
-        """Stream ``<name>.csv`` to ``dest_dir`` and return the path."""
+        """Stream ``<name>.csv`` to ``dest_dir`` and return the local cache path.
+
+        The API response is checked before bytes are written; authentication
+        and unavailable-file errors are reported as :class:`PlatformDatasetError`.
+        """
         self._ensure_login()
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, f"{name}.csv")
@@ -201,9 +229,11 @@ class PlatformDatasetClient:
         return dest_path
 
     def fetch_all(self, dest_dir: str, names: Iterable[str] = DATASET_FILES) -> Dict[str, str]:
+        """Download each named dataset CSV and map dataset name to cached path."""
         return {name: self.download(name, dest_dir) for name in names}
 
     def close(self) -> None:
+        """Close the underlying HTTP client and its connection pool."""
         self._client.close()
 
     def _ensure_login(self) -> None:
@@ -240,7 +270,10 @@ def platform_timestamp_utc(value: Any) -> Optional[str]:
     """Platform timestamps arrive naive (``2026-09-21 14:04:02.134``) and are stored in UTC.
 
     ``parse_observation_timestamp_utc`` rightly refuses naive instants, so the
-    UTC offset is attached here, where the assumption is known to hold.
+    UTC offset is attached here, where the assumption is known to hold. Aware
+    instants are converted to UTC; empty or unparsable source values return
+    ``None``. This represents the source timestamp (currently ``joined_at``),
+    not the time ingestion ran.
     """
     text = _normalize_text(value)
     if not text:
@@ -255,7 +288,13 @@ def platform_timestamp_utc(value: Any) -> Optional[str]:
 
 
 def resolve_platform_partition(category: Any, skills_text: str, specialization: Any = "") -> Optional[str]:
-    """Engine partition for a platform category, or ``None`` when out of scope."""
+    """Resolve a platform category to a supported engine partition.
+
+    Technology-category mentors are classified from specialization and skills,
+    with ``general_tech`` as the unmatched fallback. Explicit category mappings
+    route marketing and business mentors to their configured buckets; ``None``
+    marks unsupported vocational categories for counted exclusion.
+    """
     mapped = PLATFORM_CATEGORY_PARTITIONS.get(_normalize_text(category).strip())
     if mapped == "__by_skills__":
         partition = map_industry_partition(f"{_normalize_text(specialization)} {skills_text}".strip())
@@ -264,7 +303,12 @@ def resolve_platform_partition(category: Any, skills_text: str, specialization: 
 
 
 def build_description(mentor: Dict[str, str], skills: List[str]) -> str:
-    """Text the TF-IDF sees. Built from structured fields; the platform has no free-text bio in the export."""
+    """Build the model text from structured platform fields (there is no bio export).
+
+    Specialization and category lead the text, followed by available skills,
+    tier, experience, and city. The result is intended for the existing NLP
+    path and is still subject to the shared minimum-description filter.
+    """
     specialization = _normalize_text(mentor.get("specialization")).strip()
     category = _normalize_text(mentor.get("category")).strip()
     tier = TIER_TEXT.get(_normalize_text(mentor.get("tier")).strip(), "Mentor")
@@ -282,6 +326,13 @@ def build_description(mentor: Dict[str, str], skills: List[str]) -> str:
 
 @dataclass
 class PlatformActivity:
+    """Aggregated per-user booking outcomes and review ratings.
+
+    ``completed_rates`` contains KES/hour values derived only from completed
+    bookings with a valid positive duration; ``judged`` excludes pending
+    bookings.
+    """
+
     completed_rates: List[float] = field(default_factory=list)
     completed: int = 0
     no_shows: int = 0
@@ -290,10 +341,13 @@ class PlatformActivity:
 
 
 def summarise_activity(bookings: List[Dict[str, str]], reviews: List[Dict[str, str]]) -> Dict[str, PlatformActivity]:
-    """Per mentor: what clients actually paid per hour, how often they turned up, how they rated it.
+    """Aggregate completed KES/hour rates, judged booking outcomes, and reviews by mentor.
 
     ``no_show_rate`` is NO_SHOW over every booking that reached a verdict
     (COMPLETED, NO_SHOW or CANCELLED); bookings still pending are not judged.
+    Completed rates use ``amount_kes / (duration_minutes / 60)``. This realised
+    rate is distinct from the mentor's listed rate and does not replace the
+    latter as the harmonized training target.
     """
     activity: Dict[str, PlatformActivity] = defaultdict(PlatformActivity)
     for row in bookings:
@@ -334,12 +388,15 @@ def _skills_by_profile(mentor_skills: List[Dict[str, str]]) -> Dict[str, List[st
 
 @dataclass
 class PlatformIngestResult:
+    """Harmonized mentor rows with retained/excluded counts by partition and reason."""
+
     records: List[Dict[str, Any]]
     mentors_seen: int
     excluded: Counter
     partitions: Counter
 
     def summary(self) -> Dict[str, Any]:
+        """Return an exportable run summary with listed and realised medians."""
         listed = [r["listed_hourly_rate_kes"] for r in self.records]
         realised = [r["realised_hourly_rate_kes"] for r in self.records if r["realised_hourly_rate_kes"] is not None]
         return {
@@ -361,6 +418,22 @@ def build_platform_records(
     min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
     max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
 ) -> PlatformIngestResult:
+    """Build harmonized mentor rows from cached platform CSVs.
+
+    Reads mentors, skills, bookings, and reviews. Unsupported categories,
+    invalid listed rates, and records rejected by
+    :func:`marketplace_exclusion_reason` are excluded with counted reasons.
+    USD-equivalent fields use the configured USD/KES anchor. The listed KES
+    amount is converted to its USD equivalent and back through the shared
+    harmonization path to produce the KES/hour ``hourly_rate`` target; the
+    source-listed amount is also retained separately as
+    ``listed_hourly_rate_kes``. Completed bookings independently populate
+    realised KES/hour median, session count, and activity/review metrics.
+    Harmonized fields preserve the platform source label, country,
+    industry partition, generated structured description, and source
+    ``joined_at`` timestamp normalized to UTC; platform-specific identifiers
+    and attributes retain source provenance.
+    """
     mentors = _read_csv(cache_dir, "mentors")
     skills_by_profile = _skills_by_profile(_read_csv(cache_dir, "mentor_skills"))
     activity = summarise_activity(_read_csv(cache_dir, "bookings"), _read_csv(cache_dir, "reviews"))
@@ -442,6 +515,7 @@ def build_platform_records(
 
 
 def export_platform_records_csv(records: List[Dict[str, Any]], output_path: str) -> None:
+    """Write records in the declared harmonized-plus-platform CSV field order."""
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
@@ -456,6 +530,7 @@ def export_platform_records_csv(records: List[Dict[str, Any]], output_path: str)
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    """Parse fetch/offline cache, output, conversion-anchor, and summary options."""
     parser = argparse.ArgumentParser(description="Fetch the Career Mentor OS platform dataset and harmonize its mentors for pricing.")
     parser.add_argument("--cache-dir", default=DEFAULT_CACHE_DIR, help="where the raw CSVs are written and read")
     parser.add_argument("--offline", action="store_true", help="read the cache directory; do not call the platform API")
@@ -467,6 +542,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """Fetch unless offline, harmonize cached rows, and write CSV, Parquet, and summary.
+
+    The generated Parquet uses the existing shared exporter and is compatible
+    with the training input shape. Dataset content is synthetic staging data
+    and should be reported as such.
+    """
     args = parse_args(argv)
 
     if not args.offline:
