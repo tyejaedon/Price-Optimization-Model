@@ -1,6 +1,9 @@
+import json
+import os
 import tempfile
 import unittest
 
+import joblib
 import numpy as np
 
 from src.macro_arbitrage import HYBRID_VECTOR_DIMENSIONS
@@ -171,6 +174,50 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
 
         self.assertEqual(baseline["base_predicted_rate"], reloaded["base_predicted_rate"])
         self.assertEqual(baseline["nearest_neighbors"], reloaded["nearest_neighbors"])
+
+    def test_listing_provenance_tracks_matched_peer_through_fallback_and_roundtrip(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        ids = [f"listing-{i}" if i != 7 else None for i in range(10)]
+        titles = [f"Role {i}" if i != 7 else None for i in range(10)]
+        indexer.fit(self.hybrid_vectors, self.partitions,
+                    record_indices=list(range(100, 110)), verified_rates=self.verified_rates,
+                    listing_ids=ids, job_titles=titles)
+        baseline = indexer.predict_base_rate(self.hybrid_vectors[9], "product_management", k=3)
+        self.assertEqual(baseline["routed_partition"], "general_tech")
+        for peer in baseline["nearest_neighbors"]:
+            row = peer["peer_index"] - 100
+            self.assertEqual(peer["verified_rate"], self.verified_rates[row])
+            if ids[row] is None:
+                self.assertNotIn("listing_id", peer)
+            else:
+                self.assertEqual(peer["listing_id"], ids[row])
+                self.assertEqual(peer["job_title"], titles[row])
+        with tempfile.TemporaryDirectory() as tmp:
+            indexer.save_artifacts(tmp)
+            with open(os.path.join(tmp, "industry_kdtrees_metadata.json"), encoding="utf-8") as handle:
+                self.assertTrue(json.load(handle)["has_listing_provenance"])
+            restored = DomainPartitionedKDTreeIndexer.load_artifacts(tmp)
+            self.assertEqual(restored.predict_base_rate(self.hybrid_vectors[9], "product_management", k=3), baseline)
+
+            # Old artifact bundles without provenance must not invent listing IDs.
+            path = os.path.join(tmp, "industry_kdtrees.joblib")
+            payload = joblib.load(path)
+            payload.pop("partition_listing_ids")
+            payload.pop("partition_job_titles")
+            joblib.dump(payload, path)
+            old = DomainPartitionedKDTreeIndexer.load_artifacts(tmp)
+            self.assertTrue(all("listing_id" not in peer for peer in old.predict_base_rate(
+                self.hybrid_vectors[9], "product_management", k=3)["nearest_neighbors"]))
+
+    def test_invalid_listing_provenance_is_not_indexed(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer()
+        for ids, titles in ((["id"], ["Role"]), (["id"] * 10, ["Role"] * 10),
+                            (["nested/id"] * 10, ["Role"] * 10),
+                            (["id"] + [None] * 9, [None] * 10)):
+            with self.subTest(ids=ids), self.assertRaises(ValueError):
+                indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates,
+                            listing_ids=ids, job_titles=titles)
+        self.assertFalse(indexer.fitted)
 
     def test_quadratic_idw_uses_epsilon_and_handles_duplicate_exact_matches(self) -> None:
         weights = DomainPartitionedKDTreeIndexer.compute_inverse_distance_weights([0.0, 0.0, 1.0])

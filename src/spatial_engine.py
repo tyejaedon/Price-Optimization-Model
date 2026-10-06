@@ -91,6 +91,8 @@ class DomainPartitionedKDTreeIndexer:
         self.partition_trees: Dict[str, KDTree] = {}
         self.partition_row_indices: Dict[str, np.ndarray] = {}
         self.partition_verified_rates: Dict[str, np.ndarray] = {}
+        self.partition_listing_ids: Dict[str, List[Optional[str]]] = {}
+        self.partition_job_titles: Dict[str, List[Optional[str]]] = {}
         self.partition_counts: Dict[str, int] = {}
         self.hybrid_dimensions = max(1, int(vector_dimensions or HYBRID_VECTOR_DIMENSIONS))
         self.fitted = False
@@ -101,6 +103,8 @@ class DomainPartitionedKDTreeIndexer:
         industry_partitions: Sequence[str],
         record_indices: Optional[Sequence[int]] = None,
         verified_rates: Optional[Sequence[float]] = None,
+        listing_ids: Optional[Sequence[Optional[str]]] = None,
+        job_titles: Optional[Sequence[Optional[str]]] = None,
     ) -> None:
         matrix = _coerce_hybrid_matrix(hybrid_vectors, expected_dimensions=self.hybrid_dimensions)
         if len(industry_partitions) != matrix.shape[0]:
@@ -118,16 +122,37 @@ class DomainPartitionedKDTreeIndexer:
             resolved_indices = np.asarray(record_indices, dtype=int)
 
         resolved_rates = _coerce_rate_vector(verified_rates, matrix.shape[0]) if verified_rates is not None else None
+        if (listing_ids is None) != (job_titles is None):
+            raise ValueError("listing_ids and job_titles must be supplied together")
+        if listing_ids is not None and job_titles is not None:
+            if len(listing_ids) != matrix.shape[0] or len(job_titles) != matrix.shape[0]:
+                raise ValueError("listing provenance must align with hybrid_vectors rows")
+            seen: set[str] = set()
+            for listing_id, title in zip(listing_ids, job_titles):
+                if listing_id is None and title is None:
+                    continue
+                if (not isinstance(listing_id, str) or not listing_id or listing_id != listing_id.strip()
+                        or len(listing_id) > 200 or "/" in listing_id or listing_id in {".", ".."}
+                        or not isinstance(title, str) or not title.strip() or len(title) > 200):
+                    raise ValueError("listing provenance requires a valid listing_id and job_title")
+                if listing_id in seen:
+                    raise ValueError("listing_ids must be unique per peer")
+                seen.add(listing_id)
 
         grouped_vectors: Dict[str, List[np.ndarray]] = {}
         grouped_indices: Dict[str, List[int]] = {}
         grouped_rates: Dict[str, List[float]] = {}
+        grouped_listing_ids: Dict[str, List[Optional[str]]] = {}
+        grouped_job_titles: Dict[str, List[Optional[str]]] = {}
         for row_number, partition in enumerate(industry_partitions):
             normalized_partition = _normalize_partition(partition)
             grouped_vectors.setdefault(normalized_partition, []).append(matrix[row_number])
             grouped_indices.setdefault(normalized_partition, []).append(int(resolved_indices[row_number]))
             if resolved_rates is not None:
                 grouped_rates.setdefault(normalized_partition, []).append(float(resolved_rates[row_number]))
+            if listing_ids is not None and job_titles is not None:
+                grouped_listing_ids.setdefault(normalized_partition, []).append(listing_ids[row_number])
+                grouped_job_titles.setdefault(normalized_partition, []).append(job_titles[row_number])
 
         if not grouped_vectors:
             raise ValueError("At least one active partition is required to fit the KD-Tree indexer.")
@@ -135,6 +160,8 @@ class DomainPartitionedKDTreeIndexer:
         self.partition_trees = {}
         self.partition_row_indices = {}
         self.partition_verified_rates = {}
+        self.partition_listing_ids = {}
+        self.partition_job_titles = {}
         self.partition_counts = {}
 
         for partition, rows in grouped_vectors.items():
@@ -143,6 +170,9 @@ class DomainPartitionedKDTreeIndexer:
             self.partition_row_indices[partition] = np.asarray(grouped_indices[partition], dtype=int)
             if resolved_rates is not None:
                 self.partition_verified_rates[partition] = np.asarray(grouped_rates[partition], dtype=float)
+            if listing_ids is not None:
+                self.partition_listing_ids[partition] = grouped_listing_ids[partition]
+                self.partition_job_titles[partition] = grouped_job_titles[partition]
             self.partition_counts[partition] = int(partition_matrix.shape[0])
 
         self.fitted = True
@@ -298,21 +328,25 @@ class DomainPartitionedKDTreeIndexer:
         peer_stddev = weighted_peer_stddev(verified_rates.tolist(), idw_weights.tolist())
 
         nearest_neighbors: List[Dict[str, Any]] = []
-        for peer_index, verified_rate, distance, weight in zip(
+        for peer_index, local_position, verified_rate, distance, weight in zip(
             result["neighbor_indices"],
+            local_neighbor_positions.tolist(),
             verified_rates.tolist(),
             distance_array.tolist(),
             idw_weights.tolist(),
         ):
-            nearest_neighbors.append(
-                {
+            peer = {
                     "peer_index": int(peer_index),
                     "distance": round(float(distance), 6),
                     "verified_rate": round(float(verified_rate), 2),
                     "similarity_score": round(self.distance_to_similarity_score(float(distance)), 6),
                     "idw_weight": round(float(weight), 6),
                 }
-            )
+            listing_id = self.partition_listing_ids.get(routed_partition, [])[local_position] if routed_partition in self.partition_listing_ids else None
+            if listing_id is not None:
+                peer["listing_id"] = listing_id
+                peer["job_title"] = self.partition_job_titles[routed_partition][local_position]
+            nearest_neighbors.append(peer)
 
         result.pop("local_neighbor_positions", None)
         result.update(
@@ -340,6 +374,8 @@ class DomainPartitionedKDTreeIndexer:
             "partition_trees": self.partition_trees,
             "partition_row_indices": self.partition_row_indices,
             "partition_verified_rates": self.partition_verified_rates,
+            "partition_listing_ids": self.partition_listing_ids,
+            "partition_job_titles": self.partition_job_titles,
             "partition_counts": self.partition_counts,
             "hybrid_dimensions": self.hybrid_dimensions,
         }
@@ -352,6 +388,7 @@ class DomainPartitionedKDTreeIndexer:
             "hybrid_dimensions": self.hybrid_dimensions,
             "active_partitions": list(self.active_partitions()),
             "has_verified_rates": bool(self.partition_verified_rates),
+            "has_listing_provenance": any(any(ids) for ids in self.partition_listing_ids.values()),
             "partition_counts": {partition: int(count) for partition, count in self.partition_counts.items()},
         }
         with open(metadata_path, "w", encoding="utf-8") as f:
@@ -377,6 +414,8 @@ class DomainPartitionedKDTreeIndexer:
             str(partition): np.asarray(rates, dtype=float)
             for partition, rates in dict(payload.get("partition_verified_rates", {})).items()
         }
+        instance.partition_listing_ids = dict(payload.get("partition_listing_ids", {}))
+        instance.partition_job_titles = dict(payload.get("partition_job_titles", {}))
         instance.partition_counts = {
             str(partition): int(count) for partition, count in dict(payload.get("partition_counts", {})).items()
         }

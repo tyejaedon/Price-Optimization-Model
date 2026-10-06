@@ -241,7 +241,7 @@ sequenceDiagram
 
 ## 5. Strict Data Contracts (Pydantic V2 Schemas)
 
-The following is an illustrative **target wire contract**, not executable code to paste over the deployed models in `src/api_contracts.py`. #83 implements camelCase `Canonical*DTO` models alongside the legacy DTOs on `POST /api/v1/optimize-price`, with a compatible translation and OpenAPI union. Legacy snake_case inputs and responses are deprecated but still supported on the same route. Current canonical calls require `rawText` (omission returns 422 until #84 adds authorized hydration); the typed optional field reserves that migration path. The optional positive `costOfLivingIndex` overrides mentor CoL in the bilateral factor only, while `competitivenessScore` maps to the fitted saturation feature. No scaler feature order is changed. Current artifacts have peer row indices but no listing IDs (#71), so `comparables` contains only listing-backed peers (normally empty), `kNeighborsUsed` is the count of indexed neighbors and `confidenceScore` is 0.0 (uncalibrated). `jobTitle` is optional pending #71. `GET /health` adds canonical fields alongside legacy health fields; all rates/corridor bounds use KES/hour, with M-Pesa fees excluded from the corridor. See README for the executable wire contract and compatibility/deprecation policy.
+The following is an illustrative **target wire contract**, not executable code to paste over the deployed models in `src/api_contracts.py`. #83 implements camelCase `Canonical*DTO` models alongside the legacy DTOs on `POST /api/v1/optimize-price`, with a compatible translation and OpenAPI union. Legacy snake_case inputs and responses are deprecated but still supported on the same route. Current canonical calls require `rawText` (omission returns 422 until #84 adds authorized hydration); the typed optional field reserves that migration path. The optional positive `costOfLivingIndex` overrides mentor CoL in the bilateral factor only, while `competitivenessScore` maps to the fitted saturation feature. No scaler feature order is changed. #71 adds optional listing provenance to new index artifacts only after matching the training rows to actual root Firestore listings; existing proxy artifacts have row indices but no listing IDs, so `comparables` remains empty for those peers. `kNeighborsUsed` counts indexed neighbors and `confidenceScore` is 0.0 (uncalibrated). `GET /health` adds canonical fields alongside legacy health fields; all rates/corridor bounds use KES/hour, with M-Pesa fees excluded from the corridor. See README for the executable wire contract and compatibility/deprecation policy.
 
 ```python
 from datetime import datetime, timezone
@@ -313,6 +313,7 @@ The database structure relies on denormalized collections to eliminate latency d
 ```json
 {
   "mentor_id": "firebase_auth_uid_169684",
+  "auth_uid": "firebase_auth_uid_169684",
   "full_name": "Jaedon Jeremiel",
   "email": "jaedon@strathmore.edu",
   "country_code": "KE",
@@ -327,17 +328,18 @@ The database structure relies on denormalized collections to eliminate latency d
 ```json
 {
   "listing_id": "list_88923a",
-  "mentor_ref": "/mentors/firebase_auth_uid_169684",
+  "mentor_id": "firebase_auth_uid_169684",
   "industry_id": "mobile",
   "title": "Senior Android Architect & Kotlin Mentor",
-  "raw_description": "Senior engineer with 6+ years experience in Jetpack Compose, MVVM...",
-  "latent_svd_vector": [0.0412, -0.1284, 0.0891, "...50 floats total"],
-  "market_competitiveness": 0.65,
-  "base_rate_floor": 2500.0,
+  "raw_description": "Senior engineer with experience in Jetpack Compose and Kotlin mentoring.",
+  "latent_svd_vector": [0.0412, -0.1284, 0.0891],
+  "verified_rate": 2500.0,
   "is_active": true,
   "created_at": "2026-06-11T10:30:00Z"
 }
 ```
+
+The `latent_svd_vector` above is abbreviated for readability; stored documents **must** contain exactly 50 native finite floats (no placeholder strings) from the release's text reducer. `verified_rate` is an actual source-approved KES/hour peer rate, not an assumed property of Upwork job budgets or platform asking rates. `/mentors/{mentor_id}.auth_uid` is mapped only by the trusted backend to the verified Firebase token UID: the path ID need not equal the UID. Protected pricing checks the stored owner, active account and country before inference; #84 later adds missing-field hydration. Listings use a root collection, `mentor_id` as a lookup key (not a subcollection or relational join), and only published, appropriately consented listing text; no passwords, tokens, emails or other private mentor profile text go in a listing. Restrict listing writes/offline snapshot reads to trusted service credentials/IAM; do not grant clients direct collection scans. See [M11.1 listing release procedure](./M11.1_Firestore_Listing_Peers.md) for stable IDs, verified source refresh and artifact consistency.
 
 ### 6.3 Collection: `/historical_transactions/{transaction_id}`
 *Append-only audit ledger dispatched asynchronously by `BackgroundTasks`.*

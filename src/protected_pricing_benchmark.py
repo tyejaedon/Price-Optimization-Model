@@ -67,6 +67,10 @@ class TimedFirestoreStub(InMemoryRepository):
 
     def __init__(self) -> None:
         super().__init__()
+        self.upsert_profile("benchmark-mentor", {
+            "auth_uid": "benchmark-mentor", "full_name": "Synthetic Mentor",
+            "email": "mentor@example.com", "country_code": "KE",
+        })
         self.health_ms: list[float] = []
         self.audit_ms: list[float] = []
 

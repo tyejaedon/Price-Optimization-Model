@@ -7,7 +7,7 @@ import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 try:
     import numpy as np
@@ -36,6 +36,7 @@ from src.macro_arbitrage import (
 from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
 from src.artifact_contract import write_manifest
 from src.oot_gate import validate_oot_report
+from src.repository import FirestoreRepository, Repository
 from src.spatial_engine import DEFAULT_IDW_EPSILON, DEFAULT_MIN_PARTITION_SIZE, DomainPartitionedKDTreeIndexer
 
 DEFAULT_HARMONIZED_PARQUET = os.path.join("data", "processed", "harmonized_marketplace_corpus.parquet")
@@ -94,9 +95,50 @@ def load_harmonized_parquet(parquet_path: str) -> pd.DataFrame:
     frame["record_id"] = np.arange(len(frame), dtype=int)
     frame["industry_partition"] = frame["industry_partition"].astype(str).str.strip().str.lower()
     frame["raw_description"] = frame["raw_description"].astype(str)
+    if "listing_id" in frame.columns:
+        ids = frame["listing_id"].dropna()
+        if ids.duplicated().any():
+            raise ValueError("listing_id must be unique across the source snapshot")
     if frame.empty:
         raise ValueError("Harmonized parquet cannot be empty.")
     return frame
+
+
+def _verified_listing_provenance(
+    train: pd.DataFrame, rates: np.ndarray, repository: Optional[Repository],
+    reducer: Optional[TextFeatureReducer] = None,
+) -> Tuple[Optional[List[Optional[str]]], Optional[List[Optional[str]]]]:
+    """Bind only training rows explicitly linked to their actual root listings."""
+    if "listing_id" not in train.columns:
+        return None, None
+    expected_vectors = (ensure_text_dimensions(reducer.transform(train["raw_description"].tolist()))
+                        if reducer is not None else None)
+    ids: List[Optional[str]] = []
+    titles: List[Optional[str]] = []
+    for position, (row, rate) in enumerate(zip(train.to_dict(orient="records"), rates.tolist())):
+        listing_id = row["listing_id"]
+        if pd.isna(listing_id):
+            ids.append(None)
+            titles.append(None)
+            continue
+        if not isinstance(listing_id, str) or not listing_id or listing_id != listing_id.strip():
+            raise ValueError("Invalid listing_id in training snapshot")
+        if repository is None:
+            raise ValueError("A listing repository is required to verify listing_id provenance")
+        listing = repository.get_listing(listing_id)
+        if listing is None or not listing["is_active"]:
+            raise ValueError("Missing or inactive root service listing in training snapshot")
+        if (listing["industry_id"] != row["industry_partition"]
+                or listing["raw_description"] != row["raw_description"]
+                or not np.isclose(listing["verified_rate"], rate, rtol=0, atol=0.005)
+                or ("job_title" in row and listing["title"] != row["job_title"])):
+            raise ValueError("Training peer does not match stored root service listing")
+        if expected_vectors is not None and not np.allclose(
+                listing["latent_svd_vector"], expected_vectors[position], rtol=0, atol=1e-6):
+            raise ValueError("Root service listing SVD vector does not match fitted reducer")
+        ids.append(listing_id)
+        titles.append(listing["title"])
+    return ids, titles
 
 
 def _validate_split_ratios(train_ratio: float, validation_ratio: float, test_ratio: float) -> None:
@@ -203,6 +245,7 @@ def evaluate_chronological_oot(
     cutoff: str,
     artifact_dir: str = DEFAULT_ARTIFACT_DIR,
     dataset_version: str = "",
+    listing_repository: Optional[Repository] = None,
 ) -> Dict[str, Any]:
     """Train/export only if the strictly future raw-KES holdout clears R² >= 0.75.
 
@@ -236,12 +279,17 @@ def evaluate_chronological_oot(
     # Stage all fitted files outside the final export. Failed gates never publish models.
     with tempfile.TemporaryDirectory() as staged:
         matrices = _fit_feature_matrices(split, macro_lookup_path, artifact_dir=staged)
+        has_listings = "listing_id" in split.train.columns and split.train["listing_id"].notna().any()
+        listing_ids, job_titles = _verified_listing_provenance(
+            split.train, matrices.y_train, listing_repository,
+            TextFeatureReducer.load_artifacts(staged) if has_listings else None)
         indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=DEFAULT_MIN_PARTITION_SIZE)
         indexer.fit(
             hybrid_vectors=matrices.x_train,
             industry_partitions=split.train["industry_partition"].tolist(),
             record_indices=split.train["record_id"].tolist(),
             verified_rates=matrices.y_train.tolist(),
+            listing_ids=listing_ids, job_titles=job_titles,
         )
         indexer.save_artifacts(staged)
         shutil.copyfile(macro_lookup_path, os.path.join(staged, DEFAULT_BUNDLED_MACRO_LOOKUP))
@@ -557,6 +605,7 @@ def evaluate_and_serialize_training(
     idw_epsilon: float = DEFAULT_IDW_EPSILON,
     allow_fallback: bool = True,
     dataset_version: str | None = None,
+    listing_repository: Optional[Repository] = None,
 ) -> Dict[str, Any]:
     if n_components != TEXT_VECTOR_DIMENSIONS:
         raise ValueError("Production artifacts require a 50-component text reducer.")
@@ -597,11 +646,16 @@ def evaluate_and_serialize_training(
 
     idw_indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=minimum_partition_size)
     train_record_indices = np.asarray(split_data.train["record_id"].to_numpy(), dtype=int).tolist()
+    has_listings = "listing_id" in split_data.train.columns and split_data.train["listing_id"].notna().any()
+    listing_ids, job_titles = _verified_listing_provenance(
+        split_data.train, matrices.y_train, listing_repository,
+        TextFeatureReducer.load_artifacts(artifact_dir) if has_listings else None)
     idw_indexer.fit(
         hybrid_vectors=matrices.x_train,
         industry_partitions=[str(v) for v in split_data.train["industry_partition"].tolist()],
         record_indices=train_record_indices,
         verified_rates=matrices.y_train.tolist(),
+        listing_ids=listing_ids, job_titles=job_titles,
     )
     idw_indexer.save_artifacts(artifact_dir)
     bundled_macro = os.path.join(artifact_dir, DEFAULT_BUNDLED_MACRO_LOOKUP)
@@ -815,12 +869,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quality-gate-r2", type=float, default=DEFAULT_QUALITY_GATE_R2)
     parser.add_argument("--no-enforce-quality-gate", action="store_true")
     parser.add_argument("--no-save-artifacts", action="store_true", help="Disable artifact persistence")
+    parser.add_argument("--verify-listings-firestore", action="store_true",
+                        help="Verify listing_id rows against root Firestore service_listings before export (ADC required)")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
 
+    if args.verify_listings_firestore and args.mode == "orchestrate":
+        raise ValueError("--verify-listings-firestore requires --mode evaluate or --mode oot")
     if args.mode == "oot" and (not args.oot_cutoff or not args.dataset_version):
         raise ValueError("OOT mode requires --oot-cutoff and --dataset-version.")
     if args.mode != "oot":
@@ -841,8 +899,10 @@ def main() -> None:
         )
 
     if args.mode == "oot":
+        listing_repository = FirestoreRepository() if args.verify_listings_firestore else None
         payload = evaluate_chronological_oot(
             harmonized_parquet_path, macro_lookup_path, args.oot_cutoff, args.artifact_dir, args.dataset_version,
+            listing_repository=listing_repository,
         )
     elif args.mode == "evaluate":
         payload = evaluate_and_serialize_training(
@@ -859,6 +919,7 @@ def main() -> None:
             k_neighbors=args.k_neighbors,
             quality_gate_r2=args.quality_gate_r2,
             enforce_quality_gate=not args.no_enforce_quality_gate,
+            listing_repository=FirestoreRepository() if args.verify_listings_firestore else None,
         )
     else:
         payload = orchestrate_training(

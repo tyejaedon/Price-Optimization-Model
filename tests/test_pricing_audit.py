@@ -37,6 +37,15 @@ class FakeDocument:
             raise RepositoryError("document already exists")
         self.collection.documents[self.id] = deepcopy(payload)
 
+    def get(self):
+        record = self.collection.documents.get(self.id)
+        return SimpleNamespace(exists=record is not None, id=self.id,
+                               to_dict=lambda: deepcopy(record))
+
+    def set(self, payload, merge=False):
+        previous = self.collection.documents.get(self.id, {}) if merge else {}
+        self.collection.documents[self.id] = {**deepcopy(previous), **deepcopy(payload)}
+
 
 class FakeCollection:
     def __init__(self):
@@ -64,6 +73,11 @@ class FakeFirestoreClient:
 
 
 class FirestoreLikeMemory(InMemoryRepository):
+    def __init__(self):
+        super().__init__()
+        self.upsert_profile("mentor-verified", {"auth_uid": "mentor-verified", "full_name": "Test Mentor",
+                                                "email": "mentor@example.com", "country_code": "KE"})
+
     def health(self):
         return "firestore"
 
@@ -97,6 +111,8 @@ class BlockingMemory(InMemoryRepository):
 class PricingAuditTests(unittest.TestCase):
     @staticmethod
     def app(repository, *, inference=None, metrics=None):
+        repository.upsert_profile("mentor-verified", {"auth_uid": "mentor-verified", "full_name": "Test Mentor",
+                                                       "email": "mentor@example.com", "country_code": "KE"})
         return create_app(repository=repository, inference=inference or (lambda query: QUOTE), metrics=metrics,
                           token_verifier=lambda token: {"uid": "mentor-verified"} if token == "private-id-token" else {},
                           admin_token="admin-only")

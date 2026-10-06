@@ -11,6 +11,7 @@ package "Google Cloud Firestore" {
   entity "mentors" as Mentors {
     * mentor_id : DocumentID
     --
+    + auth_uid : String (Firebase verified owner UID)
     * full_name : String
     * email : String
     * country_code : String
@@ -40,14 +41,13 @@ package "Google Cloud Firestore" {
   entity "service_listings" as Listings {
     * listing_id : DocumentID
     --
-    * mentor_ref : DocumentReference -> mentors
+    * mentor_id : String (mentors document ID)
     * industry_id : String
     * title : String
     * raw_description : String
-    * svd_latent_vector : Array<Number>
-    * market_competitiveness : Number
-    * base_rate_floor : Number
-    * created_at : Timestamp
+    * latent_svd_vector : Array<Float> (50 finite floats)
+    * verified_rate : Number (KES/hour)
+    * is_active : Boolean
   }
 
   entity "mpesa_tariffs" as Tariffs {
@@ -76,13 +76,13 @@ package "Google Cloud Firestore" {
   }
 }
 
-Mentors ||..o{ Listings : mentor_ref
+Mentors ||..o{ Listings : mentor_id (lookup; not a join)
 Industries ||..o{ Listings : industry_id
 Listings ||..o{ Transactions : listing_ref
 Macro ||..o{ Transactions : client_country_code
 Tariffs ||..o{ Transactions : tariff_bracket_ref
 
-note "Firestore references are document references or lookup keys; this diagram does not imply relational joins." as N1
+note "Listings live at /service_listings/{listing_id}, NOT below mentors. UID authorization uses /mentors/{mentor_id}.auth_uid. No relational joins or secrets." as N1
 N1 .. Transactions
 
 note bottom
@@ -90,6 +90,7 @@ Indexes/read paths used by inference:
 - macro_indices.country_code
 - industry_partitions.industry_id
 - service_listings.industry_id
+- service_listings.listing_id (direct document lookup for offline artifact verification)
 - mpesa_tariffs.transaction_type + amount range
 - historical_transactions.listing_ref + executed_at
 end note
