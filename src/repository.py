@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 from src.api_contracts import ProfileDTO, ServiceListingDTO
+from src.config import configured_firestore_database_id, validate_firestore_database_id
 
 
 class RepositoryError(RuntimeError):
@@ -158,10 +159,14 @@ class FirestoreRepository(Repository):
     should provide credentials through the platform environment.
     """
 
-    def __init__(self, client: Optional[Any] = None) -> None:
+    def __init__(self, client: Optional[Any] = None, *, database_id: Optional[str] = None) -> None:
         if client is not None:
+            if database_id is not None:
+                validate_firestore_database_id(database_id)
             self._client = client
             return
+        selected_database = (configured_firestore_database_id() if database_id is None
+                             else validate_firestore_database_id(database_id))
         try:
             import firebase_admin
             from firebase_admin import firestore
@@ -170,7 +175,7 @@ class FirestoreRepository(Repository):
         try:
             if not firebase_admin._apps:
                 firebase_admin.initialize_app()
-            self._client = firestore.client()
+            self._client = firestore.client(database_id=selected_database)
         except Exception as exc:  # pragma: no cover - requires cloud credentials
             raise RepositoryError("Firestore initialization failed") from exc
 

@@ -18,7 +18,7 @@ def create_deployment_app():
         raise ValueError("Firebase Admin project does not match FIREBASE_PROJECT_ID")
     # FirestoreRepository initializes Firebase Admin with ADC if needed. Never
     # silently substitute an in-memory repository in a deployed gateway.
-    repository = FirestoreRepository()
+    repository = FirestoreRepository(database_id=config.firestore_database_id)
 
     def verify_token(token: str):
         return auth.verify_id_token(token, app=firebase_app)
