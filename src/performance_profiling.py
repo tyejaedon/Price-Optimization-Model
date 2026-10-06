@@ -17,10 +17,11 @@ import tracemalloc
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Sequence
 
 import numpy as np
 
+from src.ingest_multisource import PROJECT_ROOT
 from src.macro_arbitrage import fuse_coordinates
 from src.nlp_pipeline import TextFeatureReducer
 from src.spatial_engine import DomainPartitionedKDTreeIndexer, _build_demo_training_data
@@ -310,7 +311,10 @@ def build_demo_inference_components() -> Dict[str, Any]:
     matrix, partitions, verified_rates, query_vector = _build_demo_training_data()
     indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
     indexer.fit(matrix, partitions, verified_rates=verified_rates)
-    tariff_evaluator = MpesaTariffEvaluator.from_csv()
+    # This synthetic local profiler uses the proposed test schedule, never deployment tariffs.
+    tariff_evaluator = MpesaTariffEvaluator.from_csv(os.path.join(
+        PROJECT_ROOT, "tests", "fixtures", "raw", "Mpesa_Tarrifs", "tarrifs_full_schedule.csv",
+    ))
     metadata_vector = np.asarray([0.5, 0.3, 0.4], dtype=float)
     query_text = texts[-1]
 

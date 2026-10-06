@@ -26,6 +26,7 @@ def create_deployment_app():
     return create_app(
         artifact_dir=config.artifact_dir,
         tariff_csv_path=config.tariff_csv_path,
+        trusted_tariff_sha256=config.tariff_sha256,
         firestore_enabled=True,
         repository=repository,
         token_verifier=verify_token,

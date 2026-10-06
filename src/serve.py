@@ -52,7 +52,7 @@ from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
 from src.observability import MetricsRegistry
 from src.repository import InMemoryRepository, Repository, RepositoryError
 from src.spatial_engine import DomainPartitionedKDTreeIndexer
-from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator
+from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator, TariffUnavailableError
 
 InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any] | PredictionResultDTO]
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class InferenceRuntime:
     """Loads the merged M7 artifacts and exposes the production prediction path."""
 
     def __init__(self, artifact_dir: str, macro_lookup_path: str, tariff_csv_path: str, firestore_enabled: bool = False,
-                 trusted_manifest_sha256: Optional[str] = None) -> None:
+                 trusted_manifest_sha256: Optional[str] = None, trusted_tariff_sha256: Optional[str] = None) -> None:
         self.artifact_dir = artifact_dir
         self.macro_lookup_path = macro_lookup_path
         self.tariff_csv_path = tariff_csv_path
@@ -108,6 +108,7 @@ class InferenceRuntime:
         self.load_error: Optional[str] = None
         self.inference_config: Optional[Dict[str, Any]] = None
         self.trusted_manifest_sha256 = trusted_manifest_sha256
+        self.trusted_tariff_sha256 = trusted_tariff_sha256
         self.manifest: Optional[Dict[str, Any]] = None
 
     @property
@@ -183,7 +184,7 @@ class InferenceRuntime:
                        for key, ids in self.spatial_indexer.partition_listing_ids.items())
             ):
                 raise ValueError("Incompatible inference KD-Tree artifact.")
-            self.tariff_evaluator = MpesaTariffEvaluator.from_csv(self.tariff_csv_path)
+            self.tariff_evaluator = MpesaTariffEvaluator.from_csv(self.tariff_csv_path, self.trusted_tariff_sha256)
             self.inference_config = config
             self.manifest = manifest
             self.load_error = None
@@ -197,7 +198,12 @@ class InferenceRuntime:
             # Do not expose absolute paths, pickle contents or exception payloads via health.
             if isinstance(exc, FileNotFoundError):
                 name = os.path.basename(exc.filename or "")
-                self.load_error = f"missing artifact file: {name}" if name in (*ARTIFACT_FILES, MANIFEST_NAME) else "missing artifact file"
+                if os.path.abspath(exc.filename or "") == os.path.abspath(self.tariff_csv_path):
+                    self.load_error = "missing tariff schedule"
+                else:
+                    self.load_error = f"missing artifact file: {name}" if name in (*ARTIFACT_FILES, MANIFEST_NAME) else "missing artifact file"
+            elif isinstance(exc, ValueError) and "tariff" in str(exc).lower():
+                self.load_error = "invalid or untrusted tariff schedule"
             elif isinstance(exc, ValueError) and str(exc).startswith((
                 "Untrusted artifacts:", "Untrusted artifact manifest:", "Incompatible artifact manifest",
                 "Incompatible artifact model", "Missing or incompatible exploratory artifact provenance",
@@ -287,9 +293,11 @@ def create_app(
     token_verifier: Optional[Callable[[str], Dict[str, Any]]] = None,
     readiness_probe: Optional[Callable[[], bool]] = None,
     trusted_manifest_sha256: Optional[str] = None,
+    trusted_tariff_sha256: Optional[str] = None,
 ) -> FastAPI:
     runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled,
-                               trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"))
+                               trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"),
+                               trusted_tariff_sha256)
     runtime_inference = inference is None
     resolved_inference: InferenceCallable = inference if inference is not None else runtime.predict
     resolved_metrics = metrics or MetricsRegistry()
@@ -434,7 +442,7 @@ def create_app(
             else:
                 result = prediction
             executed_at = datetime.now(timezone.utc).isoformat()
-            audit_payload = {
+            audit_payload: Dict[str, Any] = {
                 "transaction_id": f"api-{uuid4().hex}",
                 "schema_version": 1,
                 "selected_industry": inference_query.selected_industry,
@@ -445,6 +453,8 @@ def create_app(
                 "final_quoted_rate": prediction.final_quoted_rate,
                 "executed_at": executed_at,
             }
+            if runtime_inference and runtime.tariff_evaluator is not None:
+                audit_payload["tariff_schedule_sha256"] = runtime.tariff_evaluator.schedule_sha256
             if uid is not None:
                 audit_payload["mentor_id"] = query.mentor_id
                 audit_payload["auth_uid"] = uid
@@ -452,6 +462,8 @@ def create_app(
             return result
         except FloorExceedsCeilingError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TariffUnavailableError as exc:
+            raise HTTPException(status_code=503, detail="M-Pesa tariff unavailable for predicted rate") from exc
         except HTTPException:
             raise
         except Exception as exc:

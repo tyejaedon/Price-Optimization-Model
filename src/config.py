@@ -25,6 +25,7 @@ def configured_firestore_database_id() -> str:
 class DeploymentConfig:
     artifact_dir: str
     tariff_csv_path: str
+    tariff_sha256: str
     firebase_project_id: str
     firestore_database_id: str = "(default)"
 
@@ -37,9 +38,14 @@ class DeploymentConfig:
         project_id = os.getenv("FIREBASE_PROJECT_ID", "").strip()
         if not project_id:
             raise ValueError("FIREBASE_PROJECT_ID is required for the protected API")
+        database_id = configured_firestore_database_id()
+        tariff_sha256 = os.getenv("PRICING_TARIFF_SHA256", "")
+        if re.fullmatch(r"[0-9a-f]{64}", tariff_sha256) is None:
+            raise ValueError("PRICING_TARIFF_SHA256 must be a trusted lowercase SHA-256 digest")
         return cls(
             artifact_dir=os.getenv("PRICING_ARTIFACT_DIR", "/opt/pricing/artifacts"),
             tariff_csv_path=os.getenv("PRICING_TARIFF_CSV", "/opt/pricing/tariff.csv"),
+            tariff_sha256=tariff_sha256,
             firebase_project_id=project_id,
-            firestore_database_id=configured_firestore_database_id(),
+            firestore_database_id=database_id,
         )

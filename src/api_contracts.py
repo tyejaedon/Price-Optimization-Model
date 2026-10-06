@@ -70,8 +70,8 @@ class PredictionResultDTO(StrictModel):
     def quote_covers_costs(cls, value: float, info: Any) -> float:
         base = info.data.get("base_predicted_rate")
         surcharge = info.data.get("mpesa_tariff_surcharge")
-        if base is not None and surcharge is not None and value + 1e-9 < base + surcharge:
-            raise ValueError("final_quoted_rate must cover base rate plus surcharge")
+        if base is not None and surcharge is not None and abs(value - base - surcharge) > 0.011:
+            raise ValueError("final_quoted_rate must equal base rate plus surcharge exactly once")
         return value
 
     @model_validator(mode="after")
@@ -175,6 +175,10 @@ class CanonicalPredictionResultDTO(StrictModel):
         if count == 0:
             raise ValueError("canonical pricing requires peer-backed inference")
         reason = f"Weighted from {count} indexed peers in KES/hour; corridor excludes the M-Pesa surcharge."
+        if prediction.mentor_country_iso2 == "KE":
+            reason += f" Kenyan M-Pesa fee of {prediction.mpesa_tariff_surcharge:.2f} KES/hour is added once to the base rate."
+        elif prediction.mpesa_tariff_surcharge == 0:
+            reason += " No Kenyan M-Pesa fee applies."
         if len(comparables) < count:
             reason += " Listing-backed comparables are unavailable for some peers."
         return cls(

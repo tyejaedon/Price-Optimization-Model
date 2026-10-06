@@ -85,17 +85,18 @@ class ApiContractsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             PeerMatchDTO(peer_index=1, distance=0.2, verified_rate=1000.0, similarity_score=0.0)
 
-        with self.assertRaises(ValidationError):
-            PredictionResultDTO(
-                base_predicted_rate=4700.0,
-                mpesa_tariff_surcharge=55.0,
-                final_quoted_rate=4700.0,
-                currency="KES",
-                bilateral_arbitrage_factor=0.51,
-                nearest_neighbors=[
-                    PeerMatchDTO(peer_index=1, distance=0.2, verified_rate=1000.0, similarity_score=0.8)
-                ],
-            )
+        for final_rate in (4700.0, 4810.0):
+            with self.subTest(final_rate=final_rate), self.assertRaises(ValidationError):
+                PredictionResultDTO(
+                    base_predicted_rate=4700.0,
+                    mpesa_tariff_surcharge=55.0,
+                    final_quoted_rate=final_rate,
+                    currency="KES",
+                    bilateral_arbitrage_factor=0.51,
+                    nearest_neighbors=[
+                        PeerMatchDTO(peer_index=1, distance=0.2, verified_rate=1000.0, similarity_score=0.8)
+                    ],
+                )
 
     def test_response_corridor_must_be_finite_complete_and_ordered(self) -> None:
         payload = {"base_predicted_rate": 100.0, "mpesa_tariff_surcharge": 7.0, "final_quoted_rate": 107.0}

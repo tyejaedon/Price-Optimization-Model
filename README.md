@@ -32,6 +32,8 @@ Firebase ID tokens will be supplied by the Android client and are verified by th
 finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
 ```
 
+M11.3 (#73) applies the exact configured 12-tier fee once to the **authorized Kenyan mentor's** base quote; other mentors receive zero surcharge. The `baseRateFloor` and corridor remain fee-free. Amounts outside the configured Kenyan schedule fail rather than extrapolating a fee. The checked-in test schedule follows the blueprint's *proposed* numbers, **not** a verified current Safaricom publication. A protected release requires an independently approved dated CSV and separately reviewed `PRICING_TARIFF_SHA256` pin; see [tariff policy](docs/M11.3_Mpesa_Tariff.md).
+
 The existing ML and tariff implementations are reused, not restarted. #67 tracks training/inference artifact changes; #71 owns real peer listing IDs, #82 the rate floor/corridor, and #83 the canonical DTO adapter. #68 is closed as superseded by #83.
 
 ## Canonical pricing contract (M10.5 / #83)
