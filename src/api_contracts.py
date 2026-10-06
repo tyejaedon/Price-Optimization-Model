@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -13,7 +14,9 @@ class StrictModel(BaseModel):
 
 
 class PricingQueryDTO(StrictModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
+    # Kept for existing Python and snake_case HTTP callers; see CanonicalPricingQueryDTO.
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True,
+                              json_schema_extra={"deprecated": True})
 
     # The deployed gateway requires this to equal the verified Firebase UID.
     # Keep it optional here for existing local callers until the #83 wire migration.
@@ -28,6 +31,7 @@ class PricingQueryDTO(StrictModel):
     )
     market_saturation_score: float = Field(default=0.5, ge=0.0, le=1.0)
     base_rate_floor: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
+    cost_of_living_index: Optional[float] = Field(default=None, ge=0.01, le=1000.0, allow_inf_nan=False)
 
     @field_validator("mentor_country", "client_country")
     @classmethod
@@ -44,6 +48,9 @@ class PeerMatchDTO(StrictModel):
     verified_rate: float = Field(ge=0.0)
     similarity_score: float = Field(gt=0.0, le=1.0)
     idw_weight: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    # Only populated by an inference artifact with real listing provenance (#71).
+    listing_id: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    job_title: Optional[str] = Field(default=None, min_length=1, max_length=200)
 
 
 class PredictionResultDTO(StrictModel):
@@ -84,6 +91,108 @@ class HealthResponseDTO(StrictModel):
     source_type: Optional[str] = None
     validation_status: Optional[str] = None
     readiness_reason: Optional[str] = None
+
+
+class CanonicalPricingQueryDTO(StrictModel):
+    """M10.5 wire request; only camelCase keys are accepted, never mixed contracts."""
+
+    mentor_id: str = Field(alias="mentorId", min_length=1, max_length=128)
+    raw_text: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000,
+                                    description="Required until authorized profile hydration ships in #84.")
+    industry: str = Field(min_length=1, max_length=100)
+    mentor_country: str = Field(alias="mentorCountry", min_length=2, max_length=2)
+    client_country: str = Field(alias="clientCountry", min_length=2, max_length=2)
+    competitiveness_score: float = Field(default=0.5, alias="competitivenessScore", ge=0.0, le=1.0,
+                                         allow_inf_nan=False, description="Fitted market saturation feature.")
+    cost_of_living_index: Optional[float] = Field(default=None, alias="costOfLivingIndex", ge=0.01, le=1000.0,
+                                                  allow_inf_nan=False, description="Mentor CoL override for bilateral factor only.")
+    base_rate_floor: Optional[float] = Field(default=None, alias="baseRateFloor", ge=0.0,
+                                             allow_inf_nan=False, description="Reservation floor in KES/hour.")
+
+    @field_validator("mentor_country", "client_country")
+    @classmethod
+    def normalize_iso2(cls, value: str) -> str:
+        if re.fullmatch(r"[A-Za-z]{2}", value) is None:
+            raise ValueError("country codes must be two ASCII letters")
+        return value.upper()
+
+    def to_inference_query(self) -> PricingQueryDTO:
+        if self.raw_text is None:
+            raise ValueError("rawText is required until verified mentor profile hydration is available")
+        return PricingQueryDTO(
+            mentor_id=self.mentor_id, raw_description=self.raw_text, selected_industry=self.industry,
+            mentor_country=self.mentor_country, client_country=self.client_country,
+            market_saturation_score=self.competitiveness_score, base_rate_floor=self.base_rate_floor,
+            cost_of_living_index=self.cost_of_living_index,
+        )
+
+
+class CanonicalPeerMatchDTO(StrictModel):
+    listing_id: str = Field(alias="listingId", min_length=1, max_length=200)
+    job_title: Optional[str] = Field(default=None, alias="jobTitle", min_length=1, max_length=200)
+    verified_rate: float = Field(alias="verifiedRate", ge=0.0, allow_inf_nan=False)
+    similarity_score: float = Field(alias="similarityScore", ge=0.0, le=1.0, allow_inf_nan=False)
+    euclidean_distance: float = Field(alias="euclideanDistance", ge=0.0, allow_inf_nan=False)
+
+
+class CanonicalPredictionResultDTO(StrictModel):
+    base_predicted_rate: float = Field(alias="basePredictedRate", ge=0.0, allow_inf_nan=False)
+    mpesa_tariff_surcharge: float = Field(alias="mpesaTariffSurcharge", ge=0.0, allow_inf_nan=False)
+    final_quoted_rate: float = Field(alias="finalQuotedRate", ge=0.0, allow_inf_nan=False)
+    min_quoted_rate: float = Field(alias="minQuotedRate", ge=0.0, allow_inf_nan=False)
+    max_quoted_rate: float = Field(alias="maxQuotedRate", ge=0.0, allow_inf_nan=False)
+    k_neighbors_used: int = Field(alias="kNeighborsUsed", ge=1)
+    bilateral_arbitrage_factor: float = Field(alias="bilateralArbitrageFactor", gt=0.0, allow_inf_nan=False)
+    confidence_score: float = Field(alias="confidenceScore", ge=0.0, le=1.0, allow_inf_nan=False,
+                                    description="0.0: not empirically calibrated; not a probability of quote accuracy.")
+    comparables: List[CanonicalPeerMatchDTO]
+    reason: str = Field(min_length=1)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @model_validator(mode="after")
+    def valid_quote(self) -> "CanonicalPredictionResultDTO":
+        if abs(self.final_quoted_rate - self.base_predicted_rate - self.mpesa_tariff_surcharge) > 0.011:
+            raise ValueError("finalQuotedRate must equal basePredictedRate plus mpesaTariffSurcharge")
+        if self.min_quoted_rate > self.max_quoted_rate:
+            raise ValueError("minQuotedRate cannot exceed maxQuotedRate")
+        if len(self.comparables) > self.k_neighbors_used:
+            raise ValueError("comparables cannot exceed kNeighborsUsed")
+        return self
+
+    @classmethod
+    def from_legacy(cls, prediction: PredictionResultDTO) -> "CanonicalPredictionResultDTO":
+        if prediction.min_quoted_rate is None or prediction.max_quoted_rate is None or prediction.bilateral_arbitrage_factor is None:
+            raise ValueError("canonical pricing requires a computed corridor and bilateral factor")
+        comparables = [
+            CanonicalPeerMatchDTO(
+                listingId=peer.listing_id, jobTitle=peer.job_title, verifiedRate=peer.verified_rate,
+                similarityScore=peer.similarity_score, euclideanDistance=peer.distance,
+            )
+            for peer in prediction.nearest_neighbors if peer.listing_id is not None
+        ]
+        count = len(prediction.nearest_neighbors)
+        if count == 0:
+            raise ValueError("canonical pricing requires peer-backed inference")
+        reason = f"Weighted from {count} indexed peers in KES/hour; corridor excludes the M-Pesa surcharge."
+        if len(comparables) < count:
+            reason += " Listing-backed comparables are unavailable for some peers."
+        return cls(
+            basePredictedRate=prediction.base_predicted_rate,
+            mpesaTariffSurcharge=prediction.mpesa_tariff_surcharge,
+            finalQuotedRate=prediction.final_quoted_rate,
+            minQuotedRate=prediction.min_quoted_rate, maxQuotedRate=prediction.max_quoted_rate,
+            kNeighborsUsed=count, bilateralArbitrageFactor=prediction.bilateral_arbitrage_factor,
+            confidenceScore=0.0, comparables=comparables, reason=reason,
+        )
+
+
+class HealthStatusDTO(HealthResponseDTO):
+    """Add canonical health keys without removing fields consumed by legacy clients."""
+
+    service: Literal["pricing-engine"] = "pricing-engine"
+    unit: Literal["KES/hour"] = "KES/hour"
+    modelsLoaded: bool
+    version: str = "1.0.0"
 
 
 class GridSearchConfigDTO(StrictModel):

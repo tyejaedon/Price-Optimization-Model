@@ -15,17 +15,20 @@ import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional, cast
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from src.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
 from src.platform_price import register_platform_price
 from src.api_contracts import (
+    CanonicalPredictionResultDTO,
+    CanonicalPricingQueryDTO,
     GridSearchConfigDTO,
     HealthResponseDTO,
+    HealthStatusDTO,
     MetricsResponseDTO,
     PredictionResultDTO,
     PricingQueryDTO,
@@ -221,10 +224,12 @@ class InferenceRuntime:
             raise ValueError(f"No trained density for partition '{partition}'.")
         text_vector = ensure_text_dimensions(self.reducer.transform([query.raw_description]))
         raw_metadata = self.metadata_normalizer.build_live_metadata_vector(
-            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition]
+            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition],
+            mentor_cost_of_living_index=query.cost_of_living_index,
         )
         normalized_metadata = self.metadata_normalizer.transform_live_metadata(
-            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition]
+            query.mentor_country, query.client_country, query.market_saturation_score, config["partition_density"][partition],
+            mentor_cost_of_living_index=query.cost_of_living_index,
         )
         fused = fuse_coordinates(text_vector * config["text_weight"], normalized_metadata * config["metadata_weight"])
         prediction = self.spatial_indexer.predict_base_rate(
@@ -297,7 +302,7 @@ def create_app(
         app.state.inference_runtime = runtime
         yield
 
-    app = FastAPI(title="Price Optimization Model API", version="m8.7", lifespan=lifespan)
+    app = FastAPI(title="Price Optimization Model API", version="1.0.0", lifespan=lifespan)
     app.state.dependencies = dependencies
     # Career Mentor OS platform contract (#99). Closed unless PLATFORM_PRICE_KEY is set.
     register_platform_price(app, dependencies)
@@ -339,9 +344,10 @@ def create_app(
             readiness_reason=runtime.load_error if runtime_inference and not models_loaded else None,
         )
 
-    @app.get("/health", response_model=HealthResponseDTO)
-    async def health() -> HealthResponseDTO:
-        return current_health()
+    @app.get("/health", response_model=HealthStatusDTO)
+    async def health() -> HealthStatusDTO:
+        state = current_health()
+        return HealthStatusDTO.model_validate({**state.model_dump(), "modelsLoaded": state.models_loaded})
 
     @app.get("/ready", response_model=HealthResponseDTO)
     async def ready() -> Any:
@@ -374,26 +380,50 @@ def create_app(
             raise HTTPException(status_code=503, detail="pricing repository unavailable")
         return uid
 
-    @app.post("/api/v1/optimize-price", response_model=PredictionResultDTO)
-    async def optimize_price(query: PricingQueryDTO, background_tasks: BackgroundTasks,
-                             uid: Optional[str] = Depends(require_pricing_token)) -> PredictionResultDTO:
+    @app.post(
+        "/api/v1/optimize-price", response_model=CanonicalPredictionResultDTO | PredictionResultDTO,
+        description="CamelCase canonical request/response in KES/hour. The snake_case PricingQueryDTO/PredictionResultDTO "
+                    "remains supported but is deprecated; do not mix naming styles. "
+                    "rawText is required until verified profile hydration (#84) is available.",
+    )
+    async def optimize_price(query: CanonicalPricingQueryDTO | PricingQueryDTO, background_tasks: BackgroundTasks,
+                             response: Response, uid: Optional[str] = Depends(require_pricing_token),
+                             ) -> CanonicalPredictionResultDTO | PredictionResultDTO:
+        canonical = isinstance(query, CanonicalPricingQueryDTO)
+        if not canonical:
+            response.headers["Deprecation"] = "true"
         # Until #84 introduces an explicit owner mapping, only a Firebase UID
         # can be used as mentorId. Body-supplied IDs never authenticate a caller.
         if uid is not None and query.mentor_id != uid:
             raise HTTPException(status_code=403, detail="mentor authorization required")
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
+        inference_query: PricingQueryDTO
+        if isinstance(query, CanonicalPricingQueryDTO):
+            try:
+                inference_query = query.to_inference_query()
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        else:
+            inference_query = cast(PricingQueryDTO, query)
         try:
             with resolved_metrics.timer("inference.optimize_price"):
-                payload = dependencies.inference(query)
+                payload = dependencies.inference(cast(PricingQueryDTO, inference_query))
             prediction = PredictionResultDTO.model_validate(payload)
+            if canonical:
+                try:
+                    result = CanonicalPredictionResultDTO.from_legacy(prediction)
+                except ValueError as exc:
+                    raise HTTPException(status_code=503, detail="canonical pricing result unavailable") from exc
+            else:
+                result = prediction
             executed_at = datetime.now(timezone.utc).isoformat()
             audit_payload = {
                 "transaction_id": f"api-{uuid4().hex}",
                 "schema_version": 1,
-                "selected_industry": query.selected_industry,
-                "mentor_country_code": query.mentor_country,
-                "client_country_code": query.client_country,
+                "selected_industry": inference_query.selected_industry,
+                "mentor_country_code": inference_query.mentor_country,
+                "client_country_code": inference_query.client_country,
                 "base_predicted_rate": prediction.base_predicted_rate,
                 "mpesa_tariff_surcharge": prediction.mpesa_tariff_surcharge,
                 "final_quoted_rate": prediction.final_quoted_rate,
@@ -402,7 +432,7 @@ def create_app(
             if uid is not None:
                 audit_payload["mentor_id"] = uid
             background_tasks.add_task(_append_pricing_audit, dependencies.repository, resolved_metrics, audit_payload)
-            return prediction
+            return result
         except FloorExceedsCeilingError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except HTTPException:
