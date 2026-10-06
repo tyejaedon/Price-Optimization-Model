@@ -1,4 +1,10 @@
-"""Pydantic v2 contracts for pricing and administrator MLOps operations."""
+"""Pydantic v2 contracts for pricing and administrator MLOps operations.
+
+The canonical M10 wire DTOs use camelCase aliases; the older snake_case pricing
+DTOs remain for compatibility and are deprecated, not interchangeable with mixed
+field naming. All pricing rates and floors are in KES/hour. See ``docs/README.md``
+(#123) for introductory definitions.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +21,20 @@ class StrictModel(BaseModel):
 
 
 class PricingQueryDTO(StrictModel):
+    """Legacy snake_case query retained for local/older clients.
+
+    ``mentor_id`` is optional for compatibility; a configured protected gateway
+    still requires it to identify an active mentor owned by the verified UID.
+    ``market_saturation_score`` is the fitted saturation feature, and
+    ``competitiveness_score`` is a legacy compatibility input, not the fitted
+    feature. ``base_rate_floor`` is a reservation floor in KES/hour. Legacy
+    ``mentor_id``, ``raw_description``, ``selected_industry``, ``mentor_country``,
+    ``client_country``, ``market_saturation_score``, ``cost_of_living_index`` and
+    ``base_rate_floor`` correspond to canonical ``mentorId``, ``rawText``,
+    ``industry``, ``mentorCountry``, ``clientCountry``, ``competitivenessScore``,
+    ``costOfLivingIndex`` and ``baseRateFloor`` respectively.
+    """
+
     # Kept for existing Python and snake_case HTTP callers; see CanonicalPricingQueryDTO.
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True,
                               json_schema_extra={"deprecated": True})
@@ -44,6 +64,8 @@ class PricingQueryDTO(StrictModel):
 
 
 class PeerMatchDTO(StrictModel):
+    """Legacy peer detail: ``verified_rate`` is KES/hour; distance is feature-space distance."""
+
     peer_index: int = Field(ge=0)
     distance: float = Field(ge=0.0)
     verified_rate: float = Field(ge=0.0)
@@ -55,6 +77,12 @@ class PeerMatchDTO(StrictModel):
 
 
 class PredictionResultDTO(StrictModel):
+    """Legacy snake_case quote in KES/hour; surcharge is added once to the base rate.
+
+    Canonical output uses camelCase equivalents such as ``basePredictedRate``,
+    ``mpesaTariffSurcharge`` and ``finalQuotedRate``.
+    """
+
     base_predicted_rate: float = Field(ge=0.0)
     mpesa_tariff_surcharge: float = Field(ge=0.0)
     final_quoted_rate: float = Field(ge=0.0)
@@ -95,7 +123,14 @@ class HealthResponseDTO(StrictModel):
 
 
 class CanonicalPricingQueryDTO(StrictModel):
-    """M10.5 wire request; only camelCase keys are accepted, never mixed contracts."""
+    """Canonical camelCase M10 wire request; do not mix it with legacy field names.
+
+    ``rawText`` remains required until authorized profile hydration is available.
+    ``competitivenessScore`` supplies fitted market saturation (not cost of living);
+    ``baseRateFloor`` is in KES/hour. ``rawText``, ``industry``, ``mentorCountry``
+    and ``clientCountry`` map to legacy ``raw_description``, ``selected_industry``,
+    ``mentor_country`` and ``client_country`` respectively.
+    """
 
     mentor_id: str = Field(alias="mentorId", min_length=1, max_length=128)
     raw_text: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000,
@@ -129,6 +164,8 @@ class CanonicalPricingQueryDTO(StrictModel):
 
 
 class CanonicalPeerMatchDTO(StrictModel):
+    """Listing-backed peer rate in KES/hour and feature distance, not proof of payment."""
+
     listing_id: str = Field(alias="listingId", min_length=1, max_length=200)
     job_title: Optional[str] = Field(default=None, alias="jobTitle", min_length=1, max_length=200)
     verified_rate: float = Field(alias="verifiedRate", ge=0.0, allow_inf_nan=False)
@@ -137,6 +174,12 @@ class CanonicalPeerMatchDTO(StrictModel):
 
 
 class CanonicalPredictionResultDTO(StrictModel):
+    """Canonical camelCase quote and corridor in KES/hour; the corridor excludes surcharge.
+
+    ``confidenceScore`` is currently uncalibrated and must not be read as a
+    probability that the quote is accurate.
+    """
+
     base_predicted_rate: float = Field(alias="basePredictedRate", ge=0.0, allow_inf_nan=False)
     mpesa_tariff_surcharge: float = Field(alias="mpesaTariffSurcharge", ge=0.0, allow_inf_nan=False)
     final_quoted_rate: float = Field(alias="finalQuotedRate", ge=0.0, allow_inf_nan=False)

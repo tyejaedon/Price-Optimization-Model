@@ -1,7 +1,11 @@
-"""Profile a pinned artifact bundle through warmed inference and protected pricing.
+"""Profile a pinned bundle with warmed inference and in-process protected pricing.
 
-This is an in-process engineering benchmark: Firebase verification and Firestore
-are timed local stubs, not a real cloud service or network RTT measurement.
+Fixtures cover domestic/cross-border and industry paths. Direct inference and
+TestClient pricing each have their own warmup and sample set; one-time lifespan
+startup is reported separately. Firebase verification and Firestore are timed
+local stubs, not cloud services. No network RTT or HTTP SLA is measured; live
+mobile-to-cloud RTT is deferred to Milestone 14 / #86. See
+``docs/M10.3_Protected_Pricing_Latency.md`` for benchmark context and limitations.
 """
 
 from __future__ import annotations
@@ -63,7 +67,7 @@ FIXTURES = {
 
 
 class TimedFirestoreStub(InMemoryRepository):
-    """No credentials, network or persistent writes; time the repository interface."""
+    """In-memory repository timing stub; no credentials, network or persistent writes."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -98,7 +102,17 @@ def benchmark_protected_pricing(
     samples: int = 100,
     warmup: int = 10,
 ) -> dict[str, Any]:
-    """Return distributions per fixture, failing rather than reporting unready or failed calls."""
+    """Return per-fixture latency distributions, failing on unready or failed calls.
+
+    ``trusted_manifest_sha256`` must be the independently trusted pin for this
+    local bundle. ``warmup`` calls are made separately for direct inference and
+    protected TestClient requests; each path then records ``samples`` successful
+    calls. Startup is measured once and excluded from request distributions.
+    Fixtures without a trained industry partition are listed as skipped; if all
+    fixtures are untrained the benchmark fails. Verifier, repository-health and
+    audit timings are measured inside the same in-process requests and are not
+    additive to request percentiles.
+    """
     if samples < 1 or warmup < 0:
         raise ValueError("samples must be positive and warmup non-negative")
 
@@ -133,9 +147,11 @@ def benchmark_protected_pricing(
         for name, payload in FIXTURES.items():
             query = PricingQueryDTO.model_validate(payload)
             if query.selected_industry not in runtime.spatial_indexer.active_partitions():
+                # A missing trained partition is explicit; do not reroute or time it.
                 skipped.append(name)
                 continue
 
+            # This direct runtime path excludes HTTP/auth/repository overhead.
             inference = profile_callable_latency(
                 lambda: runtime.predict(query), name="warmed_inference",
                 iterations=samples, warmup_iterations=warmup,
@@ -156,6 +172,7 @@ def benchmark_protected_pricing(
 
             for _ in range(warmup):
                 protected_request()
+            # Clear warmup timings so the instrumented stubs contain sample calls only.
             verifier_ms.clear()
             repository.health_ms.clear()
             repository.audit_ms.clear()

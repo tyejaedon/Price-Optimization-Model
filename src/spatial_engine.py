@@ -1,3 +1,22 @@
+"""Partitioned peer search and inverse-distance base-rate estimation.
+
+Training inputs are the fused 53-dimensional hybrid feature vectors (50 text
+components plus three normalized metadata components) produced by the feature
+pipeline. KD-Trees are built independently for industry partitions so nearest
+peers are normally drawn from the requested domain. Optional row-aligned
+targets named ``verified_rates`` are in KES/hour; listing IDs and job titles retain peer
+provenance in prediction explanations.
+
+That historical rate name is not independent verification: training can supply
+proxy budgets/asking rates. This index checks listing metadata shape; the
+training exporter separately checks it against trusted root listing documents.
+Distances are Euclidean in fitted feature space, not currency differences.
+
+The command-line demo deliberately fits small synthetic vectors and rates to
+exercise indexing and artifact round-trips. Those values are demonstration
+data, not marketplace observations or evidence of real mentor pricing.
+"""
+
 import argparse
 import json
 import os
@@ -76,7 +95,13 @@ def _coerce_rate_vector(verified_rates: Sequence[float], expected_rows: int) -> 
 
 
 class DomainPartitionedKDTreeIndexer:
-    """Build and query domain-specific KD-Tree indices over fused hybrid coordinates."""
+    """Build partition-specific KD-Trees over fused hybrid feature coordinates.
+
+    Production coordinates have 53 dimensions: 50 text features followed by
+    three normalized metadata features. Each tree stores only its own partition
+    rows; aligned caller-supplied targets are interpreted as KES/hour, and optional
+    listing IDs/titles are retained for matched-peer provenance.
+    """
 
     def __init__(
         self,
@@ -85,6 +110,11 @@ class DomainPartitionedKDTreeIndexer:
         fallback_partition: str = DEFAULT_FALLBACK_PARTITION,
         vector_dimensions: Optional[int] = None,
     ) -> None:
+        """Configure tree size, minimum usable partition volume, and fallback.
+
+        ``vector_dimensions`` defaults to the production 53D hybrid schema;
+        it can be overridden for controlled tests or compatible artifacts.
+        """
         self.leaf_size = max(1, int(leaf_size))
         self.minimum_partition_size = max(1, int(minimum_partition_size))
         self.fallback_partition = _normalize_partition(fallback_partition)
@@ -106,6 +136,21 @@ class DomainPartitionedKDTreeIndexer:
         listing_ids: Optional[Sequence[Optional[str]]] = None,
         job_titles: Optional[Sequence[Optional[str]]] = None,
     ) -> None:
+        """Fit one KD-Tree per normalized industry partition.
+
+        ``hybrid_vectors`` is a non-empty row-major feature matrix, with one
+        partition label per row. ``record_indices`` are caller/global row IDs,
+        not positions inside any one partition tree; when omitted, input row
+        numbers are used. Optional ``verified_rates`` must align with matrix
+        rows and contain the KES/hour targets used by
+        :meth:`predict_base_rate`. Optional listing IDs and job titles must be
+        supplied together and row-aligned; a pair of ``None`` values means
+        that no listing provenance is known for that peer.
+
+        Invalid dimensions, non-finite values, or misaligned metadata raise
+        ``ValueError``. Partition names outside the supported set normalize
+        to ``general_tech``.
+        """
         matrix = _coerce_hybrid_matrix(hybrid_vectors, expected_dimensions=self.hybrid_dimensions)
         if len(industry_partitions) != matrix.shape[0]:
             raise ValueError(
@@ -178,6 +223,7 @@ class DomainPartitionedKDTreeIndexer:
         self.fitted = True
 
     def active_partitions(self) -> Tuple[str, ...]:
+        """Return the fitted partition names in deterministic sorted order."""
         return tuple(sorted(self.partition_trees.keys()))
 
     def _fallback_candidates(self, requested_partition: str) -> List[str]:
@@ -193,6 +239,16 @@ class DomainPartitionedKDTreeIndexer:
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
     ) -> Dict[str, Any]:
+        """Choose the partition to query, applying the configured volume policy.
+
+        A requested partition is used directly when it contains at least
+        ``max(k, minimum_partition_size, 1)`` rows. Otherwise, if fallback is
+        enabled, only the configured fallback partition is considered and it
+        must meet that same minimum. An existing undersized partition may
+        still be queried when fallback is disabled, using as many rows as it
+        contains; an unavailable partition with fallback disabled, or a
+        missing/undersized fallback, raises ``KeyError``.
+        """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before resolve_query_partition().")
 
@@ -250,6 +306,8 @@ class DomainPartitionedKDTreeIndexer:
         distances, local_indices = tree.query(query_vector.reshape(1, -1), k=neighbor_count, return_distance=True)
         local_index_array = np.asarray(local_indices[0], dtype=int)
         distance_array = np.asarray(distances[0], dtype=float)
+        # Tree positions address partition-local arrays; map them back to the
+        # caller's row IDs before returning peer indices.
         global_indices = partition_row_indices[local_index_array]
         return {
             **route,
@@ -261,6 +319,12 @@ class DomainPartitionedKDTreeIndexer:
 
     @staticmethod
     def compute_inverse_distance_weights(distances: Sequence[float], epsilon: float = DEFAULT_IDW_EPSILON) -> np.ndarray:
+        """Return normalized quadratic IDW weights for finite nonnegative distances.
+
+        Each unnormalized weight is ``1 / (distance**2 + epsilon)``; the
+        positive epsilon (default ``1e-6``) keeps exact and duplicate matches
+        finite. The returned weights sum to one.
+        """
         distance_array = np.asarray(distances, dtype=float).reshape(-1)
         if distance_array.size == 0:
             raise ValueError("distances cannot be empty.")
@@ -276,6 +340,7 @@ class DomainPartitionedKDTreeIndexer:
 
     @staticmethod
     def distance_to_similarity_score(distance: float) -> float:
+        """Map a nonnegative distance to the bounded score ``1 / (1 + d)``."""
         safe_distance = max(0.0, float(distance))
         return 1.0 / (1.0 + safe_distance)
 
@@ -286,6 +351,14 @@ class DomainPartitionedKDTreeIndexer:
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
     ) -> Dict[str, Any]:
+        """Return nearest-peer indices and distances for a hybrid query vector.
+
+        The result identifies requested and routed partitions, whether
+        fallback occurred, the number of neighbors actually returned, their
+        caller/global row IDs, and Euclidean distances. It does not require or
+        return target rates. See :meth:`resolve_query_partition` for behavior
+        when a partition is missing or below the requested volume.
+        """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before query().")
 
@@ -307,6 +380,17 @@ class DomainPartitionedKDTreeIndexer:
         allow_fallback: bool = True,
         epsilon: float = DEFAULT_IDW_EPSILON,
     ) -> Dict[str, Any]:
+        """Estimate a base hourly rate from nearest peers in KES/hour.
+
+        Requires that :meth:`fit` received ``verified_rates``. The base
+        estimate is the weighted mean of the selected peers using normalized
+        quadratic IDW weights (``1 / (distance**2 + epsilon)``). The response
+        includes the full-precision weighted population standard deviation,
+        partition-routing details, and per-peer rates, similarities, weights,
+        and any retained listing provenance. Low-volume routing follows
+        :meth:`resolve_query_partition`; if no eligible partition exists,
+        ``KeyError`` is raised rather than returning a partial prediction.
+        """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before predict_base_rate().")
         if not self.partition_verified_rates:
@@ -360,6 +444,12 @@ class DomainPartitionedKDTreeIndexer:
         return result
 
     def save_artifacts(self, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> None:
+        """Serialize fitted trees and aligned row/rate/provenance metadata.
+
+        Writes the joblib index bundle and a JSON metadata summary under
+        ``artifact_dir``. The bundle may omit rates or listing provenance when
+        those optional inputs were not supplied during fitting.
+        """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before save_artifacts().")
 
@@ -396,6 +486,13 @@ class DomainPartitionedKDTreeIndexer:
 
     @classmethod
     def load_artifacts(cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> "DomainPartitionedKDTreeIndexer":
+        """Restore a saved index bundle, including optional rates and provenance.
+
+        Returns a fitted indexer ready for querying. Missing optional
+        provenance in older compatible bundles remains absent rather than
+        being inferred. This low-level loader deserializes joblib directly;
+        serving must verify the independently pinned manifest before calling it.
+        """
         artifact_path = os.path.join(artifact_dir, DEFAULT_KDTREE_ARTIFACT)
         payload = joblib.load(artifact_path)
 
@@ -425,6 +522,7 @@ class DomainPartitionedKDTreeIndexer:
 
 
 def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray, np.ndarray]:
+    """Construct synthetic 53D rows, partitions, KES/hour rates, and one query."""
     partitions = [
         "data_ai",
         "data_ai",
@@ -462,6 +560,12 @@ def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray, np.n
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse options for the synthetic fit/query/IDW command-line demonstration.
+
+    The demonstration has very small partitions; query modes require ``k`` and
+    ``--min-partition-size`` values that the selected or fallback partition
+    can satisfy (for example, both set to 1).
+    """
     parser = argparse.ArgumentParser(description="Build and query domain-partitioned KD-Tree indices.")
     parser.add_argument("--mode", choices=("fit_demo", "query_demo", "idw_demo"), default="query_demo")
     parser.add_argument("--artifact-dir", default=DEFAULT_ARTIFACT_DIR, help="Directory for saved KD-Tree artifacts")
@@ -482,6 +586,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Fit, persist, reload, and optionally query the synthetic demonstration index.
+
+    Query modes raise the same insufficient-partition error as the production
+    indexer when the demo's tiny partitions cannot meet the requested volume.
+    """
     args = parse_args()
     matrix, partitions, verified_rates, query_vector = _build_demo_training_data()
 

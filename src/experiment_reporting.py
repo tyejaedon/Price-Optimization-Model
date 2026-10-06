@@ -1,3 +1,22 @@
+"""Produce exploratory model, feature, and text-representation research reports.
+
+The report modes compare baselines/configurations over stratified random
+70/15/15 splits, fitting representation and metadata transforms on training
+rows only. The production coordinate remains 50 latent text dimensions followed
+by bilateral factor, market saturation, and industry-relative density; extra
+enrichment dimensions are isolated to ablation experiments. Metrics concern
+KES/hour marketplace proxy labels (job budgets/profile asking rates), not
+empirically verified mentor prices.
+
+These research reports do not publish trusted serving artifacts or pass the
+deferred chronological/empirical mentor-pricing gate #81/#91. Artifact manifests
+carry dataset/file hashes and provenance, but a serving release still requires
+an independently pinned trusted manifest; missing or mismatched pins must fail
+closed. See ``../README.md#how-a-price-is-calculated``,
+``../docs/experiments/README.md``, and
+``../docs/Label_Provenance_Audit_91.md``.
+"""
+
 import argparse
 import json
 import os
@@ -499,6 +518,12 @@ def run_experiment_report(
     epsilons: Sequence[float] = (1e-9,),
     fallback_policies: Sequence[bool] = (True,),
 ) -> Dict[str, Any]:
+    """Write stratified IDW, baseline, target-transform, and tuning reports.
+
+    Candidate configurations are selected by validation metrics; held-out test
+    results remain exploratory proxy evidence, not an empirical mentor-pricing
+    gate or a production artifact approval.
+    """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     frame = load_harmonized_parquet(harmonized_parquet_path)
@@ -602,6 +627,11 @@ def run_text_representation_report(
     normalization_values: Sequence[bool] = (False, True),
     k_neighbors: int = 10,
 ) -> Dict[str, Any]:
+    """Compare text-vectorizer settings while keeping each fit training-only.
+
+    The report records dimensions, latency, artifact reload stability, and
+    validation/test proxy metrics; it does not establish mentor-price accuracy.
+    """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     frame = load_harmonized_parquet(harmonized_parquet_path)
@@ -719,6 +749,11 @@ def run_feature_ablation_report(
     k_neighbors: int = 10,
     groups: Sequence[str] | None = None,
 ) -> Dict[str, Any]:
+    """Compare optional metadata groups against the unchanged production 53D base.
+
+    Enrichment vocabularies/statistics are fitted on training rows only; added
+    groups exist solely in these offline ablation vectors.
+    """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     frame = load_harmonized_parquet(harmonized_parquet_path)
@@ -819,6 +854,7 @@ def run_feature_ablation_report(
     (output_path / "feature_ablation_report.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
     return summary
 def parse_args() -> argparse.Namespace:
+    """Parse options for the main, feature-ablation, or text-representation report."""
     parser = argparse.ArgumentParser(description="Generate reproducible model tuning tables and diagrams.")
     parser.add_argument("--mode", choices=("report", "feature_ablation", "text_representation"), default="report")
     parser.add_argument("--harmonized-parquet", default=DEFAULT_HARMONIZED_PARQUET)
@@ -848,6 +884,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run the selected report mode and print its summary JSON."""
     args = parse_args()
     if args.mode == "text_representation":
         payload = run_text_representation_report(
@@ -890,4 +927,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,3 +1,14 @@
+"""Build optional target-free metadata groups for offline feature ablations.
+
+Partition statistics, source indicators, country-pair interactions, and macro
+features are fitted from training rows and reused as frozen categories and
+statistics on other splits. These exploratory groups do not change the
+production 53-coordinate order in :mod:`src.macro_arbitrage`.
+
+See ``../docs/experiments/README.md`` for the scope of research reports and
+``../docs/Label_Provenance_Audit_91.md`` for the source-label limitations.
+"""
+
 import json
 import os
 from typing import Dict, List, Sequence, cast
@@ -19,9 +30,14 @@ BASE_METADATA_COLUMNS = (
 
 
 class LeakageSafeMetadataEnricher:
-    """Fit target-free metadata features on training rows and reuse frozen statistics."""
+    """Fit optional leakage-safe metadata groups on the training partition only.
+
+    The derived features are target-free and are intended for offline ablation
+    comparisons; they are not appended to the fixed production 53D coordinate.
+    """
 
     def __init__(self, macro_lookup_path: str) -> None:
+        """Load the macro lookup used by subsequent feature transforms."""
         self.macro_lookup_path = macro_lookup_path
         self.macro_records = load_macro_lookup_table(macro_lookup_path)
         self.partition_stats: Dict[str, Dict[str, float]] = {}
@@ -51,6 +67,7 @@ class LeakageSafeMetadataEnricher:
         return [f"{m}->{c}" for m, c in zip(mentor.tolist(), client.tolist())]
 
     def fit(self, training_frame: pd.DataFrame) -> None:
+        """Freeze partition statistics and categorical vocabularies from training rows."""
         if training_frame.empty:
             raise ValueError("Cannot fit metadata enrichment on an empty training frame.")
 
@@ -108,6 +125,7 @@ class LeakageSafeMetadataEnricher:
         return np.asarray(output, dtype=float)
 
     def transform_groups(self, frame: pd.DataFrame) -> Dict[str, np.ndarray]:
+        """Return separately named feature matrices using the fitted training state."""
         if not self.fitted:
             raise RuntimeError("LeakageSafeMetadataEnricher must be fitted before transform_groups().")
 
@@ -140,6 +158,7 @@ class LeakageSafeMetadataEnricher:
         }
 
     def transform(self, frame: pd.DataFrame, groups: Sequence[str] | None = None) -> np.ndarray:
+        """Concatenate selected fitted feature groups in the requested order."""
         transformed = self.transform_groups(frame)
         selected = list(groups) if groups is not None else list(self.feature_groups)
         missing = [group for group in selected if group not in transformed]
@@ -153,6 +172,7 @@ class LeakageSafeMetadataEnricher:
         return matrix
 
     def save_artifacts(self, artifact_dir: str) -> str:
+        """Write fitted categories, statistics, and group schema as JSON."""
         if not self.fitted:
             raise RuntimeError("LeakageSafeMetadataEnricher must be fitted before save_artifacts().")
         os.makedirs(artifact_dir, exist_ok=True)
@@ -170,6 +190,7 @@ class LeakageSafeMetadataEnricher:
 
     @classmethod
     def load_artifacts(cls, artifact_dir: str, macro_lookup_path: str | None = None) -> "LeakageSafeMetadataEnricher":
+        """Restore the frozen enrichment state for consistent held-out transforms."""
         path = os.path.join(artifact_dir, DEFAULT_ENRICHMENT_ARTIFACT)
         with open(path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -180,5 +201,4 @@ class LeakageSafeMetadataEnricher:
         instance.feature_groups = payload["feature_groups"]
         instance.fitted = True
         return instance
-
 

@@ -1,3 +1,22 @@
+"""Normalize marketplace and macroeconomic source files for pricing features.
+
+Marketplace inputs are the Upwork jobs and data-scientist CSV exports under
+``data/raw/``; macro inputs are World Development Indicators, cost-of-living,
+and M-Pesa tariff CSVs. The parsers retain source labels and source-provided
+observation times, filter short descriptions and invalid or out-of-range
+hourly rates, and convert USD/hour to KES/hour with a documented anchor
+(default 130 KES per USD). The pre-arbitrage marketplace target is stored as
+``hourly_rate`` in KES/hour; the optional bilateral stage adds a separate
+``harmonized_hourly_rate`` field.
+
+Country values are normalized to ISO-2 for macro lookups, with explicit aliases
+and a configurable Kenya default for unknown marketplace values. Exports are
+CSV/JSON for the base corpus, Snappy-compressed Parquet for the macro-enriched
+corpus, and JSON for the macro lookup. Keep raw inputs and generated outputs
+out of version control; neither source labels nor proxy marketplace rates
+should be presented as verified mentor transaction provenance.
+"""
+
 import argparse
 import csv
 import json
@@ -235,6 +254,7 @@ def _resolve_output_path(path_value: str) -> str:
 
 
 def find_file_in_dir(root_dir: str, name_contains: str, extension: str = ".csv") -> str:
+    """Find the alphabetically first recursive filename matching a token and extension."""
     name_contains_lower = name_contains.lower()
     extension_lower = extension.lower()
 
@@ -255,6 +275,7 @@ def find_file_in_dir(root_dir: str, name_contains: str, extension: str = ".csv")
 
 
 def find_wdi_data_csv(raw_data_dir: str) -> str:
+    """Resolve the WDI ``Data.csv`` export, with a ``*_Data.csv`` fallback."""
     wdi_root = os.path.join(raw_data_dir, "World_Development_Indicators")
     standard_export = os.path.join(wdi_root, "Data.csv")
     if os.path.isfile(standard_export):
@@ -301,7 +322,13 @@ def _normalize_text(value: Any) -> str:
 
 
 def parse_observation_timestamp_utc(value: Any) -> Optional[str]:
-    """Accept source-observed, timezone-aware instants only; never invent an observation time."""
+    """Convert an explicit source timestamp to UTC ISO-8601, or return ``None``.
+
+    Naive timestamps are rejected because their timezone cannot be inferred.
+    This is the source observation instant (for example, a job publication
+    date), not the ingestion time; unavailable or invalid source dates remain
+    null rather than being fabricated.
+    """
     text = _normalize_text(value)
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
@@ -313,6 +340,12 @@ def parse_observation_timestamp_utc(value: Any) -> Optional[str]:
 
 
 def map_country_to_iso2(country_value: Any, default_iso2_code: str = "KE") -> str:
+    """Normalize a country name/code to ISO-2, falling back to ``default_iso2_code``.
+
+    The target-country map, source aliases, and ``pycountry`` names are
+    accepted. Unknown or empty values use the explicit default (Kenya by
+    default), which keeps source-country normalization deterministic.
+    """
     normalized = _normalize_text(country_value).strip()
     if not normalized:
         return default_iso2_code
@@ -346,6 +379,11 @@ def _country_iso2(country_name: str) -> Optional[str]:
 
 
 def map_industry_partition(text: str) -> str:
+    """Map title/description text to a supported industry bucket.
+
+    The first supported bucket with a keyword match wins; empty or unmatched
+    text maps to ``general_tech``.
+    """
     normalized = _normalize_text(text).lower()
     if not normalized:
         return "general_tech"
@@ -377,6 +415,14 @@ def _extract_hourly_rate_from_upwork_jobs(row: Dict[str, Any]) -> Optional[float
 
 
 def parse_upwork_jobs_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse hourly Upwork job rows into staged, USD/hour marketplace records.
+
+    Non-hourly rows and rows without a usable low/high rate are omitted. A
+    rate range becomes its midpoint when both endpoints are present. The
+    output retains the dataset label, source country, title/description,
+    inferred industry partition, and only an explicit timezone-aware
+    publication timestamp converted to UTC.
+    """
     rows: List[Dict[str, Any]] = []
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -404,6 +450,13 @@ def parse_upwork_jobs_dataset(csv_path: str) -> List[Dict[str, Any]]:
 
 
 def parse_data_scientist_upwork_dataset(csv_path: str) -> List[Dict[str, Any]]:
+    """Parse the data-scientist Upwork export into staged USD/hour records.
+
+    The ``hourlyRate`` value is the source rate; title, skills, and description
+    determine the industry partition. Source label and country are retained.
+    This export has no supported observation timestamp, so that field is
+    always ``None`` rather than an ingestion-time substitute.
+    """
     rows: List[Dict[str, Any]] = []
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -438,7 +491,14 @@ def marketplace_exclusion_reason(
     min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
     max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
 ) -> Optional[str]:
-    """Return the first pre-arbitrage ingestion exclusion reason, or None if retained."""
+    """Return the first shared pre-arbitrage exclusion reason, or ``None``.
+
+    Records need a normalized description of at least ``min_description_length``
+    characters, a non-empty industry partition, and a finite positive USD/hour
+    rate which converts inside the inclusive configured KES/hour bounds using
+    ``usd_to_kes_rate_anchor``. The returned reason is suitable for exclusion
+    counts shared by the marketplace and platform ingestion paths.
+    """
     if len(_normalize_text(row.get("raw_description"))) < min_description_length:
         return "short_description"
     if not _normalize_text(row.get("industry_partition")):
@@ -459,6 +519,17 @@ def harmonize_marketplace_corpus(
     min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
     max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
 ) -> List[Dict[str, Any]]:
+    """Load, filter, and harmonize the two Upwork CSV sources.
+
+    Accepted rows preserve ``source_dataset``, source country, title,
+    description, industry partition, and source observation timestamp. Hourly
+    source rates are converted with the supplied USD-to-KES anchor and emitted
+    as ``hourly_rate`` (KES/hour), ``hourly_rate_usd``, ``currency`` and the
+    anchor value. The shared gate excludes descriptions shorter than the
+    configured minimum, invalid rates, and converted rates outside the
+    inclusive KES/hour bounds. Currency conversion here does not apply the
+    later bilateral macro adjustment.
+    """
     upwork_jobs_root = os.path.join(raw_data_dir, "upwork-jobs.csv")
     upwork_profiles_root = os.path.join(raw_data_dir, "Data_Scientist_Upwork")
 
@@ -498,6 +569,7 @@ def harmonize_marketplace_corpus(
 
 
 def preview_harmonized_records(records: List[Dict[str, Any]], limit: int = 5) -> str:
+    """Format a JSON preview with total record count and at most ``limit`` rows."""
     if limit <= 0:
         limit = 5
 
@@ -509,6 +581,12 @@ def preview_harmonized_records(records: List[Dict[str, Any]], limit: int = 5) ->
 
 
 def export_harmonized_records(records: List[Dict[str, Any]], output_path: str) -> None:
+    """Write base corpus rows as JSON (``.json``) or the standard CSV schema.
+
+    JSON includes KES currency, row count, and export generation time;
+    CSV contains the shared harmonized fields, including source label and
+    observation timestamp. Parent directories are created when needed.
+    """
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
@@ -557,6 +635,12 @@ def _year_columns(fieldnames: Iterable[str]) -> List[Tuple[int, str]]:
 
 
 def extract_latest_ppp_by_iso3(wdi_csv_path: str) -> Dict[str, Dict[str, object]]:
+    """Extract each WDI ISO-3 country's latest positive PPP-series observation.
+
+    Only ``PA.NUS.PPP`` rows with a valid three-letter code are considered.
+    Year columns are searched newest first, and the first finite positive value
+    is returned with its source country name and reference year.
+    """
     with open(wdi_csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
@@ -597,6 +681,12 @@ def extract_latest_ppp_by_iso3(wdi_csv_path: str) -> Dict[str, Dict[str, object]
 
 
 def extract_cost_index_by_iso2(cost_csv_path: str) -> Dict[str, Dict[str, float]]:
+    """Parse usable cost-of-living rows and index them by normalized ISO-2.
+
+    A positive finite cost-of-living index is required. Missing or invalid
+    rent and local-purchasing-power indexes are represented as ``0.0``;
+    country names are resolved through configured aliases and ``pycountry``.
+    """
     by_iso2: Dict[str, Dict[str, float]] = {}
     with open(cost_csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -646,6 +736,11 @@ def _validate_country_sources(
 
 
 def validate_macro_country_coverage(raw_data_dir: str, iso2_codes: Iterable[str]) -> Dict[str, str]:
+    """Validate requested ISO-2 countries against both WDI PPP and cost sources.
+
+    Returns the validated ISO-2 to ISO-3 mapping. Invalid codes or missing
+    usable source rows raise ``ValueError`` with the coverage failures.
+    """
     wdi_path = find_wdi_data_csv(raw_data_dir)
     cost_path = find_file_in_dir(os.path.join(raw_data_dir, "Cost_Index"), name_contains="Cost_of_Living_Index")
     return _validate_country_sources(
@@ -666,6 +761,7 @@ def _fallback_cost_index_value(cost_data: Dict[str, Dict[str, float]]) -> float:
 
 
 def extract_mpesa_tariff_summary(mpesa_csv_path: str) -> Dict[str, object]:
+    """Summarize M-Pesa tariff CSV row/category/type counts and maximum KES fee."""
     total_rows = 0
     unique_categories = set()
     unique_tx_types = set()
@@ -700,6 +796,16 @@ def extract_mpesa_tariff_summary(mpesa_csv_path: str) -> Dict[str, object]:
 
 
 def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]:
+    """Build and export the combined country macro lookup from raw CSV sources.
+
+    The payload combines latest usable WDI PPP values and cost indexes keyed
+    by ISO-2, records source filenames, flags fallback cost indexes, and
+    includes an M-Pesa tariff summary. Baseline target countries require PPP
+    data; missing cost data uses the regional fallback and is explicitly
+    marked. Additional country coverage requires both source types. The JSON
+    metadata includes a generation timestamp, which is export provenance and
+    not an observation date.
+    """
     cost_root = os.path.join(raw_data_dir, "Cost_Index")
     mpesa_root = os.path.join(raw_data_dir, "Mpesa_Tarrifs")
 
@@ -776,6 +882,7 @@ def build_macro_lookup(raw_data_dir: str, output_path: str) -> Dict[str, object]
 
 
 def load_macro_lookup_table(lookup_json_path: str) -> Dict[str, Dict[str, object]]:
+    """Load macro records from a lookup JSON file, requiring a dictionary payload."""
     with open(lookup_json_path, "r", encoding="utf-8") as f:
         payload = json.load(f)
 
@@ -791,6 +898,10 @@ def get_macro_record(
     iso2_code: str,
     default_iso2_code: str = "KE",
 ) -> Dict[str, object]:
+    """Return an exact ISO-2 macro record or the configured fallback-country record.
+
+    Raises ``KeyError`` if neither key exists in ``records``.
+    """
     normalized = (iso2_code or "").strip().upper()
     if normalized in records:
         return records[normalized]
@@ -807,6 +918,13 @@ def compute_bilateral_arbitrage_factor(
     macro_records: Dict[str, Dict[str, object]],
     alpha: float = BILATERAL_ALPHA,
 ) -> float:
+    """Compute the bilateral PPP/cost-of-living factor between two countries.
+
+    Countries are normalized through :func:`map_country_to_iso2`; identical
+    normalized countries have factor ``1.0``. Otherwise the result combines
+    the mentor/client PPP ratio and inverse cost-index ratio using ``alpha``.
+    Missing country records use the Kenya lookup fallback.
+    """
     mentor_iso2 = map_country_to_iso2(mentor_iso2_code)
     client_iso2 = map_country_to_iso2(client_iso2_code)
 
@@ -839,6 +957,15 @@ def build_harmonized_marketplace_records(
     min_hourly_rate_kes: float = MIN_ACCEPTED_HOURLY_RATE_KES,
     max_hourly_rate_kes: float = MAX_ACCEPTED_HOURLY_RATE_KES,
 ) -> List[Dict[str, Any]]:
+    """Add country, macro-adjustment, and market-frequency fields to the corpus.
+
+    This first harmonizes and filters the Upwork records, then normalizes
+    source countries and applies the bilateral macro factor to each KES/hour
+    ``hourly_rate``. It preserves source provenance and adds
+    ``harmonized_hourly_rate`` plus factor, alpha, industry frequency,
+    saturation, and relative-density features. The original ``hourly_rate``
+    remains the pre-arbitrage KES/hour amount.
+    """
     macro_records = load_macro_lookup_table(macro_lookup_path)
     marketplace_rows = harmonize_marketplace_corpus(
         raw_data_dir=raw_data_dir,
@@ -882,6 +1009,7 @@ def build_harmonized_marketplace_records(
 
 
 def export_harmonized_records_parquet(records: List[Dict[str, Any]], output_path: str) -> None:
+    """Write harmonized records to Snappy-compressed Parquet, creating parents."""
     try:
         import pyarrow as pa
         import pyarrow.parquet as pq
@@ -897,6 +1025,7 @@ def export_harmonized_records_parquet(records: List[Dict[str, Any]], output_path
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse input/output paths and mode-specific harmonization options."""
     parser = argparse.ArgumentParser(description="Build project ingestion artifacts from raw data files.")
     parser.add_argument(
         "--mode",
@@ -964,6 +1093,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run macro lookup, base corpus, or macro-enriched Parquet generation."""
     args = parse_args()
     resolved_raw_dir = _resolve_input_dir(args.raw_dir)
 

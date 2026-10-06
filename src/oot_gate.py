@@ -1,4 +1,11 @@
-"""Fail-closed validation for the chronological OOT report owned by #81."""
+"""Fail-closed software gate for chronological OOT report structure and R2.
+
+Passing confirms only that a report has timezone-aware strictly ordered splits
+and a finite test R2 at the fixed 0.75 threshold. It does not authenticate
+label provenance, establish mentor-pricing accuracy, or pass the deferred
+empirical #81/#91 gate. The current reports may be based on KES/hour proxy
+labels; see ``../docs/Label_Provenance_Audit_91.md``.
+"""
 
 import argparse
 import json
@@ -8,6 +15,11 @@ from pathlib import Path
 
 
 def validate_oot_report(report: dict) -> float:
+    """Validate chronological timestamps and finite test R2 >= 0.75.
+
+    Raises ``ValueError`` when required evidence is incomplete, non-chronological,
+    timezone-naive, or below threshold; returns the unrounded test R2 otherwise.
+    """
     if report.get("evaluation_protocol") != "chronological_out_of_time":
         raise ValueError("chronological out-of-time evaluation required")
     try:
@@ -30,6 +42,7 @@ def validate_oot_report(report: dict) -> float:
 
 
 def main() -> None:
+    """Validate a JSON OOT report supplied on the command line."""
     parser = argparse.ArgumentParser(description="Gate chronological OOT test R2 >= 0.75")
     parser.add_argument("report", type=Path)
     args = parser.parse_args()

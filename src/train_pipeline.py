@@ -1,3 +1,26 @@
+"""Train, evaluate, and publish the hybrid peer-pricing artifacts.
+
+The stratified evaluation path makes reproducible industry-stratified random
+train/validation/test splits (70/15/15). ``--mode oot`` is a separate,
+opt-in chronological protocol requiring source observation timestamps and a
+prespecified cutoff. Text vocabulary/SVD, the metadata scaler, and the peer
+index are fitted from training rows; held-out rows are transformed with those
+frozen fits. The target is harmonized KES/hour built from marketplace job
+budgets and profile asking rates, not verified mentor transactions.
+
+Exports contain fitted inference artifacts, configuration, training summary,
+and a manifest with file/input hashes and split provenance. A manifest hash is
+not self-authenticating: deployment must compare it with an independently
+trusted pin and fails closed on missing or mismatched trust evidence. The OOT
+path stages fitted files and publishes them only after its software gate
+succeeds; that gate and exploratory reports do not establish empirical mentor
+accuracy or pass the deferred #81/#91 mentor-pricing gate. See
+``../README.md#how-a-price-is-calculated`` and
+``../README.md#what-runs-today``,
+``../docs/experiments/README.md``, and
+``../docs/Label_Provenance_Audit_91.md``.
+"""
+
 import argparse
 import hashlib
 import json
@@ -60,6 +83,8 @@ REQUIRED_COLUMNS = (
 
 @dataclass(frozen=True)
 class SplitData:
+    """Three named row partitions consumed by feature fitting and evaluation."""
+
     train: pd.DataFrame
     validation: pd.DataFrame
     test: pd.DataFrame
@@ -67,6 +92,8 @@ class SplitData:
 
 @dataclass(frozen=True)
 class TrainingMatrices:
+    """Fixed-schema feature matrices and aligned KES/hour labels for each split."""
+
     x_train: np.ndarray
     x_validation: np.ndarray
     x_test: np.ndarray
@@ -76,6 +103,7 @@ class TrainingMatrices:
 
 
 def load_harmonized_parquet(parquet_path: str) -> pd.DataFrame:
+    """Load and validate the harmonized corpus, assigning stable row indices."""
     frame = pd.read_parquet(parquet_path)
     missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
     if missing:
@@ -161,6 +189,11 @@ def build_stratified_splits(
     test_ratio: float = 0.15,
     random_state: int = DEFAULT_RANDOM_STATE,
 ) -> SplitData:
+    """Split rows randomly at the requested ratios, stratifying by industry.
+
+    This historical exploratory split is not chronological out-of-time (OOT)
+    evidence; use :func:`build_chronological_splits` for that separate protocol.
+    """
     _validate_split_ratios(train_ratio, validation_ratio, test_ratio)
 
     labels = frame["industry_partition"]
@@ -192,7 +225,12 @@ def build_stratified_splits(
 
 
 def build_chronological_splits(frame: pd.DataFrame, cutoff: str) -> SplitData:
-    """Require real, timezone-aware observation times and a prespecified cutoff."""
+    """Split on a prespecified timezone-aware source time, with strict future test.
+
+    All rows through the UTC cutoff are historical training data, and only
+    later rows are held out. The validation slot aliases the future test for
+    compatibility with common feature fitting; neither is used to fit.
+    """
     if OOT_TIMESTAMP_COLUMN not in frame.columns:
         raise ValueError(f"Missing {OOT_TIMESTAMP_COLUMN}; source observation times are required for OOT training.")
     try:
@@ -223,7 +261,7 @@ def build_chronological_splits(frame: pd.DataFrame, cutoff: str) -> SplitData:
 
 
 def _oot_train_derived_metadata(split: SplitData) -> SplitData:
-    """Replace corpus-wide frequency features with train-only counts for all rows."""
+    """Derive saturation and density for every split from training counts only."""
     counts = split.train["industry_partition"].value_counts()
     total = len(split.train)
     maximum = int(counts.max())
@@ -247,10 +285,14 @@ def evaluate_chronological_oot(
     dataset_version: str = "",
     listing_repository: Optional[Repository] = None,
 ) -> Dict[str, Any]:
-    """Train/export only if the strictly future raw-KES holdout clears R² >= 0.75.
+    """Evaluate a strictly future proxy-label holdout and publish only on gate pass.
 
-    The input must carry trustworthy source observation times; the current local
-    corpus does not. Dataset version is recorded with its exact input SHA-256.
+    Requires timestamped source records, an immutable dataset version, and an
+    empty output directory. Feature fits use training data only; failed score
+    or chronology checks leave fitted models unpublished. The gate is an
+    engineering/report check on harmonized KES/hour proxy labels, not evidence
+    of mentor-price accuracy or completion of deferred empirical gate #81/#91.
+    Successful reports record the input SHA-256 and protocol.
     """
     if not dataset_version.strip():
         raise ValueError("Provide an immutable dataset_version for chronological OOT provenance.")
@@ -373,6 +415,12 @@ def _fit_feature_matrices(
     text_weight: float = 1.0,
     metadata_weight: float = 1.0,
 ) -> TrainingMatrices:
+    """Fit transforms only on train rows, then return aligned (N, 53) matrices.
+
+    Validation/test reuse the vocabulary, SVD and scaler so their text/extrema
+    cannot influence fitting. Target arrays are separate KES/hour labels, never
+    feature columns. Persistent serving exports require 50 requested text axes.
+    """
     if not np.isfinite(float(text_weight)) or float(text_weight) < 0.0:
         raise ValueError("text_weight must be finite and non-negative.")
     if not np.isfinite(float(metadata_weight)) or float(metadata_weight) < 0.0:
@@ -445,6 +493,7 @@ def _smape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def transform_target_log1p(target: np.ndarray) -> np.ndarray:
+    """Apply the optional non-negative ``log1p`` target transform."""
     values = np.asarray(target, dtype=float)
     if not np.all(np.isfinite(values)):
         raise ValueError("Target contains non-finite values.")
@@ -454,6 +503,7 @@ def transform_target_log1p(target: np.ndarray) -> np.ndarray:
 
 
 def inverse_target_log1p(target_log: np.ndarray) -> np.ndarray:
+    """Map log1p-scale predictions back to non-negative raw target units."""
     values = np.asarray(target_log, dtype=float)
     if not np.all(np.isfinite(values)):
         raise ValueError("Log-transformed target contains non-finite values.")
@@ -461,6 +511,12 @@ def inverse_target_log1p(target_log: np.ndarray) -> np.ndarray:
 
 
 def _metric_summary(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """Summarize label error: MAE/RMSE/median in target units, sMAPE in percent.
+
+    Raw targets use KES/hour; optional log-space comparisons use log1p units.
+    R2 is dimensionless fit relative to a mean predictor and may be negative;
+    none of these proxy-label scores establishes verified mentor-price accuracy.
+    """
     return {
         "rmse": round(_rmse(y_true, y_pred), 6),
         "mae": round(float(mean_absolute_error(y_true, y_pred)), 6),
@@ -524,6 +580,7 @@ def orchestrate_training(
     text_weight: float = 1.0,
     metadata_weight: float = 1.0,
 ) -> Dict[str, Any]:
+    """Build the stratified splits and report feature shapes and split counts."""
     frame = load_harmonized_parquet(harmonized_parquet_path)
     split_data = build_stratified_splits(
         frame,
@@ -607,6 +664,18 @@ def evaluate_and_serialize_training(
     dataset_version: str | None = None,
     listing_repository: Optional[Repository] = None,
 ) -> Dict[str, Any]:
+    """Fit, evaluate, and export the stratified exploratory pricing pipeline.
+
+    Vectorizers, SVD, metadata scaling, and the IDW index are fitted from the
+    training partition; validation/test rows are transformed/scored separately.
+    Labels and reported rates are KES/hour proxies, not verified mentor rates.
+    The manifest records hashes and split/source provenance for downstream
+    independent pinning; it does not itself establish artifact trust or empirical
+    accuracy. In this stratified path, fitted files are written before the
+    optional quality checks; a rejected run raises and does not write its final
+    manifest. Do not publish or trust such an output directory. Unlike the OOT
+    path, the stratified path does not stage model files atomically.
+    """
     if n_components != TEXT_VECTOR_DIMENSIONS:
         raise ValueError("Production artifacts require a 50-component text reducer.")
     if int(k_neighbors) < 1 or not np.isfinite(idw_epsilon) or idw_epsilon <= 0:
@@ -850,6 +919,7 @@ def _ensure_demo_inputs(raw_dir: str, macro_lookup_path: str, harmonized_parquet
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse options for stratified orchestration/evaluation or chronological OOT."""
     parser = argparse.ArgumentParser(description="Training and chronological OOT evaluation pipeline")
     parser.add_argument("--mode", choices=("orchestrate", "evaluate", "oot"), default="orchestrate")
     parser.add_argument("--oot-cutoff", help="Prespecified ISO-8601 timezone-aware train/evaluation cutoff")
@@ -875,6 +945,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Dispatch the selected training mode and print its summary."""
     args = parse_args()
 
     if args.verify_listings_firestore and args.mode == "orchestrate":
