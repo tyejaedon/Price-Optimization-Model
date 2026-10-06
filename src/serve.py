@@ -50,7 +50,7 @@ from src.macro_arbitrage import (
 )
 from src.nlp_pipeline import TextFeatureReducer, ensure_text_dimensions
 from src.observability import MetricsRegistry
-from src.repository import InMemoryRepository, Repository
+from src.repository import InMemoryRepository, Repository, RepositoryError
 from src.spatial_engine import DomainPartitionedKDTreeIndexer
 from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator
 
@@ -176,6 +176,11 @@ class InferenceRuntime:
                 or any(len(self.spatial_indexer.partition_verified_rates[key]) != count
                        or len(self.spatial_indexer.partition_row_indices[key]) != count
                        for key, count in self.spatial_indexer.partition_counts.items())
+                or set(self.spatial_indexer.partition_listing_ids) != set(self.spatial_indexer.partition_job_titles)
+                or any(key not in self.spatial_indexer.partition_counts
+                       or len(ids) != self.spatial_indexer.partition_counts[key]
+                       or len(self.spatial_indexer.partition_job_titles[key]) != len(ids)
+                       for key, ids in self.spatial_indexer.partition_listing_ids.items())
             ):
                 raise ValueError("Incompatible inference KD-Tree artifact.")
             self.tariff_evaluator = MpesaTariffEvaluator.from_csv(self.tariff_csv_path)
@@ -392,10 +397,21 @@ def create_app(
         canonical = isinstance(query, CanonicalPricingQueryDTO)
         if not canonical:
             response.headers["Deprecation"] = "true"
-        # Until #84 introduces an explicit owner mapping, only a Firebase UID
-        # can be used as mentorId. Body-supplied IDs never authenticate a caller.
-        if uid is not None and query.mentor_id != uid:
-            raise HTTPException(status_code=403, detail="mentor authorization required")
+        # A body mentorId is never an authentication credential. The verified
+        # Firebase UID must own the stored mentor, even when its IDs differ.
+        if uid is not None:
+            if query.mentor_id is None:
+                raise HTTPException(status_code=403, detail="mentor authorization required")
+            try:
+                mentor = dependencies.repository.get_mentor(query.mentor_id, uid)
+            except RepositoryError as exc:
+                raise HTTPException(status_code=403, detail="mentor authorization required") from exc
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+            if mentor is None or mentor.get("account_status") != "active":
+                raise HTTPException(status_code=403, detail="mentor authorization required")
+            if query.mentor_country != mentor.get("country_code"):
+                raise HTTPException(status_code=422, detail="mentorCountry must match verified mentor country")
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
         inference_query: PricingQueryDTO
@@ -430,7 +446,8 @@ def create_app(
                 "executed_at": executed_at,
             }
             if uid is not None:
-                audit_payload["mentor_id"] = uid
+                audit_payload["mentor_id"] = query.mentor_id
+                audit_payload["auth_uid"] = uid
             background_tasks.add_task(_append_pricing_audit, dependencies.repository, resolved_metrics, audit_payload)
             return result
         except FloorExceedsCeilingError as exc:

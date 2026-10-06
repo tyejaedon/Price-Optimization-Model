@@ -18,6 +18,11 @@ from tests import test_serve
 
 
 class FakeFirestore(InMemoryRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.upsert_profile("fixture-user", {"auth_uid": "fixture-user", "full_name": "Test Mentor",
+                                             "email": "mentor@example.com", "country_code": "KE"})
+
     def health(self) -> str:
         return "firestore"
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 import re
 from typing import Any, Dict, List, Literal, Optional
 
@@ -215,6 +216,8 @@ class GridSearchConfigDTO(StrictModel):
 
 class ProfileDTO(StrictModel):
     profile_id: str = Field(min_length=1, max_length=200)
+    auth_uid: Optional[str] = Field(default=None, min_length=1, max_length=128,
+                                    description="Firebase Auth UID authorized to price this mentor.")
     full_name: str = Field(min_length=1, max_length=200)
     email: str = Field(min_length=3, max_length=320)
     country_code: str = Field(min_length=2, max_length=2)
@@ -224,10 +227,40 @@ class ProfileDTO(StrictModel):
     @field_validator("country_code")
     @classmethod
     def normalize_profile_country(cls, value: str) -> str:
-        normalized = value.upper()
-        if not normalized.isalpha():
-            raise ValueError("country_code must contain letters only")
-        return normalized
+        if re.fullmatch(r"[A-Za-z]{2}", value) is None:
+            raise ValueError("country_code must be two ASCII letters")
+        return value.upper()
+
+
+class ServiceListingDTO(StrictModel):
+    """Root /service_listings/{listing_id}; vectors use the published 50D reducer."""
+
+    listing_id: str = Field(min_length=1, max_length=200)
+    mentor_id: str = Field(min_length=1, max_length=200)
+    industry_id: str
+    title: str = Field(min_length=1, max_length=200)
+    raw_description: str = Field(min_length=20, max_length=2000)
+    latent_svd_vector: List[float] = Field(min_length=50, max_length=50)
+    verified_rate: float = Field(gt=0.0, allow_inf_nan=False,
+                                 description="Verified peer rate in KES/hour; never infer from a proxy budget.")
+    is_active: bool = True
+
+    @field_validator("industry_id")
+    @classmethod
+    def valid_industry(cls, value: str) -> str:
+        from src.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS
+
+        if value not in SUPPORTED_INDUSTRY_PARTITIONS:
+            raise ValueError("industry_id must be a supported partition")
+        return value
+
+    @field_validator("latent_svd_vector", mode="before")
+    @classmethod
+    def native_float_vector(cls, value: Any) -> Any:
+        if (not isinstance(value, list) or len(value) != 50
+                or any(type(component) is not float or not math.isfinite(component) for component in value)):
+            raise ValueError("latent_svd_vector must be a native array of 50 finite floats")
+        return value
 
 
 class HistoricalTransactionDTO(StrictModel):
