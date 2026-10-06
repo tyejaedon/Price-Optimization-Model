@@ -12,24 +12,14 @@ from typing import Any, Dict, List, Sequence
 from src.ingest_multisource import PROJECT_ROOT, map_country_to_iso2
 
 
-def _resolve_default_tariff_csv() -> str:
-    candidates = [
-        os.path.join(PROJECT_ROOT, "data", "raw", "Mpesa_Tarrifs", "tarrifs.csv"),
-        os.path.join(PROJECT_ROOT, "tests", "fixtures", "raw", "Mpesa_Tarrifs", "tarrifs_full_schedule.csv"),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-    return candidates[0]
-
-
-DEFAULT_MPESA_TARIFF_CSV = _resolve_default_tariff_csv()
+DEFAULT_MPESA_TARIFF_CSV = os.path.join(PROJECT_ROOT, "config", "tariffs", "mpesa_p2p_users_2026-08-04.csv")
 DEFAULT_DOMESTIC_MENTOR_ISO2 = "KE"
 DEFAULT_CURRENCY = "KES"
 EXPECTED_TARIFF_RANGES = (
-    (10, 100), (101, 500), (501, 1000), (1001, 1500),
+    (1, 49), (50, 100), (101, 500), (501, 1000), (1001, 1500),
     (1501, 2500), (2501, 3500), (3501, 5000), (5001, 7500),
-    (7501, 10000), (10001, 15000), (15001, 20000), (20001, 250000),
+    (7501, 10000), (10001, 15000), (15001, 20000),
+    (20001, 35000), (35001, 50000), (50001, 250000),
 )
 
 
@@ -90,7 +80,7 @@ def derive_quote_protection_bands(raw_bands: Sequence[MpesaTariffBand]) -> List[
         or not math.isclose(band.fee_kes * 100, round(band.fee_kes * 100), rel_tol=0, abs_tol=1e-8)
         for band, expected in zip(raw_bands, EXPECTED_TARIFF_RANGES)
     ):
-        raise ValueError("Invalid tariff schedule: expected 12 ordered Kenyan transfer tiers (10-250000 KES)")
+        raise ValueError("Invalid tariff schedule: expected 15 ordered Kenyan P2P tiers (1-250000 KES)")
     return list(raw_bands)
 
 

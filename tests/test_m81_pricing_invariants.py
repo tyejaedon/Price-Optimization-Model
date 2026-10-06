@@ -88,11 +88,11 @@ class M81PricingInvariantTests(unittest.TestCase):
 
     def test_tariff_edges_are_deterministic(self) -> None:
         expected_edges = {
-            2500.0: 34.0,
+            2500.0: 33.0,
             2501.0: 53.0,
             5000.0: 57.0,
             5001.0: 78.0,
-            15001.0: 115.0,
+            15001.0: 105.0,
         }
         for amount, expected_fee in expected_edges.items():
             with self.subTest(amount=amount):

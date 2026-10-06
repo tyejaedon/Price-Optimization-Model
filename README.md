@@ -32,7 +32,7 @@ Firebase ID tokens will be supplied by the Android client and are verified by th
 finalQuotedRate = basePredictedRate + mpesaTariffSurcharge
 ```
 
-M11.3 (#73) applies the exact configured 12-tier fee once to the **authorized Kenyan mentor's** base quote; other mentors receive zero surcharge. The `baseRateFloor` and corridor remain fee-free. Amounts outside the configured Kenyan schedule fail rather than extrapolating a fee. The checked-in test schedule follows the blueprint's *proposed* numbers, **not** a verified current Safaricom publication. A protected release requires an independently approved dated CSV and separately reviewed `PRICING_TARIFF_SHA256` pin; see [tariff policy](docs/M11.3_Mpesa_Tariff.md).
+M11.3 (#73) applies one configured **transfer-to-M-PESA-user** fee from the 15-band Safaricom table last updated August 4, 2026, only to an **authorized Kenyan mentor's** base quote. Other mentors receive zero surcharge. The `baseRateFloor` and corridor remain fee-free; unsupported amounts fail instead of extrapolating. The date-versioned P2P transcription is `config/tariffs/mpesa_p2p_users_2026-08-04.csv`. `config/tariffs/mpesa_other_services_2026-08-04.csv` records other-network, withdrawal, Pochi and merchant/till fees **for reference only**; none affect today's quote or API. A release requires a human review of the live source and a separately approved `PRICING_TARIFF_SHA256` pin; see [tariff policy](docs/M11.3_Mpesa_Tariff.md).
 
 The existing ML and tariff implementations are reused, not restarted. #67 tracks training/inference artifact changes; #71 owns real peer listing IDs, #82 the rate floor/corridor, and #83 the canonical DTO adapter. #68 is closed as superseded by #83.
 
@@ -64,7 +64,7 @@ The existing ML and tariff implementations are reused, not restarted. #67 tracks
   "bilateralArbitrageFactor": 0.51,
   "confidenceScore": 0.0,
   "comparables": [],
-  "reason": "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge. Listing-backed comparables are unavailable for some peers.",
+  "reason": "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge. Kenyan M-Pesa fee of 57.00 KES/hour is added once to the base rate. Listing-backed comparables are unavailable for some peers.",
   "timestamp": "2026-10-06T12:00:00Z"
 }
 ```

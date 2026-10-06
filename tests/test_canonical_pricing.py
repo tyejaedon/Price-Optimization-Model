@@ -225,8 +225,30 @@ class CanonicalApiTests(unittest.TestCase):
                         return client.post("/api/v1/optimize-price", json=payload,
                                            headers={"Authorization": "Bearer foreign" if foreign else "Bearer kenyan"})
 
-                for base, fee in ((100, 0), (100.01, 7), (3500, 53), (3500.01, 57),
-                                  (20000, 115), (20000.01, 130), (250000, 130)):
+                tiers = (
+                    (1, 49, 0), (50, 100, 0), (101, 500, 7), (501, 1000, 13),
+                    (1001, 1500, 23), (1501, 2500, 33), (2501, 3500, 53),
+                    (3501, 5000, 57), (5001, 7500, 78), (7501, 10000, 90),
+                    (10001, 15000, 100), (15001, 20000, 105),
+                    (20001, 35000, 108), (35001, 50000, 108), (50001, 250000, 108),
+                )
+                for minimum, maximum, fee in tiers:
+                    for base in (minimum, maximum):
+                        with self.subTest(base=base):
+                            response = quote(base)
+                            self.assertEqual(response.status_code, 200, response.text)
+                            body = response.json()
+                            self.assertEqual(body["basePredictedRate"], base)
+                            self.assertEqual(body["mpesaTariffSurcharge"], fee)
+                            self.assertEqual(body["finalQuotedRate"], round(base + fee, 2))
+                            self.assertEqual(body["minQuotedRate"], base)  # corridor and floor are fee-free
+                            self.assertEqual(body["maxQuotedRate"], base)
+                            audit = repository.list_transactions()[-1]
+                            self.assertEqual(audit["base_predicted_rate"], base)
+                            self.assertEqual(audit["mpesa_tariff_surcharge"], fee)
+                            self.assertEqual(audit["final_quoted_rate"], body["finalQuotedRate"])
+                            self.assertEqual(audit["tariff_schedule_sha256"], file_sha256(tariff))
+                for base, fee in ((49.01, 0), (100.01, 7), (20000.01, 108), (50000.01, 108)):
                     with self.subTest(base=base):
                         response = quote(base)
                         self.assertEqual(response.status_code, 200, response.text)
@@ -236,11 +258,6 @@ class CanonicalApiTests(unittest.TestCase):
                         self.assertEqual(body["finalQuotedRate"], round(base + fee, 2))
                         self.assertEqual(body["minQuotedRate"], base)  # corridor and floor are fee-free
                         self.assertEqual(body["maxQuotedRate"], base)
-                        audit = repository.list_transactions()[-1]
-                        self.assertEqual(audit["base_predicted_rate"], base)
-                        self.assertEqual(audit["mpesa_tariff_surcharge"], fee)
-                        self.assertEqual(audit["final_quoted_rate"], body["finalQuotedRate"])
-                        self.assertEqual(audit["tariff_schedule_sha256"], file_sha256(tariff))
 
                 before = len(repository.list_transactions())
                 self.assertEqual(quote(250000.01).status_code, 503)

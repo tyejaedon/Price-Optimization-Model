@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.tariff_evaluator import MpesaTariffEvaluator, TariffUnavailableError
+from src.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEvaluator, TariffUnavailableError
 
 
 class MpesaTariffEvaluatorTests(unittest.TestCase):
@@ -13,6 +13,10 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
         tariff_csv = repo_root / "tests" / "fixtures" / "raw" / "Mpesa_Tarrifs" / "tarrifs_full_schedule.csv"
         cls.tariff_csv = tariff_csv
         cls.evaluator = MpesaTariffEvaluator.from_csv(str(tariff_csv))
+
+    def test_versioned_release_schedule_matches_the_regression_fixture(self) -> None:
+        self.assertEqual(MpesaTariffEvaluator.from_csv(DEFAULT_MPESA_TARIFF_CSV).quote_bands,
+                         self.evaluator.quote_bands)
 
     def test_domestic_4500_case_preserves_seventh_tier_fee(self) -> None:
         surcharge = self.evaluator.compute_surcharge(base_rate_kes=4500.0, mentor_country="KE")
@@ -25,17 +29,18 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
         self.assertEqual(surcharge, 0.0)
 
     def test_bracket_transitions_are_deterministic(self) -> None:
-        self.assertEqual(self.evaluator.compute_surcharge(2500.0, "KE"), 34.0)
+        self.assertEqual(self.evaluator.compute_surcharge(2500.0, "KE"), 33.0)
         self.assertEqual(self.evaluator.compute_surcharge(2501.0, "KE"), 53.0)
         self.assertEqual(self.evaluator.compute_surcharge(5000.0, "KE"), 57.0)
         self.assertEqual(self.evaluator.compute_surcharge(5001.0, "KE"), 78.0)
 
-    def test_all_twelve_proposed_tiers_and_fractional_transitions(self) -> None:
+    def test_all_fifteen_safaricom_p2p_tiers_and_fractional_transitions(self) -> None:
         tiers = (
-            (10, 100, 0), (101, 500, 7), (501, 1000, 13), (1001, 1500, 23),
-            (1501, 2500, 34), (2501, 3500, 53), (3501, 5000, 57),
-            (5001, 7500, 78), (7501, 10000, 90), (10001, 15000, 105),
-            (15001, 20000, 115), (20001, 250000, 130),
+            (1, 49, 0), (50, 100, 0), (101, 500, 7), (501, 1000, 13),
+            (1001, 1500, 23), (1501, 2500, 33), (2501, 3500, 53),
+            (3501, 5000, 57), (5001, 7500, 78), (7501, 10000, 90),
+            (10001, 15000, 100), (15001, 20000, 105),
+            (20001, 35000, 108), (35001, 50000, 108), (50001, 250000, 108),
         )
         self.assertEqual(len(self.evaluator.quote_bands), len(tiers))
         for index, (minimum, maximum, fee) in enumerate(tiers):
@@ -49,7 +54,7 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
                     self.assertEqual(self.evaluator.compute_surcharge(maximum + 0.01, "KE"), tiers[index + 1][2])
 
     def test_uncovered_kenyan_rates_fail_instead_of_clamping(self) -> None:
-        for amount in (0, 9.99, 250000.01):
+        for amount in (0, 0.99, 250000.01):
             with self.subTest(amount=amount), self.assertRaises(TariffUnavailableError):
                 self.evaluator.compute_surcharge(amount, "KE")
         self.assertEqual(self.evaluator.compute_surcharge(250000.01, "US"), 0)
@@ -77,7 +82,7 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
     def test_unmerged_schedule_preserves_15001_to_20000_band(self) -> None:
         surcharge = self.evaluator.compute_surcharge(base_rate_kes=15001.0, mentor_country="KE")
 
-        self.assertEqual(surcharge, 115.0)
+        self.assertEqual(surcharge, 105.0)
 
     def test_negative_base_rate_is_rejected(self) -> None:
         for amount in (-1.0, float("nan"), float("inf")):
@@ -91,10 +96,10 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
             MpesaTariffEvaluator.from_csv(str(self.tariff_csv), "0" * 64)
         for original, replacement in (
-            (b"15001,20000,115.00", b"15001,20000,nan"),
+            (b"15001,20000,105.00", b"15001,20000,nan"),
             (b"3501,5000,57.00", b"3501,5000,57.001"),
             (b"3501,5000,57.00", b"1501,5000,57.00"),
-            (b"20001,250000,130.00", b"20001,249999,130.00"),
+            (b"50001,250000,108.00", b"50001,249999,108.00"),
         ):
             with self.subTest(replacement=replacement), tempfile.TemporaryDirectory() as tmp:
                 # Break a real tier boundary or fee: never repair/average a corrupt source.
@@ -103,6 +108,15 @@ class MpesaTariffEvaluatorTests(unittest.TestCase):
                 path.write_bytes(damaged)
                 with self.assertRaisesRegex(ValueError, "tariff"):
                     MpesaTariffEvaluator.from_csv(str(path))
+
+    def test_withdrawal_and_other_payment_types_are_not_used_for_p2p_fees(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "schedule.csv"
+            path.write_bytes(self.tariff_csv.read_bytes() +
+                             b"CUSTOMER_WITHDRAWAL,AGENT_WITHDRAWAL,1501,2500,29.00\n" +
+                             b"BUSINESS_PAYMENT,TILL_PAYMENT,1501,2500,17.00\n")
+            evaluator = MpesaTariffEvaluator.from_csv(str(path))
+            self.assertEqual(evaluator.compute_surcharge(2500, "KE"), 33.0)
 
 
 if __name__ == "__main__":
