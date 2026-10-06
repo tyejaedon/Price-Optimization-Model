@@ -34,15 +34,18 @@ class PipelineWalkthroughTests(unittest.TestCase):
                           "pd.DataFrame(jobs).to_csv", "TestClient("):
             self.assertNotIn(forbidden, "\n".join(sources.values()))
 
-    def test_missing_local_parquet_fails_before_workspace_creation(self):
+    def test_missing_local_inputs_fail_before_workspace_creation(self):
         original_is_file = Path.is_file
 
-        def missing_parquet(path):
-            return False if path == PARQUET else original_is_file(path)
+        for missing_input in (MACRO, PARQUET):
+            def input_availability(path):
+                return path != missing_input if path in (MACRO, PARQUET) else original_is_file(path)
 
-        with patch.object(Path, "cwd", return_value=ROOT), patch.object(Path, "is_file", missing_parquet):
-            with self.assertRaisesRegex(FileNotFoundError, "Missing ignored local input.*harmonized_marketplace_corpus"):
-                exec("".join(self.cells["setup"]["source"]), {})
+            with self.subTest(missing_input=missing_input), patch.object(Path, "cwd", return_value=ROOT), \
+                    patch.object(Path, "is_file", input_availability), \
+                    patch("tempfile.TemporaryDirectory", side_effect=AssertionError("workspace created too early")):
+                with self.assertRaisesRegex(FileNotFoundError, f"Missing ignored local input.*{missing_input.name}"):
+                    exec("".join(self.cells["setup"]["source"]), {})
 
     @unittest.skipUnless(PARQUET.is_file() and MACRO.is_file(), "ignored local corpus unavailable")
     def test_local_cohort_is_dated_disjoint_and_train_derived(self):
@@ -53,8 +56,10 @@ class PipelineWalkthroughTests(unittest.TestCase):
         self.assertIn("posted budgets", provenance["population"])
         self.assertTrue(provenance["disjoint_record_ids"])
         self.assertGreaterEqual(provenance["excluded_other_sources"], 1)
-        self.assertLess(split.train.observation_timestamp_utc.max(), split.validation.observation_timestamp_utc.min())
-        self.assertLess(split.validation.observation_timestamp_utc.max(), split.test.observation_timestamp_utc.min())
+        self.assertLess(str(split.train.observation_timestamp_utc.max()),
+                        str(split.validation.observation_timestamp_utc.min()))
+        self.assertLess(str(split.validation.observation_timestamp_utc.max()),
+                        str(split.test.observation_timestamp_utc.min()))
         self.assertEqual(set(split.train.source_dataset), {"upwork_jobs"})
         self.assertEqual(set(split.validation.source_dataset), {"upwork_jobs"})
         self.assertEqual(set(split.test.source_dataset), {"upwork_jobs"})
