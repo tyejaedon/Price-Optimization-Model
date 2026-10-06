@@ -56,6 +56,14 @@ class ContainerGatewayTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "FIREBASE_PROJECT_ID"):
                 DeploymentConfig.from_env()
 
+    def test_protected_deployment_requires_valid_tariff_pin(self):
+        for pin in ("", "not-a-digest", "A" * 64):
+            with self.subTest(pin=pin), patch.dict(os.environ, {
+                "FIREBASE_PROJECT_ID": "demo-pricing", "PRICING_TARIFF_SHA256": pin,
+            }, clear=True):
+                with self.assertRaisesRegex(ValueError, "PRICING_TARIFF_SHA256"):
+                    DeploymentConfig.from_env()
+
     def test_deployment_rejects_firebase_emulator_configuration(self):
         for name in ("FIREBASE_AUTH_EMULATOR_HOST", "FIRESTORE_EMULATOR_HOST"):
             with self.subTest(name=name), patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing", name: "localhost:9099"}, clear=True):
@@ -211,6 +219,7 @@ class ContainerGatewayTests(unittest.TestCase):
             repository = FakeFirestore()
             env = {"FIREBASE_PROJECT_ID": "demo-pricing", "PRICING_ARTIFACT_DIR": artifact_dir,
                    "PRICING_TARIFF_CSV": tariff_path,
+                   "PRICING_TARIFF_SHA256": file_sha256(tariff_path),
                    "FIRESTORE_DATABASE_ID": "priceoptimizationmodel",
                    "PRICING_ARTIFACT_MANIFEST_SHA256": file_sha256(os.path.join(artifact_dir, MANIFEST_NAME))}
             with patch.dict(os.environ, env, clear=True), patch("firebase_admin.get_app", return_value=SimpleNamespace(project_id="demo-pricing")), \
@@ -225,6 +234,7 @@ class ContainerGatewayTests(unittest.TestCase):
                     self.assertEqual(result.status_code, 200, result.text)
                     verify.assert_called_with("fixture-id-token", app=deployment.firebase_admin.get_app())
                     self.assertEqual(len(repository.list_transactions()), 1)
+                    self.assertEqual(repository.list_transactions()[0]["tariff_schedule_sha256"], file_sha256(tariff_path))
                 repository_factory.assert_called_with(database_id="priceoptimizationmodel")
 
 

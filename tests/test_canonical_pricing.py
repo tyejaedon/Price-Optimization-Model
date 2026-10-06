@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -133,6 +134,7 @@ class CanonicalApiTests(unittest.TestCase):
                 self.assertLessEqual(body["minQuotedRate"], body["maxQuotedRate"])
                 self.assertEqual(body["finalQuotedRate"],
                                  round(body["basePredictedRate"] + body["mpesaTariffSurcharge"], 2))
+                self.assertIn("Kenyan M-Pesa fee", body["reason"])
                 self.assertIn("unavailable", body["reason"])
                 legacy = client.post("/api/v1/optimize-price", json={
                     "mentorId": "fixture-user", "raw_description": CANONICAL["rawText"],
@@ -197,6 +199,97 @@ class CanonicalApiTests(unittest.TestCase):
                 self.assertEqual(client.post("/api/v1/optimize-price", json=CANONICAL,
                                              headers=headers).status_code, 200)
                 self.assertEqual(repository.list_transactions()[0]["mentor_id"], "fixture-user")
+
+    def test_verified_kenyan_tariff_boundaries_and_non_kenyan_bypass(self):
+        repository = FakeFirestore()
+        repository.upsert_profile("foreign-mentor", {"auth_uid": "foreign-owner", "full_name": "US Mentor",
+                                                     "email": "foreign@example.com", "country_code": "US"})
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts, macro, tariff = ServeApiTests()._build_artifacts(tmp)
+            app = create_app(artifacts, macro, tariff, repository=repository,
+                             trusted_manifest_sha256=file_sha256(os.path.join(artifacts, MANIFEST_NAME)),
+                             trusted_tariff_sha256=file_sha256(tariff),
+                             token_verifier=lambda token: {"uid": "fixture-user" if token == "kenyan" else "foreign-owner"}
+                             if token in ("kenyan", "foreign") else {})
+            with TestClient(app) as client:
+                def quote(base, *, foreign=False, floor=None):
+                    payload = ({**CANONICAL, "mentorId": "foreign-mentor", "mentorCountry": "US", "clientCountry": "US"}
+                               if foreign else {**CANONICAL, "clientCountry": "KE"})
+                    if floor is not None:
+                        payload["baseRateFloor"] = floor
+                    with patch("src.spatial_engine.DomainPartitionedKDTreeIndexer.predict_base_rate", return_value={
+                        "base_predicted_rate": base, "peer_stddev": 0.0,
+                        "nearest_neighbors": [{"peer_index": 0, "distance": 0, "verified_rate": base,
+                                               "similarity_score": 1}],
+                    }):
+                        return client.post("/api/v1/optimize-price", json=payload,
+                                           headers={"Authorization": "Bearer foreign" if foreign else "Bearer kenyan"})
+
+                tiers = (
+                    (1, 49, 0), (50, 100, 0), (101, 500, 7), (501, 1000, 13),
+                    (1001, 1500, 23), (1501, 2500, 33), (2501, 3500, 53),
+                    (3501, 5000, 57), (5001, 7500, 78), (7501, 10000, 90),
+                    (10001, 15000, 100), (15001, 20000, 105),
+                    (20001, 35000, 108), (35001, 50000, 108), (50001, 250000, 108),
+                )
+                for minimum, maximum, fee in tiers:
+                    for base in (minimum, maximum):
+                        with self.subTest(base=base):
+                            response = quote(base)
+                            self.assertEqual(response.status_code, 200, response.text)
+                            body = response.json()
+                            self.assertEqual(body["basePredictedRate"], base)
+                            self.assertEqual(body["mpesaTariffSurcharge"], fee)
+                            self.assertEqual(body["finalQuotedRate"], round(base + fee, 2))
+                            self.assertEqual(body["minQuotedRate"], base)  # corridor and floor are fee-free
+                            self.assertEqual(body["maxQuotedRate"], base)
+                            audit = repository.list_transactions()[-1]
+                            self.assertEqual(audit["base_predicted_rate"], base)
+                            self.assertEqual(audit["mpesa_tariff_surcharge"], fee)
+                            self.assertEqual(audit["final_quoted_rate"], body["finalQuotedRate"])
+                            self.assertEqual(audit["tariff_schedule_sha256"], file_sha256(tariff))
+                for base, fee in ((49.01, 0), (100.01, 7), (20000.01, 108), (50000.01, 108)):
+                    with self.subTest(base=base):
+                        response = quote(base)
+                        self.assertEqual(response.status_code, 200, response.text)
+                        body = response.json()
+                        self.assertEqual(body["basePredictedRate"], base)
+                        self.assertEqual(body["mpesaTariffSurcharge"], fee)
+                        self.assertEqual(body["finalQuotedRate"], round(base + fee, 2))
+                        self.assertEqual(body["minQuotedRate"], base)  # corridor and floor are fee-free
+                        self.assertEqual(body["maxQuotedRate"], base)
+
+                before = len(repository.list_transactions())
+                self.assertEqual(quote(250000.01).status_code, 503)
+                self.assertEqual(quote(5000, floor=5001).status_code, 422)
+                self.assertEqual(len(repository.list_transactions()), before)
+                foreign = quote(5000, foreign=True)
+                self.assertEqual(foreign.status_code, 200, foreign.text)
+                self.assertEqual(foreign.json()["mpesaTariffSurcharge"], 0)
+                self.assertEqual(foreign.json()["finalQuotedRate"], 5000)
+                self.assertIn("No Kenyan M-Pesa fee", foreign.json()["reason"])
+                self.assertEqual(client.post("/api/v1/optimize-price", json=CANONICAL,
+                                             headers={"Authorization": "Bearer foreign"}).status_code, 403)
+
+    def test_missing_or_untrusted_tariff_fails_ready_and_never_audits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts, macro, tariff = ServeApiTests()._build_artifacts(tmp)
+            for path, pin, expected_reason in (
+                (os.path.join(tmp, "missing.csv"), None, "missing tariff schedule"),
+                (tariff, "0" * 64, "invalid or untrusted tariff schedule"),
+            ):
+                with self.subTest(path=path, pin=pin):
+                    repository = FakeFirestore()
+                    app = create_app(artifacts, macro, path, repository=repository,
+                                     trusted_manifest_sha256=file_sha256(os.path.join(artifacts, MANIFEST_NAME)),
+                                     trusted_tariff_sha256=pin, token_verifier=lambda token: {"uid": "fixture-user"})
+                    with TestClient(app) as client:
+                        self.assertEqual(client.get("/ready").status_code, 503)
+                        self.assertEqual(client.get("/ready").json()["readiness_reason"], expected_reason)
+                        result = client.post("/api/v1/optimize-price", json=CANONICAL,
+                                             headers={"Authorization": "Bearer valid"})
+                        self.assertEqual(result.status_code, 503, result.text)
+                        self.assertEqual(repository.list_transactions(), [])
 
 
 if __name__ == "__main__":

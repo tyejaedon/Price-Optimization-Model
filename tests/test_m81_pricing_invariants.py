@@ -81,16 +81,16 @@ class M81PricingInvariantTests(unittest.TestCase):
         domestic = self.tariff_evaluator.evaluate_quote(4500.0, "KE")
         international = self.tariff_evaluator.evaluate_quote(4500.0, "US")
 
-        self.assertEqual(domestic["mpesa_tariff_surcharge"], 55.0)
-        self.assertEqual(domestic["final_quoted_rate"], 4555.0)
+        self.assertEqual(domestic["mpesa_tariff_surcharge"], 57.0)
+        self.assertEqual(domestic["final_quoted_rate"], 4557.0)
         self.assertEqual(international["mpesa_tariff_surcharge"], 0.0)
         self.assertEqual(international["final_quoted_rate"], 4500.0)
 
     def test_tariff_edges_are_deterministic(self) -> None:
         expected_edges = {
             2500.0: 33.0,
-            2501.0: 55.0,
-            5000.0: 55.0,
+            2501.0: 53.0,
+            5000.0: 57.0,
             5001.0: 78.0,
             15001.0: 105.0,
         }

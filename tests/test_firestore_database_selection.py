@@ -10,7 +10,8 @@ from src.repository import FirestoreRepository
 
 class FirestoreDatabaseSelectionTests(unittest.TestCase):
     def test_default_database_when_unset(self):
-        with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing"}, clear=True):
+        with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing",
+                                     "PRICING_TARIFF_SHA256": "a" * 64}, clear=True):
             self.assertEqual(DeploymentConfig.from_env().firestore_database_id, "(default)")
             with patch("firebase_admin._apps", {"test": object()}), \
                     patch("firebase_admin.firestore.client", return_value=MagicMock()) as client_factory:
@@ -21,6 +22,7 @@ class FirestoreDatabaseSelectionTests(unittest.TestCase):
     def test_named_database_is_used_by_repository_and_readiness(self):
         client = MagicMock()
         with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing",
+                                     "PRICING_TARIFF_SHA256": "a" * 64,
                                      "FIRESTORE_DATABASE_ID": "priceoptimizationmodel"}, clear=True):
             self.assertEqual(DeploymentConfig.from_env().firestore_database_id, "priceoptimizationmodel")
             with patch("firebase_admin._apps", {"test": object()}), \
@@ -63,6 +65,7 @@ class FirestoreDatabaseSelectionTests(unittest.TestCase):
         for database_id in ("(default)", "abcd", "a" + "b" * 61 + "c", "priceoptimizationmodel"):
             with self.subTest(database_id=database_id), \
                     patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "demo-pricing",
+                                         "PRICING_TARIFF_SHA256": "a" * 64,
                                          "FIRESTORE_DATABASE_ID": database_id}, clear=True):
                 self.assertEqual(DeploymentConfig.from_env().firestore_database_id, database_id)
 

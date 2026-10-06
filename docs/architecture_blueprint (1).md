@@ -160,30 +160,29 @@ To output an actionable, economically defensible pricing corridor rather than a 
 
 ---
 
-### 3.4 Safaricom M-Pesa 12-Tier Tariff Lookup Table (FR-07)
+### 3.4 Safaricom M-Pesa Consumer Transfer Tariff Lookup Table (FR-07)
 
-When `mentorCountry == 'KE'`, apply the validated M-Pesa consumer transfer schedule to calculate the additive surcharge. The 12-tier table below is a **proposed schedule for #73 to verify** against the existing evaluator and a dated source before production use, not a claim of current statutory rates. For non-Kenyan mentors (`mentorCountry != 'KE'`), $Surcharge_{M-Pesa} = 0.00$.
+When the authorized mentor's `mentorCountry == 'KE'`, apply the **transfer to M-PESA users** charge (not withdrawal, other-network, Pochi or merchant charges) from the [Safaricom Consumer Tariffs & Limits page](https://www.safaricom.co.ke/main-mpesa/m-pesa-for-you/tariffs-limits/consumer-tariffs-limits), reported as last updated **August 4, 2026**. The 15 rows below are transcribed from that table as supplied for #73; the earlier proposed 12-tier values, including 34/115/130 KES fees, are superseded. The page is HTML, not a downloadable CSV; the versioned transcription lives in `config/tariffs/mpesa_p2p_users_2026-08-04.csv`. Re-check the live official page at each release because tariffs can change. For non-Kenyan mentors, $Surcharge_{M-Pesa} = 0.00$.
 
-```
-┌────────────────────────────────────────────────────────┐
-│        Proposed M-Pesa 12-Tier Transfer Bands          │
-├───────┬──────────────────────────┬─────────────────────┤
-│ Tier  │ Transaction Range (KES)  │ Transfer Fee (KES)  │
-├───────┼──────────────────────────┼─────────────────────┤
-│ 1     │ 10.00 - 100.00           │ 0.00                │
-│ 2     │ 101.00 - 500.00          │ 7.00                │
-│ 3     │ 501.00 - 1,000.00        │ 13.00               │
-│ 4     │ 1,001.00 - 1,500.00      │ 23.00               │
-│ 5     │ 1,501.00 - 2,500.00      │ 34.00               │
-│ 6     │ 2,501.00 - 3,500.00      │ 53.00               │
-│ 7     │ 3,501.00 - 5,000.00      │ 57.00               │
-│ 8     │ 5,001.00 - 7,500.00      │ 78.00               │
-│ 9     │ 7,501.00 - 10,000.00     │ 90.00               │
-│ 10    │ 10,001.00 - 15,000.00    │ 105.00              │
-│ 11    │ 15,001.00 - 20,000.00    │ 115.00              │
-│ 12    │ 20,001.00 - 250,000.00   │ 130.00              │
-└───────┴──────────────────────────┴─────────────────────┘
-```
+| Amount (KES) | Transfer to M-PESA users (KES) |
+| --- | ---: |
+| 1–49 | 0 |
+| 50–100 | 0 |
+| 101–500 | 7 |
+| 501–1,000 | 13 |
+| 1,001–1,500 | 23 |
+| 1,501–2,500 | 33 |
+| 2,501–3,500 | 53 |
+| 3,501–5,000 | 57 |
+| 5,001–7,500 | 78 |
+| 7,501–10,000 | 90 |
+| 10,001–15,000 | 100 |
+| 15,001–20,000 | 105 |
+| 20,001–35,000 | 108 |
+| 35,001–50,000 | 108 |
+| 50,001–250,000 | 108 |
+
+Other-network, agent/ATM withdrawal, Pochi, Buy Goods and business-till schedules are separately transcribed in `config/tariffs/mpesa_other_services_2026-08-04.csv` as **reference only**. They are not interchangeable with P2P charges and cannot affect quotes until a separately reviewed payment-method contract and payer rules are implemented. See [M11.3 tariff policy](M11.3_Mpesa_Tariff.md).
 
 **Final Billed Rate:**
 $$\hat{y}_{final} = \hat{y}_{base} + Surcharge_{M-Pesa}$$
