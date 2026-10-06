@@ -570,6 +570,8 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 
 **Optional #93 research (non-blocking):** [The inference-safe 53D benchmark](M9_93_Inference_Safe_Benchmark.md) evaluates dated job-posting **proxy budgets** using fixed train/validation/test cutoffs, training-only transforms and an untouched final test. Its local reports and research artifacts do not promote a production model, establish mentor-price accuracy or change the deferred #81 gate; #94's supervised estimator comparison remains separate. #67/#70 own any later serving or latency changes.
 
+**Experimental design register (#118, non-blocking):** The [evidence index and assumption register](experiments/README.md) distinguish past proxy measurements from code defaults and untested hypotheses. Future issue-scoped, one-variable research covers SVD dimensions (#117), country/alpha sensitivity (#119), text normalization and TF-IDF defaults (#120), and peer/IDW settings (#121). None is a production parameter change or a prerequisite for M10–M14.
+
 | Sprint | GitHub milestone | Linked delivery issues | Depends on / outcome |
 | --- | --- | --- | --- |
 | 1 | Milestone 9: Canonical Blueprint & OOT Model Alignment | #66 blueprint; #67 offline/online 53D alignment; #91 provenance audit; #81 empirical OOT (deferred); #92 diagnostics (closed); #93 optional research benchmark; #94 supervised estimator research (deferred); #78 README (closed) | Reuse M1-M8 NLP, parity, KD-Tree, tariff and training foundations; empirical quality gating is not a delivery prerequisite. |
