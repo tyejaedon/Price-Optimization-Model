@@ -211,9 +211,10 @@ class ContainerGatewayTests(unittest.TestCase):
             repository = FakeFirestore()
             env = {"FIREBASE_PROJECT_ID": "demo-pricing", "PRICING_ARTIFACT_DIR": artifact_dir,
                    "PRICING_TARIFF_CSV": tariff_path,
+                   "FIRESTORE_DATABASE_ID": "priceoptimizationmodel",
                    "PRICING_ARTIFACT_MANIFEST_SHA256": file_sha256(os.path.join(artifact_dir, MANIFEST_NAME))}
-            with patch.dict(os.environ, env), patch("firebase_admin.get_app", return_value=SimpleNamespace(project_id="demo-pricing")), \
-                    patch("src.repository.FirestoreRepository", return_value=repository), \
+            with patch.dict(os.environ, env, clear=True), patch("firebase_admin.get_app", return_value=SimpleNamespace(project_id="demo-pricing")), \
+                    patch("src.repository.FirestoreRepository", return_value=repository) as repository_factory, \
                     patch("firebase_admin.auth.verify_id_token", return_value={"uid": "fixture-user"}) as verify:
                 deployment = importlib.import_module("src.deployment")
                 with TestClient(deployment.create_deployment_app()) as client:
@@ -224,6 +225,7 @@ class ContainerGatewayTests(unittest.TestCase):
                     self.assertEqual(result.status_code, 200, result.text)
                     verify.assert_called_with("fixture-id-token", app=deployment.firebase_admin.get_app())
                     self.assertEqual(len(repository.list_transactions()), 1)
+                repository_factory.assert_called_with(database_id="priceoptimizationmodel")
 
 
 if __name__ == "__main__":
