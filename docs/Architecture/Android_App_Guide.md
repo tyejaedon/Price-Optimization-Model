@@ -46,9 +46,9 @@ a device/emulator via an APK), so that auto-generated config can never work. If 
 `.idea/runConfigurations/` is committed to VCS so every contributor gets the same four
 configurations after cloning (no per-machine "Edit Configurations…" setup):
 
-| Configuration         | Type                                                                                       | What it does                                                                                                                                                                                                                                                                                                  |
-|-----------------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `app`                 | Android App (`AndroidRunConfigurationType`), module `price-optimization-model-android.app` | Builds, installs and launches the default launcher activity (`MainActivity`) on a selected device/emulator with debugging attached. **Only resolves in Android Studio** -- it needs the Android Gradle facet that Android Studio creates on sync; PyCharm has no Android plugin so this entry is inert there. |
+| Configuration         | Type                                                                                            | What it does                                                                                                                                                                                                                                                                                                  |
+|-----------------------|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `app`                 | Android App (`AndroidRunConfigurationType`), module `price-optimization-model-android.app.main` | Builds, installs and launches the default launcher activity (`MainActivity`) on a selected device/emulator with debugging attached. **Only resolves in Android Studio** -- it needs the Android Gradle facet that Android Studio creates on sync; PyCharm has no Android plugin so this entry is inert there. |
 | `app [assembleDebug]` | Gradle                                                                                     | Runs `:app:assembleDebug`. Works in both Android Studio and PyCharm (Gradle plugin).                                                                                                                                                                                                                          |
 | `app [unit tests]`    | Gradle                                                                                     | Runs `:app:testDebugUnitTest` (same task `android-ci.yml` runs). Works in both IDEs.                                                                                                                                                                                                                          |
 | `app [lint + ktlint]` | Gradle                                                                                     | Runs `:app:lintDebug` and `:app:ktlintCheck`. Works in both IDEs.                                                                                                                                                                                                                                             |
@@ -57,6 +57,24 @@ PyCharm users should prefer the three `Gradle`-type configurations above; they d
 Android facet and mirror `.github/workflows/android-ci.yml` exactly. The `app` Android App
 configuration is for Android Studio only, and replaces the manual "Edit Configurations…" step this
 IDE caveat previously described.
+
+#### Troubleshooting: "Run configuration app is not supported... Cannot obtain the package"
+
+If Android Studio shows this error on the committed `app` config, the project was not synced with
+a real Android Gradle Plugin facet attached to `:app` -- the IDE fell back to importing it as a
+plain `JAVA_MODULE` (check `.idea/modules/price-optimization-model-android.iml`: it should **not**
+say `type="JAVA_MODULE"` with no Android facet). This repo's `.idea/` started life as a plain
+PyCharm/Python project (`misc.xml` sets the Project SDK to a Python interpreter), which can confuse
+a first Gradle import if Android Studio has no Gradle JDK configured yet. Fix:
+
+1. **File ▸ Settings ▸ Build, Execution, Deployment ▸ Build Tools ▸ Gradle** -- set **Gradle JDK**
+   to an installed JDK 17+ (not the Python SDK, not a flaky embedded JBR if sync keeps failing).
+2. **File ▸ Sync Project with Gradle Files** and actually read the **Build/Sync** tool window for
+   errors instead of assuming a silent success.
+3. **File ▸ Project Structure ▸ Modules** should now show `app` with the Android icon/facet, and
+   `.idea/modules/app/*.iml` should be populated (not empty).
+4. Open **Run ▸ Edit Configurations…**, select `app`, and reselect the **Module** dropdown even if
+   it looks correct, so it re-binds to the freshly synced facet module.
 
 ## Module layout
 
