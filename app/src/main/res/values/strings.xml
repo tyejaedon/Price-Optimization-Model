@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Pricing Optimizer</string>
+
+    <string name="pricing_title">Price your service</string>
+    <string name="pricing_subtitle">Get a peer-backed KES/hour rate, instantly.</string>
+
+    <string name="field_raw_text_label">Describe your service</string>
+    <string name="field_raw_text_helper">Min 20 characters. Used only to compute a peer-matched rate.</string>
+    <string name="field_industry_label">Industry</string>
+    <string name="field_mentor_country_label">Your country</string>
+    <string name="field_client_country_label">Client country</string>
+    <string name="field_saturation_label">Niche competitiveness</string>
+    <string name="field_base_floor_label">Minimum acceptable rate (optional)</string>
+
+    <string name="action_submit">Calculate rate</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_clear">Clear form</string>
+
+    <string name="state_loading">Finding peer-matched rates…</string>
+    <string name="state_error_generic">We could not calculate a rate. %1$s</string>
+
+    <string name="result_final_rate_label">Recommended rate</string>
+    <string name="result_corridor_label">Negotiation range</string>
+    <string name="result_mpesa_label">M-Pesa transfer fee</string>
+    <string name="result_confidence_label">Confidence (uncalibrated)</string>
+    <string name="result_comparables_label">Comparable peers</string>
+    <string name="result_comparables_empty">No listing-backed comparables are available for this quote yet.</string>
+    <string name="result_comparables_partial">Showing %1$d of %2$d indexed peers; some listings lack public provenance.</string>
+
+    <string name="a11y_submit_button">Calculate recommended hourly rate</string>
+    <string name="a11y_saturation_slider">Niche competitiveness slider, %1$d percent</string>
+    <string name="a11y_corridor_chart">Negotiation range from %1$s to %2$s KES per hour</string>
+</resources>
+

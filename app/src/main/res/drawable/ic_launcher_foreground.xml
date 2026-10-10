@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple "P" monogram kept as a scalable vector so no binary PNG assets are committed. -->
+    <path
+        android:fillColor="#ADD1B2"
+        android:pathData="M40,30 h18 a14,14 0 0 1 0,28 h-10 v20 h-8 Z M48,38 v12 h10 a6,6 0 0 0 0,-12 Z" />
+</vector>
+

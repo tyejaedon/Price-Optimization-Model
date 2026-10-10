@@ -19,3 +19,14 @@ __pycache__/
 # JetBrains IDE local project files
 .idea/
 
+# Android (Milestone 12-14): local SDK path, build outputs and wrapper jar are machine-specific;
+# Android Studio regenerates gradlew/gradle-wrapper.jar on first sync (docs/Architecture/Android_App_Guide.md).
+local.properties
+app/build/
+build/
+.gradle/
+*.keystore
+!debug.keystore
+google-services.json
+gradle/wrapper/gradle-wrapper.jar
+
