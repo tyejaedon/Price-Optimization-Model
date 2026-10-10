@@ -17,7 +17,7 @@ The protected components need external reviewed artifacts, approved tariff pins,
 
 ### Start here / read next
 
-Read this introduction, then try the [cell-by-cell local demo notebook](notebooks/pipeline_walkthrough.ipynb) without private datasets or Firebase. The [documentation index and plain-English glossary](docs/README.md) explain the terms used below and link implementation notes.
+Read this introduction, then try the [cell-by-cell local-data notebook](notebooks/pipeline_walkthrough.ipynb) after preparing the **ignored** harmonized parquet (with dated job postings) and macro lookup under `data/processed/`. It uses fixed chronological windows for job-budget **proxy** research, writes only temporary research artifacts, and needs no Firebase credentials; it is not a serving-quality or mentor-pricing gate. The [documentation index and plain-English glossary](docs/README.md) explain the terms used below and link implementation notes.
 
 For deeper reading, use the [M1-M8 historical baseline](docs/Blueprint.md), the [canonical M9-M14 target and migration decisions](docs/architecture_blueprint%20%281%29.md), and the [issue/milestone roadmap](docs/Project_Milestones_and_Issues.md). These are planning/history documents, not assertions that every proposed feature is implemented. See the [label provenance audit](docs/Label_Provenance_Audit_91.md) before interpreting any model metric.
 
