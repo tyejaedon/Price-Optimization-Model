@@ -17,7 +17,11 @@ __pycache__/
 *service-account*.json
 
 # JetBrains IDE local project files
-.idea/
+.idea/*
+# Shared Android Studio run/debug configurations are intentionally committed (issue #144) so a
+# fresh clone gets consistent run/debug entries without per-machine setup.
+!.idea/runConfigurations/
+!.idea/runConfigurations/*.xml
 
 # Android (Milestone 12-14): local SDK path, build outputs and wrapper jar are machine-specific;
 # Android Studio regenerates gradlew/gradle-wrapper.jar on first sync (docs/Architecture/Android_App_Guide.md).

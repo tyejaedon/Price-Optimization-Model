@@ -3,6 +3,11 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Price-Optimization-Model.iml" filepath="$PROJECT_DIR$/.idea/Price-Optimization-Model.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/price-optimization-model-android.iml" filepath="$PROJECT_DIR$/.idea/modules/price-optimization-model-android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.main.iml" filepath="$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/price-optimization-model-android.app.unitTest.iml" />
     </modules>
   </component>
 </project>
