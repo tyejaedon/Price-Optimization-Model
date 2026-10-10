@@ -11,4 +11,3 @@ import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
 interface IPricingRepository {
     suspend fun calculateOptimalRate(query: PricingQueryDTO): PricingOutcome<PredictionResultDTO>
 }
-

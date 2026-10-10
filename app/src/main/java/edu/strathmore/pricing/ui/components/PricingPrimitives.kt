@@ -79,4 +79,3 @@ fun InlineErrorText(message: String, modifier: Modifier = Modifier) {
         }
     }
 }
-

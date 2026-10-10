@@ -19,4 +19,3 @@ dependencyResolutionManagement {
 // not replace or move any existing src/ Python module.
 rootProject.name = "price-optimization-model-android"
 include(":app")
-

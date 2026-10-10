@@ -50,4 +50,3 @@ class FakePricingRepository(
             { PricingOutcome.Failure(failure) }
     }
 }
-

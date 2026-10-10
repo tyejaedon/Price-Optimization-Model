@@ -125,4 +125,3 @@ class PricingViewModelTest {
         assertThat(viewModel.uiState.value).isInstanceOf(PricingUiState.Success::class.java)
     }
 }
-

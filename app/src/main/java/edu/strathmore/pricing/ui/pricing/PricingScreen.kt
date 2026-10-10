@@ -119,4 +119,3 @@ private fun ErrorSection(message: String, onRetry: () -> Unit) {
         PrimaryActionButton(text = "Try again", onClick = onRetry, contentDescription = "Retry calculation")
     }
 }
-

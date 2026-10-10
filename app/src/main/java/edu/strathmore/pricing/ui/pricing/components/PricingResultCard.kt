@@ -141,4 +141,3 @@ private fun isReduceMotionEnabled(): Boolean {
         false
     }
 }
-

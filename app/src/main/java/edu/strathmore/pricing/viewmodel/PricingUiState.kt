@@ -42,4 +42,3 @@ sealed interface PricingUiState {
 
     fun hasData(): Boolean = this is Success
 }
-

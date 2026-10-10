@@ -18,4 +18,3 @@ class PricingApplication : Application() {
         container = AppContainer(applicationContext)
     }
 }
-

@@ -28,4 +28,3 @@ class FirebaseAuthManager(
         firebaseAuth.signOut()
     }
 }
-

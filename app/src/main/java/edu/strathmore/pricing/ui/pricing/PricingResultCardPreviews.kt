@@ -46,4 +46,3 @@ private fun PricingResultCardDarkPreview() {
 private fun PricingResultCardLargeFontPreview() {
     PricingTheme(darkTheme = false) { PricingResultCard(result = previewResult) }
 }
-

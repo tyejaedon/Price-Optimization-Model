@@ -23,4 +23,3 @@ object PricingSpacing {
 
 /** Minimum touch target enforced on every interactive composable (WCAG 2.5.5 / Android a11y guidance). */
 val MinTouchTarget = 48.dp
-

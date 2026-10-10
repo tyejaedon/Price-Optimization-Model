@@ -50,4 +50,3 @@ data class HealthStatusDTO(
     @SerializedName("modelsLoaded") val modelsLoaded: Boolean,
     @SerializedName("version") val version: String,
 )
-

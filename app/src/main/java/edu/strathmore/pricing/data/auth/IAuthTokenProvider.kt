@@ -12,4 +12,3 @@ interface IAuthTokenProvider {
 
     suspend fun signOut()
 }
-

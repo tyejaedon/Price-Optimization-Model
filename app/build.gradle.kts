@@ -113,4 +113,3 @@ ktlint {
         exclude("**/build/**")
     }
 }
-

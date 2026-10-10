@@ -17,4 +17,3 @@ val ErrorRed = Color(0xFFB3261E)
 val WarningAmber = Color(0xFFB7791F)
 val OnSurfaceMutedLight = Color(0xFF49454F)
 val OnSurfaceMutedDark = Color(0xFFCAC4D0)
-

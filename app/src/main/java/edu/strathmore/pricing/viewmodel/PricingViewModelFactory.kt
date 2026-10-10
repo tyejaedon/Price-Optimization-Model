@@ -18,4 +18,3 @@ class PricingViewModelFactory(
         return PricingViewModel(repository) as T
     }
 }
-

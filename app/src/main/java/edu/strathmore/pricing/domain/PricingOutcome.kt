@@ -17,4 +17,3 @@ sealed class PricingFailure(val message: String) {
     data object ServiceUnavailable : PricingFailure("The pricing service is temporarily unavailable.")
     data class Unknown(val detail: String) : PricingFailure(detail)
 }
-

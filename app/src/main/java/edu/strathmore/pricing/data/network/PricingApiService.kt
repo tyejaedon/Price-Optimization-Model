@@ -25,4 +25,3 @@ interface PricingApiService {
     @GET("health")
     suspend fun fetchHealth(): HealthStatusDTO
 }
-

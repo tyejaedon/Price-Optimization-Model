@@ -54,4 +54,3 @@ class AppContainer(private val context: Context) {
         }
     }
 }
-

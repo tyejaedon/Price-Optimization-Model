@@ -115,5 +115,3 @@ private fun IndustryDropdown(selectedIndustry: String, onIndustrySelected: (Stri
         }
     }
 }
-
-
