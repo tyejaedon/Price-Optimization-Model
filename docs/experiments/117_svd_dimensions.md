@@ -67,3 +67,53 @@ Industry diagnostics are retained in both validation/test aggregate JSON; valida
 **Measurement correction:** An initial dry run rejected 25D/100D reload parity because two/one sampled peer payloads, respectively, differed by a rounded last decimal. The peer IDs/order and base quotes were unchanged; the discrepancy arose from request-coordinate differences below `5e-8`. The final run requires identical peer IDs/order, routing and cent-rounded quotes, with at most `2e-6` numerical tolerance on six-decimal peer distance/weight/similarity fields. The corrected run passed all four candidates. This is a numerical comparison fix, not permission to hide changed peers.
 
 **Decision:** Keeping **50D is a reasonable *compatibility and explanation-continuity* engineering choice**, not a demonstrated optimum on proxy error, runtime or memory. 25D has slightly lower validation error and smaller artifacts but substantial peer churn; 75D has the best validation error but also churn and ~45% larger artifacts, without improvement on the already-opened test; 100D is ~90% larger than 50D and has mean top-five Jaccard 0.51 vs 50D, while its test improvement is exploratory only. Do **not** promote any candidate or change the deployed 53D schema. Replicate on another independent, dated proxy snapshot and separately review schema/artifact/latency migration if a different dimension remains worthwhile; verified paid mentor labels would be needed to evaluate actual mentor-price accuracy. No `R² >= 0.75` quality gate is reinstated.
+
+## Follow-up: retrospective rolling sensitivity (#117, no new data)
+
+**Registered after the first #117 results were viewed, before this follow-up run.** This is an explicitly *exploratory* robustness check, not a new independent test or a post-hoc 95%-confidence winner. The input and macro SHA-256 are unchanged. By inspecting **only publication-date counts**, we found very few jobs before February 13; the five daily validation windows below were chosen to have meaningful coverage, not from their price labels or scores. They end by February 20, before #93's previously viewed validation (February 20–22) and test (after February 22). Do not score either #93 holdout again in this follow-up.
+
+- Expand training through midnight UTC on **February 15, 16, 17, 18 and 19, 2024**; validate on the immediately following, non-overlapping one-day window ending midnight UTC on February 16, 17, 18, 19 and 20 respectively. Ties stay on the training side. Use #93's dated `upwork_jobs` eligibility, post-arbitrage bounds and earliest-description deduplication over earlier records; compute industry saturation and density *from each training window only*. Profile and score only the eligible, deduplicated earlier jobs.
+- Compare **25, 50 and 75** text components (+3 metadata) on identical jobs with SVD seeds **42 and 7**, refitting text, metadata scaler and trees on training only per window and seed. Keep TF-IDF, alpha, IDW, `k=5`, weights and fallback fixed. 100D remains recorded in the first study but is outside this focused 25/50/75 robustness check; its earlier results are not erased. No rates, IDs, future text or target-derived features enter the query coordinates.
+- For every window/seed/dimension report raw-KES MAE, RMSE, R², per-industry counts/errors, neighbor Jaccard/rank/weight vs the *same-window, same-seed* 50D baseline, reload parity, text/tree fit time, 20 warmed, spaced local text/search/query p50/p95 samples and research artifact size. Include failed candidates. Aggregate *paired* job-level MAE and RMSE differences vs 50D across **disjoint validation days**, with a seeded date-block bootstrap interval for the paired MAE difference. Keep per-job residuals, source IDs, text and peer IDs in memory only; commit aggregate-only results.
+- Interpret day-block intervals **descriptively**: five adjacent dates, nested training sets, proxy budgets and already viewed outcomes do not yield independent confirmation. SVD seeds measure algorithmic variability, not additional observations; report results separately by seed, not as ten independent test windows. No minimum practical improvement threshold was declared: weigh observed error, explanation shifts, noisy timing and bytes *after* inspecting all outcomes, explain the chosen trade-off or record an inconclusive engineering choice. Never call the smallest numerical MAE a universally or statistically proven winner.
+
+Run from PowerShell with the same ignored local inputs, using a fresh output directory:
+
+```powershell
+$env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'
+python -m src.svd_rolling_benchmark --harmonized-parquet data/processed/harmonized_marketplace_corpus.parquet --macro-lookup data/processed/macro_lookup_table.json --dataset-version local-proxy-job-budgets-2026-10-05 --output-dir reports/m9_svd_rolling_117 --samples 20
+python -m pytest -q tests/test_svd_rolling_benchmark.py tests/test_svd_dimension_benchmark.py
+```
+
+The runner rejects timestamp-naive data and, for this known input SHA-256, any retrospective validation ending after February 20. It freezes the configuration before fitting, writes only aggregate-only JSON, deletes temporary model binaries, and makes no production parameter/manifest change.
+
+### Local follow-up result, 2026-10-10 (retrospective, not a new blind test)
+
+The ignored `reports/m9_svd_rolling_117/benchmark.json` matched the original dataset/macro SHA-256 values above. Of **14,834** jobs published through February 20, **4,115** failed the fixed post-arbitrage rate rule and **16** repeated descriptions were removed, leaving **10,703** eligible distinct earlier jobs. Five non-overlapping validation days contained **519 / 1,970 / 1,382 / 1,258 / 2,213 = 7,342** jobs; their expanding training windows contained **3,361 / 3,880 / 5,850 / 7,232 / 8,490** jobs. All **30** dimension × seed × window candidates passed finite-vector and sampled request/reload/peer/quote parity. No #93 validation or final-test rows were scored, and no individual predictions, texts or peers were persisted.
+
+| SVD seed | Text dimensions | Pooled validation MAE (KES/h) | Paired MAE change vs same-seed 50D (KES/h) | Pooled RMSE / change vs 50D (KES/h) | Descriptive 95% day-block interval for MAE change | Days with lower MAE than 50D |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 42 | 25 | 4,028.59 | **+21.86** | 6,035.25 / +44.71 | [-6.51, 38.94] | 1/5 |
+| 42 | **50** | 4,006.72 | 0 | 5,990.54 / 0 | [0, 0] | baseline |
+| 42 | 75 | **3,994.58** | **-12.14** | 5,982.97 / -7.57 | [-22.93, 0.81] | 4/5 |
+| 7 | 25 | 4,027.69 | **+29.94** | 6,032.52 / +41.55 | [-16.62, 60.72] | 2/5 |
+| 7 | **50** | **3,997.76** | 0 | 5,990.97 / 0 | [0, 0] | baseline |
+| 7 | 75 | 4,018.54 | **+20.78** | 6,016.49 / +25.52 | [-2.88, 50.94] | 2/5 |
+
+**Negative** paired change favors the candidate; positive favors 50D. The five individual validation MAEs (KES/h) show the reversal instead of hiding it inside a pooled number:
+
+| Validation day (2024 UTC) | 42: 25 / 50 / 75D | 7: 25 / 50 / 75D |
+| --- | --- | --- |
+| Feb 15 | 5,192.92 / 5,185.46 / 5,214.21 | 5,184.29 / 5,170.96 / 5,248.78 |
+| Feb 16 | 4,126.85 / 4,082.21 / 4,052.52 | 4,131.70 / 4,051.34 / 4,112.37 |
+| Feb 17 | 4,103.68 / 4,129.85 / 4,113.56 | 4,127.29 / 4,143.97 / 4,136.79 |
+| Feb 18 | 3,844.71 / 3,819.53 / 3,817.08 | 3,800.83 / 3,823.56 / 3,820.69 |
+| Feb 19 | 3,725.68 / 3,692.60 / 3,683.58 | 3,730.63 / 3,682.63 / 3,685.11 |
+
+The reported MAE/RMSE pools weight **distinct validation jobs** across days; seed 7 is a second fitting run on the *same* jobs, not 7,342 additional observations. Each bootstrap resamples **five calendar days** as blocks, with the same jobs/seed paired across candidates. All challenger intervals include zero even as a descriptive measure; these small, adjacent, previously viewed proxy days with nested training sets cannot establish statistical superiority or real mentor-rate accuracy. Full per-window/per-industry error and sample-count aggregates are in the ignored JSON. `product_management` has only **2–12** validation jobs per day, so its day-specific R²/error is especially unstable.
+
+**Explanations/resources:** Weighted across validation requests, 25D's top-five peer Jaccard vs 50D was **0.483/0.488** (seeds 42/7), with mean absolute base-quote changes **1,322/1,309 KES/h**; for 75D these were **0.650/0.649** and **915/917 KES/h**. 25D research artifacts were **3.64–4.93 MiB**, vs **6.63–8.94 MiB** at 50D and **9.61–12.96 MiB** at 75D, for the *same training window*. Twenty warmed local query timings per candidate/window are recorded, but their p95 ranges overlap and are noisy; do not claim a latency winner or an authenticated-HTTP timing improvement. No repeated process-RSS measurement was made.
+
+**Failure and correction:** The first attempted run stopped in window 2/seed 7 when a 50D reload parity check found a **0.01 KES/h cent-rounding change** despite identical peer order and <`5e-8` coordinate differences. The stored offline bilateral factor differed slightly from the factor reconstructed from the frozen macro lookup at request time. The runner now constructs *every* held-out coordinate through the request-time country/metadata transform before prediction; it retains the strict quote/peer parity assertion. This correction changes validation-coordinate construction relative to the first #117 study. Re-running all windows with the correction passed all candidates; the two studies are not a single frozen blind comparison.
+
+**Decision from this dataset:** There is **no statistically confirmed dimension winner** and no consistent proxy-error gain from switching to 25D or 75D. 25D reduces artifact bytes substantially but has higher pooled MAE/RMSE for *both* seeds and substantial peer changes. 75D improves MAE by only **12.14 KES/h** on seed 42 but worsens it by **20.78 KES/h** on seed 7, uses larger artifacts and changes retrieved peers. **Retain 50D as the current engineering choice based on error consistency and peer behavior, not on compatibility alone or an alleged universal optimum.** Size savings could motivate a *separate* 25D product-policy choice, but this experiment does not show it is the more accurate peer-pricer. No serving artifact, gate or schema is changed; any migration requires its own issue and review.
