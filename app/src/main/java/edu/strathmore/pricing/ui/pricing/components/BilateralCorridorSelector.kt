@@ -35,13 +35,14 @@ fun BilateralCorridorSelector(
     val progress = ((finalRate - minRate) / range).coerceIn(0f, 1f)
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription =
-                    "Negotiation range from ${minRate.roundToInt()} to ${maxRate.roundToInt()} $currencyUnit, " +
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription =
+                        "Negotiation range from ${minRate.roundToInt()} to ${maxRate.roundToInt()} $currencyUnit, " +
                         "recommended ${finalRate.roundToInt()}"
-            },
+                },
     ) {
         Text(
             text = "${minRate.roundToInt()} - ${maxRate.roundToInt()} $currencyUnit",

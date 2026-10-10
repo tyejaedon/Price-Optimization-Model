@@ -31,7 +31,10 @@ import edu.strathmore.pricing.ui.theme.WarningAmber
  * count-up of the final rate that is skipped when the system "reduce motion" setting is enabled.
  */
 @Composable
-fun PricingResultCard(result: PredictionResultDTO, modifier: Modifier = Modifier) {
+fun PricingResultCard(
+    result: PredictionResultDTO,
+    modifier: Modifier = Modifier,
+) {
     val reduceMotion = isReduceMotionEnabled()
     val animatedRate by animateFloatAsState(
         targetValue = result.finalQuotedRate,
@@ -48,9 +51,10 @@ fun PricingResultCard(result: PredictionResultDTO, modifier: Modifier = Modifier
             Text(
                 text = "${animatedRate.toInt()} KES/hour",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.semantics {
-                    contentDescription = "Final quoted rate ${result.finalQuotedRate.toInt()} KES per hour"
-                },
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = "Final quoted rate ${result.finalQuotedRate.toInt()} KES per hour"
+                    },
             )
 
             Spacer(modifier = Modifier.height(PricingSpacing.Small))
@@ -82,7 +86,11 @@ fun PricingResultCard(result: PredictionResultDTO, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun LineItem(label: String, value: String, caption: String? = null) {
+private fun LineItem(
+    label: String,
+    value: String,
+    caption: String? = null,
+) {
     Column {
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -105,8 +113,9 @@ private fun ComparablesList(result: PredictionResultDTO) {
     }
     if (result.comparables.size < result.kNeighborsUsed) {
         Text(
-            text = "Showing ${result.comparables.size} of ${result.kNeighborsUsed} indexed peers; " +
-                "some listings lack public provenance.",
+            text =
+                "Showing ${result.comparables.size} of ${result.kNeighborsUsed} indexed peers; " +
+                    "some listings lack public provenance.",
             style = MaterialTheme.typography.bodySmall,
         )
     }

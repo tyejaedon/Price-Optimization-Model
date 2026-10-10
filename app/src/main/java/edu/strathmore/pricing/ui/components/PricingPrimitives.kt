@@ -38,9 +38,10 @@ fun PrimaryActionButton(
     androidx.compose.material3.Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier
-            .defaultMinSize(minHeight = MinTouchTarget)
-            .semantics { if (contentDescription != null) this.contentDescription = contentDescription },
+        modifier =
+            modifier
+                .defaultMinSize(minHeight = MinTouchTarget)
+                .semantics { if (contentDescription != null) this.contentDescription = contentDescription },
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
@@ -64,7 +65,10 @@ fun SectionCard(
 }
 
 @Composable
-fun InlineErrorText(message: String, modifier: Modifier = Modifier) {
+fun InlineErrorText(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.semantics { contentDescription = "Error: $message" },
         verticalAlignment = Alignment.CenterVertically,

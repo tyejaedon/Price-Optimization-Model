@@ -22,10 +22,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import edu.strathmore.pricing.ui.theme.PricingSpacing
 
 /** Supported industry partitions, kept in sync with `SUPPORTED_INDUSTRY_PARTITIONS` server-side. */
-val SupportedIndustries = listOf(
-    "data_ai", "web_backend", "mobile", "devops_cloud",
-    "design_creative", "product_management", "digital_marketing", "general_tech",
-)
+val SupportedIndustries =
+    listOf(
+        "data_ai",
+        "web_backend",
+        "mobile",
+        "devops_cloud",
+        "design_creative",
+        "product_management",
+        "digital_marketing",
+        "general_tech",
+    )
 
 /**
  * `CapabilityInputForm` from the canonical Sprint 4 acceptance (issue #74): raw description,
@@ -51,9 +58,10 @@ fun CapabilityInputForm(
             label = { Text("Describe your service") },
             supportingText = { Text("Min 20 characters. Used only to compute a peer-matched rate.") },
             minLines = 3,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Service description input" },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Service description input" },
         )
 
         Spacer(modifier = Modifier.height(PricingSpacing.Medium))
@@ -67,9 +75,10 @@ fun CapabilityInputForm(
             onValueChange = { onMentorCountryChanged(it.take(2)) },
             label = { Text("Your country (ISO-2)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Your country ISO 2-letter code" },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Your country ISO 2-letter code" },
         )
 
         Spacer(modifier = Modifier.height(PricingSpacing.Small))
@@ -79,16 +88,20 @@ fun CapabilityInputForm(
             onValueChange = { onClientCountryChanged(it.take(2)) },
             label = { Text("Client country (ISO-2)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Client country ISO 2-letter code" },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Client country ISO 2-letter code" },
         )
     }
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun IndustryDropdown(selectedIndustry: String, onIndustrySelected: (String) -> Unit) {
+private fun IndustryDropdown(
+    selectedIndustry: String,
+    onIndustrySelected: (String) -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
@@ -97,10 +110,11 @@ private fun IndustryDropdown(selectedIndustry: String, onIndustrySelected: (Stri
             readOnly = true,
             label = { Text("Industry") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-                .semantics { contentDescription = "Industry selector, currently $selectedIndustry" },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+                    .semantics { contentDescription = "Industry selector, currently $selectedIndustry" },
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SupportedIndustries.forEach { industry ->

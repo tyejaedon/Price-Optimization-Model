@@ -32,9 +32,10 @@ fun SaturationSlider(
             value = score,
             onValueChange = onScoreChanged,
             valueRange = 0f..1f,
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Niche competitiveness slider, $percent percent" },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Niche competitiveness slider, $percent percent" },
         )
     }
 }

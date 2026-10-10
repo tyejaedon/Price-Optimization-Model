@@ -9,7 +9,6 @@ import edu.strathmore.pricing.di.AppContainer
  * constructed without a DI framework dependency for this scaffold (issue #74).
  */
 class PricingApplication : Application() {
-
     lateinit var container: AppContainer
         private set
 

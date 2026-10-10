@@ -21,24 +21,26 @@ import java.util.concurrent.TimeUnit
  * real Retrofit + Firebase wiring is intentionally gated behind [BuildConfig.USE_LIVE_BACKEND],
  * which issue #76 (M13.1) flips on once the authenticated network path is implemented and tested.
  */
-class AppContainer(private val context: Context) {
-
+class AppContainer(
+    private val context: Context,
+) {
     private val authManager: IAuthTokenProvider by lazy { FirebaseAuthManager() }
 
     private val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
                 }
-            }
-            .build()
+            }.build()
     }
 
     private val apiService: PricingApiService by lazy {
-        Retrofit.Builder()
+        Retrofit
+            .Builder()
             .baseUrl(BuildConfig.PRICING_API_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))

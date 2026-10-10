@@ -12,22 +12,24 @@ import edu.strathmore.pricing.ui.theme.PricingTheme
  * Previews required by issue #140's acceptance criteria: light, dark, and large font-scale
  * variants of a core component must render without runtime exceptions.
  */
-private val previewResult = PredictionResultDTO(
-    basePredictedRate = 2500f,
-    mpesaTariffSurcharge = 57f,
-    finalQuotedRate = 2557f,
-    minQuotedRate = 2125f,
-    maxQuotedRate = 3375f,
-    kNeighborsUsed = 5,
-    bilateralArbitrageFactor = 1.0f,
-    confidenceScore = 0f,
-    comparables = listOf(
-        PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
-        PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
-    ),
-    reason = "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge.",
-    timestamp = "2026-10-10T00:00:00Z",
-)
+private val previewResult =
+    PredictionResultDTO(
+        basePredictedRate = 2500f,
+        mpesaTariffSurcharge = 57f,
+        finalQuotedRate = 2557f,
+        minQuotedRate = 2125f,
+        maxQuotedRate = 3375f,
+        kNeighborsUsed = 5,
+        bilateralArbitrageFactor = 1.0f,
+        confidenceScore = 0f,
+        comparables =
+            listOf(
+                PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
+                PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
+            ),
+        reason = "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge.",
+        timestamp = "2026-10-10T00:00:00Z",
+    )
 
 @Preview(name = "Light", showBackground = true)
 @Composable

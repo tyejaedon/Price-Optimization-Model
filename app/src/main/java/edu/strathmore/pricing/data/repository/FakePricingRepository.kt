@@ -1,8 +1,8 @@
 package edu.strathmore.pricing.data.repository
 
 import edu.strathmore.pricing.data.network.dto.PeerMatchDTO
-import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
+import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 import edu.strathmore.pricing.domain.IPricingRepository
 import edu.strathmore.pricing.domain.PricingFailure
 import edu.strathmore.pricing.domain.PricingOutcome
@@ -16,7 +16,6 @@ class FakePricingRepository(
     private val simulatedLatencyMs: Long = 600L,
     private val resultProvider: (PricingQueryDTO) -> PricingOutcome<PredictionResultDTO> = ::defaultSuccess,
 ) : IPricingRepository {
-
     override suspend fun calculateOptimalRate(query: PricingQueryDTO): PricingOutcome<PredictionResultDTO> {
         delay(simulatedLatencyMs)
         return resultProvider(query)
@@ -36,17 +35,17 @@ class FakePricingRepository(
                     kNeighborsUsed = 5,
                     bilateralArbitrageFactor = if (query.mentorCountry == query.clientCountry) 1.0f else 0.51f,
                     confidenceScore = 0.0f,
-                    comparables = listOf(
-                        PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
-                        PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
-                    ),
+                    comparables =
+                        listOf(
+                            PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
+                            PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
+                        ),
                     reason = "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge.",
                     timestamp = "2026-10-10T00:00:00Z",
                 ),
             )
         }
 
-        fun failure(failure: PricingFailure): (PricingQueryDTO) -> PricingOutcome<PredictionResultDTO> =
-            { PricingOutcome.Failure(failure) }
+        fun failure(failure: PricingFailure): (PricingQueryDTO) -> PricingOutcome<PredictionResultDTO> = { PricingOutcome.Failure(failure) }
     }
 }

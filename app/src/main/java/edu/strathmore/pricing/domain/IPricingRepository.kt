@@ -1,7 +1,7 @@
 package edu.strathmore.pricing.domain
 
-import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
+import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 
 /**
  * Mirrors the class diagram's `IPricingRepository` boundary. The ViewModel depends only on this

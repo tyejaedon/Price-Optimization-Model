@@ -26,9 +26,13 @@ data class PricingFormState(
 sealed interface PricingUiState {
     val form: PricingFormState
 
-    data class Idle(override val form: PricingFormState = PricingFormState()) : PricingUiState
+    data class Idle(
+        override val form: PricingFormState = PricingFormState(),
+    ) : PricingUiState
 
-    data class Loading(override val form: PricingFormState) : PricingUiState
+    data class Loading(
+        override val form: PricingFormState,
+    ) : PricingUiState
 
     data class Success(
         override val form: PricingFormState,

@@ -21,7 +21,6 @@ class PricingViewModel(
     private val repository: IPricingRepository,
     private val mentorId: String = "unauthenticated-preview-mentor",
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow<PricingUiState>(PricingUiState.Idle())
     val uiState: StateFlow<PricingUiState> = _uiState.asStateFlow()
 
@@ -75,23 +74,25 @@ class PricingViewModel(
         _uiState.update { PricingUiState.Idle() }
     }
 
-    private fun validateFormInputs(form: PricingFormState): String? = when {
-        form.rawDescription.trim().length < 20 -> "Description must be at least 20 characters."
-        form.selectedIndustry.isBlank() -> "Select an industry."
-        form.mentorCountry.length != 2 -> "Enter a 2-letter country code for your country."
-        form.clientCountry.length != 2 -> "Enter a 2-letter country code for the client."
-        else -> null
-    }
+    private fun validateFormInputs(form: PricingFormState): String? =
+        when {
+            form.rawDescription.trim().length < 20 -> "Description must be at least 20 characters."
+            form.selectedIndustry.isBlank() -> "Select an industry."
+            form.mentorCountry.length != 2 -> "Enter a 2-letter country code for your country."
+            form.clientCountry.length != 2 -> "Enter a 2-letter country code for the client."
+            else -> null
+        }
 
-    private fun constructQueryPayload(form: PricingFormState): PricingQueryDTO = PricingQueryDTO(
-        mentorId = mentorId,
-        rawText = form.rawDescription.trim(),
-        industry = form.selectedIndustry,
-        mentorCountry = form.mentorCountry,
-        clientCountry = form.clientCountry,
-        competitivenessScore = form.competitivenessScore,
-        baseRateFloor = form.baseRateFloor.toFloatOrNull(),
-    )
+    private fun constructQueryPayload(form: PricingFormState): PricingQueryDTO =
+        PricingQueryDTO(
+            mentorId = mentorId,
+            rawText = form.rawDescription.trim(),
+            industry = form.selectedIndustry,
+            mentorCountry = form.mentorCountry,
+            clientCountry = form.clientCountry,
+            competitivenessScore = form.competitivenessScore,
+            baseRateFloor = form.baseRateFloor.toFloatOrNull(),
+        )
 
     private inline fun updateForm(transform: (PricingFormState) -> PricingFormState) {
         _uiState.update { current ->

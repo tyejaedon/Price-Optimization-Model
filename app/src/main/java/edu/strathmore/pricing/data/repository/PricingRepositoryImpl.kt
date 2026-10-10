@@ -3,8 +3,8 @@ package edu.strathmore.pricing.data.repository
 import android.util.Log
 import edu.strathmore.pricing.data.auth.IAuthTokenProvider
 import edu.strathmore.pricing.data.network.PricingApiService
-import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
+import edu.strathmore.pricing.data.network.dto.PricingQueryDTO
 import edu.strathmore.pricing.domain.IPricingRepository
 import edu.strathmore.pricing.domain.PricingFailure
 import edu.strathmore.pricing.domain.PricingOutcome
@@ -27,7 +27,6 @@ class PricingRepositoryImpl(
     private val authManager: IAuthTokenProvider,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : IPricingRepository {
-
     override suspend fun calculateOptimalRate(query: PricingQueryDTO): PricingOutcome<PredictionResultDTO> =
         withContext(ioDispatcher) {
             try {

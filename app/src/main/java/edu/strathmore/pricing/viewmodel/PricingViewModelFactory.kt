@@ -9,9 +9,11 @@ import edu.strathmore.pricing.domain.IPricingRepository
 class PricingViewModelFactory(
     private val repository: IPricingRepository,
 ) : ViewModelProvider.Factory {
-
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
+    override fun <T : ViewModel> create(
+        modelClass: Class<T>,
+        extras: CreationExtras,
+    ): T {
         require(modelClass.isAssignableFrom(PricingViewModel::class.java)) {
             "Unknown ViewModel class: ${modelClass.name}"
         }

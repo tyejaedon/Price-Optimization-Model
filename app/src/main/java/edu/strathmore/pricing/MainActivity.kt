@@ -10,7 +10,6 @@ import edu.strathmore.pricing.viewmodel.PricingViewModel
 import edu.strathmore.pricing.viewmodel.PricingViewModelFactory
 
 class MainActivity : ComponentActivity() {
-
     private val viewModel by viewModels<PricingViewModel>(
         factoryProducer = {
             PricingViewModelFactory((application as PricingApplication).container.pricingRepository)

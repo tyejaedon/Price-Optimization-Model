@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -39,11 +40,12 @@ fun PricingScreen(viewModel: PricingViewModel) {
 
     Scaffold { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(PricingSpacing.Medium)
-                .verticalScroll(rememberScrollState()),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(PricingSpacing.Medium)
+                    .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
         ) {
             Text(text = "Price your service", style = MaterialTheme.typography.headlineSmall)
@@ -73,10 +75,11 @@ fun PricingScreen(viewModel: PricingViewModel) {
 
             when (state) {
                 is PricingUiState.Loading -> LoadingIndicator()
-                is PricingUiState.Error -> ErrorSection(
-                    message = state.message,
-                    onRetry = viewModel::retryOptimization,
-                )
+                is PricingUiState.Error ->
+                    ErrorSection(
+                        message = state.message,
+                        onRetry = viewModel::retryOptimization,
+                    )
                 is PricingUiState.Success -> PricingResultCard(result = state.result)
                 is PricingUiState.Idle -> Unit
             }
@@ -95,12 +98,13 @@ fun PricingScreen(viewModel: PricingViewModel) {
 @Composable
 private fun LoadingIndicator() {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics {
-                liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
-                contentDescription = "Finding peer-matched rates"
-            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics {
+                    liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+                    contentDescription = "Finding peer-matched rates"
+                },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CircularProgressIndicator()
@@ -109,11 +113,15 @@ private fun LoadingIndicator() {
 }
 
 @Composable
-private fun ErrorSection(message: String, onRetry: () -> Unit) {
+private fun ErrorSection(
+    message: String,
+    onRetry: () -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Assertive },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Assertive },
     ) {
         InlineErrorText(message = message)
         PrimaryActionButton(text = "Try again", onClick = onRetry, contentDescription = "Retry calculation")

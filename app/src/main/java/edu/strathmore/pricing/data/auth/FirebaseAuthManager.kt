@@ -15,10 +15,10 @@ import kotlinx.coroutines.tasks.await
 class FirebaseAuthManager(
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) : IAuthTokenProvider {
-
     override suspend fun getActiveBearerToken(): String {
-        val user = firebaseAuth.currentUser
-            ?: throw IllegalStateException("No authenticated user; sign-in flow is implemented in #75")
+        val user =
+            firebaseAuth.currentUser
+                ?: throw IllegalStateException("No authenticated user; sign-in flow is implemented in #75")
         val result = user.getIdToken(true).await()
         return result.token
             ?: throw IllegalStateException("Firebase returned no ID token")
