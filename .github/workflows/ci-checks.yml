@@ -174,20 +174,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check Android module presence
+        id: module
+        run: |
+          if [ -f app/build.gradle.kts ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo '::notice::Android module not present yet (#74/#76); no Android tests were run.'
+          fi
       - uses: actions/setup-java@v4
+        if: steps.module.outputs.present == 'true'
         with:
           distribution: temurin
           java-version: '17'
-      - name: Require Android module and run local tests
-        run: |
-          if [ ! -f gradlew ] && [ ! -f app/build.gradle.kts ]; then
-            echo '::notice::Android module not present yet (#74/#76); no Android tests were run.'
-            exit 0
-          fi
-          if [ ! -f gradlew ] || [ ! -f app/build.gradle.kts ]; then
-            echo '::error::Incomplete Android module; expected gradlew and app/build.gradle.kts.'
-            exit 1
-          fi
-          chmod +x gradlew
-          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.module.outputs.present == 'true'
+        with:
+          gradle-version: '8.9'
+      # Full Android build/lint/ktlint/test quality gates live in android-ci.yml (issue #141);
+      # this job only keeps a lightweight smoke build on the shared CI Checks workflow.
+      - name: Build and run unit tests via Gradle (no committed wrapper jar required)
+        if: steps.module.outputs.present == 'true'
+        run: gradle :app:assembleDebug :app:testDebugUnitTest --console=plain
 

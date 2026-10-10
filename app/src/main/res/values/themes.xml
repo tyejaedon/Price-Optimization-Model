@@ -1,0 +1,6 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- DayNight base theme bridging the system splash/status bar to the Compose-only PricingTheme
+         (see ui/theme/Theme.kt). No XML layouts are used for screen content (issue #74). -->
+    <style name="Theme.Pricing" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
+
