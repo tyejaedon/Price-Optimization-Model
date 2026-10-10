@@ -65,6 +65,15 @@ android {
     }
 }
 
+// Issue #146: pin the Kotlin compiler's own JVM toolchain to 17 so the Kotlin daemon runs on a JDK
+// that Kotlin 1.9.24 can parse, regardless of which JDK launches Gradle itself (e.g. a newer
+// IDE-bundled JDK such as 25). Gradle auto-provisions/auto-detects a matching JDK (see
+// gradle.properties `org.gradle.java.installations.*`) instead of relying on a machine-specific
+// org.gradle.java.home path, so this works unchanged in CI and on every contributor's machine.
+kotlin {
+    jvmToolchain(17)
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 

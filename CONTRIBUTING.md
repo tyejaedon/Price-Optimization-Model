@@ -39,22 +39,22 @@ Each template collects:
 
 ## Milestone Map
 
-| Milestone | Scope |
-| --- | --- |
-| Milestone 1: Data Ingestion & Macroeconomic Harmonization | Raw data ingestion, macro lookup extraction, currency harmonization |
-| Milestone 2: Semantic NLP & Dimensionality Reduction Pipeline | Text cleaning, TF-IDF, Truncated SVD artifacts |
-| Milestone 3: Bilateral Arbitrage Scaler & Coordinate Fusion | Metadata scaling and 53D coordinate fusion |
-| Milestone 4: Partitioned Spatial Indexing & IDW Regression | KD-Tree partitioning, nearest-neighbor retrieval, IDW prediction |
-| Milestone 5: Localized Financial Margin Protection (M-Pesa) | M-Pesa surcharge rules and domestic margin protection |
-| Milestone 6: Master Pipeline Training, Validation & Auditing | Split strategy, benchmarking, R^2 gate, artifact serialization |
-| Milestone 7: Production ASGI API Service (FastAPI) | DTO schemas, inference endpoint, health checks |
-| Milestone 8: Automated Verification, Latency Profiling & MLOps | Unit tests, performance profiling, operational readiness |
-| Milestone 9: Canonical Blueprint & OOT Model Alignment | Adopt architecture and reconcile offline/online ML and OOT gating |
+| Milestone                                                            | Scope                                                                    |
+|----------------------------------------------------------------------|--------------------------------------------------------------------------|
+| Milestone 1: Data Ingestion & Macroeconomic Harmonization            | Raw data ingestion, macro lookup extraction, currency harmonization      |
+| Milestone 2: Semantic NLP & Dimensionality Reduction Pipeline        | Text cleaning, TF-IDF, Truncated SVD artifacts                           |
+| Milestone 3: Bilateral Arbitrage Scaler & Coordinate Fusion          | Metadata scaling and 53D coordinate fusion                               |
+| Milestone 4: Partitioned Spatial Indexing & IDW Regression           | KD-Tree partitioning, nearest-neighbor retrieval, IDW prediction         |
+| Milestone 5: Localized Financial Margin Protection (M-Pesa)          | M-Pesa surcharge rules and domestic margin protection                    |
+| Milestone 6: Master Pipeline Training, Validation & Auditing         | Split strategy, benchmarking, R^2 gate, artifact serialization           |
+| Milestone 7: Production ASGI API Service (FastAPI)                   | DTO schemas, inference endpoint, health checks                           |
+| Milestone 8: Automated Verification, Latency Profiling & MLOps       | Unit tests, performance profiling, operational readiness                 |
+| Milestone 9: Canonical Blueprint & OOT Model Alignment               | Adopt architecture and reconcile offline/online ML and OOT gating        |
 | Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | Secure canonical route, compatible DTOs, artifact readiness and corridor |
-| Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | Listings, mentor hydration, tariffs and observable audits |
-| Milestone 12: Native Android Shell & Firebase Authentication | Compose UI and Firebase sign-in |
-| Milestone 13: Mobile Integration & Backend Deployment | Retrofit integration, Docker and CI |
-| Milestone 14: Mobile Usability & End-to-End Validation | Protected demo, 3G RTT and SUS |
+| Milestone 11: Firestore Persistence & Asynchronous Pricing Audit     | Listings, mentor hydration, tariffs and observable audits                |
+| Milestone 12: Native Android Shell & Firebase Authentication         | Compose UI and Firebase sign-in                                          |
+| Milestone 13: Mobile Integration & Backend Deployment                | Retrofit integration, Docker and CI                                      |
+| Milestone 14: Mobile Usability & End-to-End Validation               | Protected demo, 3G RTT and SUS                                           |
 
 ---
 
@@ -186,6 +186,20 @@ Examples:
 - `feat(data): add PPP lookup extraction utility`
 - `feat(nlp): add tfidf + svd artifact persistence`
 - `test(api): validate 422 behavior for invalid payloads`
+
+---
+
+## Local Android Build Environment
+
+The `app/` Gradle module's Kotlin toolchain is pinned to JDK 17 (`app/build.gradle.kts`
+`kotlin { jvmToolchain(17) }`), and Gradle is configured to auto-detect/auto-provision a matching
+JDK (`gradle.properties`). However, if your **IDE's configured Gradle JDK** (Settings → Build,
+Execution, Deployment → Build Tools → Gradle → Gradle JDK) is JDK 25 or newer, the Kotlin 1.9.24
+compiler daemon will still crash with `IllegalArgumentException: 25.0.3` because that embedded
+compiler cannot parse newer JDK version strings, and the IDE may fail to resolve the AGP version
+as a result (see issue #146). Set the Gradle JDK to **17 or 21** locally; do not commit a
+machine-specific `org.gradle.java.home` path to `gradle.properties`. After switching, run
+`./gradlew --stop` to clear any stale daemons started under the wrong JDK.
 
 ---
 
