@@ -5,6 +5,19 @@ plugins {
 }
 
 // Target package per issue #74 canonical acceptance and docs/architecture_blueprint (1).md section 2.
+fun buildConfigValue(
+    propertyName: String,
+    environmentName: String,
+): String {
+    val value =
+        providers
+            .gradleProperty(propertyName)
+            .orElse(providers.environmentVariable(environmentName))
+            .orElse("")
+            .get()
+    return value.replace("\\", "\\\\").replace("\"", "\\\"")
+}
+
 android {
     namespace = "edu.strathmore.pricing"
     compileSdk = 34
@@ -23,6 +36,9 @@ android {
         // tested end-to-end; until then the app runs entirely on FakePricingRepository.
         buildConfigField("boolean", "USE_LIVE_BACKEND", "false")
         buildConfigField("String", "PRICING_API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${buildConfigValue("firebaseApiKey", "FIREBASE_API_KEY")}\"")
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${buildConfigValue("firebaseApplicationId", "FIREBASE_APPLICATION_ID")}\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${buildConfigValue("firebaseProjectId", "FIREBASE_PROJECT_ID")}\"")
     }
 
     buildTypes {
@@ -99,9 +115,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // Auth shape for M12.2 (#75): full sign-in/refresh/secure storage flow is implemented there.
+    // Firebase persists and refreshes its own session; the app does not persist ID tokens.
     implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

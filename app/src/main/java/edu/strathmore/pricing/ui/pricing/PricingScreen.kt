@@ -34,7 +34,10 @@ import edu.strathmore.pricing.viewmodel.PricingViewModel
  * #74's canonical Sprint 4 acceptance.
  */
 @Composable
-fun PricingScreen(viewModel: PricingViewModel) {
+fun PricingScreen(
+    viewModel: PricingViewModel,
+    onSignOut: () -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val state = uiState
 
@@ -49,6 +52,7 @@ fun PricingScreen(viewModel: PricingViewModel) {
             verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
         ) {
             Text(text = "Price your service", style = MaterialTheme.typography.headlineSmall)
+            PrimaryActionButton(text = "Sign out", onClick = onSignOut)
             Text(
                 text = "Get a peer-backed KES/hour rate, instantly.",
                 style = MaterialTheme.typography.bodyMedium,

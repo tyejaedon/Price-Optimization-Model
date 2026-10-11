@@ -1,6 +1,7 @@
 package edu.strathmore.pricing.data.repository
 
 import android.util.Log
+import edu.strathmore.pricing.data.auth.AuthSessionException
 import edu.strathmore.pricing.data.auth.IAuthTokenProvider
 import edu.strathmore.pricing.data.network.PricingApiService
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
@@ -38,7 +39,8 @@ class PricingRepositoryImpl(
             } catch (error: IOException) {
                 PricingOutcome.Failure(PricingFailure.Network)
             } catch (error: IllegalStateException) {
-                // Thrown by IAuthTokenProvider when there is no signed-in user / refresh fails.
+                PricingOutcome.Failure(PricingFailure.Unauthorized)
+            } catch (error: AuthSessionException) {
                 PricingOutcome.Failure(PricingFailure.Unauthorized)
             }
         }

@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 class AppContainer(
     private val context: Context,
 ) {
-    private val authManager: IAuthTokenProvider by lazy { FirebaseAuthManager() }
+    val authManager: IAuthTokenProvider by lazy { FirebaseAuthManager.create(context) }
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient

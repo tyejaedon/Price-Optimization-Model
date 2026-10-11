@@ -12,7 +12,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | --- | --- | --- | --- |
 | #74 M12.1 | 12 | Compose MVVM scaffold, `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`, Idle/Loading/Success/Error states | Implemented in this PR; see below |
 | #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Theme/primitives/previews/semantics landed in this PR; automated accessibility-check test and dynamic-color QA remain open follow-up |
-| #75 M12.2 | 12 | Firebase sign-in, encrypted token storage, refresh/logout | Not implemented here; `IAuthTokenProvider`/`FirebaseAuthManager` stub only fixes the shape |
+| #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
 | #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Not implemented here; `PricingApiService`/`PricingRepositoryImpl` fix the shape, gated behind `BuildConfig.USE_LIVE_BACKEND = false` |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
 | #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | `PricingResultCard` implemented in this PR; instrumented Compose UI tests remain open follow-up |
@@ -80,7 +80,7 @@ a first Gradle import if Android Studio has no Gradle JDK configured yet. Fix:
 
 ```
 app/
-├── build.gradle.kts                 # Compose, Retrofit, Firebase Auth (shape only), security-crypto, ktlint
+├── build.gradle.kts                 # Compose, Retrofit, Firebase Auth, ktlint
 └── src/main/java/edu/strathmore/pricing/
     ├── PricingApplication.kt         # Owns the single AppContainer (manual DI)
     ├── MainActivity.kt               # Hosts PricingScreen under PricingTheme
@@ -94,16 +94,29 @@ app/
     └── data/
         ├── network/                  # PricingApiService (Retrofit), dto/ (mirrors src/api_contracts.py canonical DTOs)
         ├── repository/                # PricingRepositoryImpl (live), FakePricingRepository (offline/demo/tests)
-        └── auth/                     # IAuthTokenProvider, FirebaseAuthManager (shape only; real impl is #75)
+        └── auth/                     # IAuthTokenProvider, FirebaseAuthManager
 ```
+
+## Firebase client setup and token lifecycle (#75)
+
+Provide the Firebase client configuration at build time with Gradle properties
+`firebaseApiKey`, `firebaseApplicationId` and `firebaseProjectId` (or environment variables
+`FIREBASE_API_KEY`, `FIREBASE_APPLICATION_ID` and `FIREBASE_PROJECT_ID`). These identify the
+Firebase client project and are not service-account credentials. Do not put an Admin SDK key or
+service-account JSON in the Android app.
+
+The app does not copy Firebase ID or refresh tokens into its own preferences. It asks Firebase Auth
+for a forced ID-token refresh for each protected pricing request and relies on Firebase Auth's
+session lifecycle; sign-out clears that SDK-managed session. `EncryptedSharedPreferences` is
+deprecated in the selected AndroidX Security release line, so this app deliberately avoids adding
+a second credential cache instead of persisting tokens in plaintext or using the deprecated API.
 
 ## Why a fake repository ships by default
 
 `AppContainer.pricingRepository` resolves to `FakePricingRepository` while
 `BuildConfig.USE_LIVE_BACKEND = false`. This lets the app build, run, and demo the full Idle →
 Loading → Success/Error flow and the results dashboard **without** a configured Firebase project or
-a reachable backend — required because #75 and #76 are separate, not-yet-landed issues. Flipping
-`USE_LIVE_BACKEND` to `true` is explicitly scoped to #76 once the authenticated Retrofit path has
+a reachable backend. Flipping `USE_LIVE_BACKEND` to `true` is explicitly scoped to #76 once the authenticated Retrofit path has
 its own mock-server test coverage (401/403/422/503/timeout/cancellation per that issue's acceptance
 criteria).
 
@@ -117,9 +130,9 @@ must be reflected here in the same PR, or the Kotlin client will silently drop o
 ## Verifying this scaffold
 
 Not every contributor environment has an Android SDK or local Gradle distribution pre-installed.
-This scaffold has been verified locally (Gradle 9.3.0, JDK 22 daemon, compileOptions/kotlinOptions
-pinned to JVM target 17): `gradle :app:ktlintCheck`, `:app:assembleDebug`, `:app:lintDebug` and
-`:app:testDebugUnitTest` (6/6 `PricingViewModelTest` cases) all pass, and the same four tasks are
+This scaffold has been verified locally (Gradle 9.3.0, Java/Kotlin compile targets pinned to 17):
+`gradle :app:ktlintCheck`, `:app:assembleDebug`, `:app:lintDebug` and `:app:testDebugUnitTest`
+(9 offline tests: six pricing ViewModel cases and three auth lifecycle cases) all pass, and the same four tasks are
 enforced on every PR by `.github/workflows/android-ci.yml`. If your environment lacks Gradle/the
 Android SDK, verify with one of:
 
@@ -134,6 +147,4 @@ Android SDK, verify with one of:
   48dp touch targets are in place so far.
 - #142: `PricingResultCard` success/empty-comparables/error rendering is only covered indirectly via
   `PricingViewModelTest`; dedicated Compose UI tests (`createComposeRule`) are still open.
-- #75/#76: `FirebaseAuthManager` and `PricingRepositoryImpl` compile against the class-diagram shape
-  but are not wired as the default path and have no live-service test coverage yet.
-
+- #76: the authenticated live network path remains opt-in until its mock-server coverage is added.
