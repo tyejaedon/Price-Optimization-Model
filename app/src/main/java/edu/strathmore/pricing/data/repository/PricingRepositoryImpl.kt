@@ -16,12 +16,8 @@ import retrofit2.HttpException
 import java.io.IOException
 
 /**
- * Matches the class diagram's `PricingRepositoryImpl`. Networking is dispatched on [ioDispatcher]
- * (never the main thread), per docs/architecture_blueprint (1).md section 7's coroutines rule.
- *
- * Full timeout tuning, request/response interceptor logging redaction and the broader HTTP error
- * taxonomy are owned by issue #76 (M13.1); this class defines the stable success/failure mapping
- * other layers (ViewModel, UI) are already built against.
+ * Uses the canonical protected API without leaking ID tokens or request/response content into logs.
+ * All Retrofit calls run on [ioDispatcher] and cancellations are allowed to propagate.
  */
 class PricingRepositoryImpl(
     private val apiService: PricingApiService,
@@ -38,18 +34,16 @@ class PricingRepositoryImpl(
                 PricingOutcome.Failure(handleApiError(error))
             } catch (error: IOException) {
                 PricingOutcome.Failure(PricingFailure.Network)
-            } catch (error: IllegalStateException) {
-                PricingOutcome.Failure(PricingFailure.Unauthorized)
             } catch (error: AuthSessionException) {
                 PricingOutcome.Failure(PricingFailure.Unauthorized)
             }
         }
 
     private fun handleApiError(error: HttpException): PricingFailure {
-        // Never log the raw request/response body: it may contain mentor description text.
         Log.w(TAG, "Pricing request failed with HTTP ${error.code()}")
         return when (error.code()) {
-            401, 403 -> PricingFailure.Unauthorized
+            401 -> PricingFailure.Unauthorized
+            403 -> PricingFailure.Forbidden
             422 -> PricingFailure.Validation(field = "request", detail = "Check your inputs and try again.")
             503 -> PricingFailure.ServiceUnavailable
             else -> PricingFailure.Unknown("Unexpected server error (${error.code()}).")

@@ -37,6 +37,7 @@ import edu.strathmore.pricing.viewmodel.PricingViewModel
 fun PricingScreen(
     viewModel: PricingViewModel,
     onSignOut: () -> Unit = {},
+    demoMode: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val state = uiState
@@ -52,7 +53,15 @@ fun PricingScreen(
             verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
         ) {
             Text(text = "Price your service", style = MaterialTheme.typography.headlineSmall)
-            PrimaryActionButton(text = "Sign out", onClick = onSignOut)
+            if (demoMode) {
+                Text(
+                    text = "Demo mode: sample quote only; no live backend request is sent.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (!demoMode) {
+                PrimaryActionButton(text = "Sign out", onClick = onSignOut)
+            }
             Text(
                 text = "Get a peer-backed KES/hour rate, instantly.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -62,12 +71,16 @@ fun PricingScreen(
             CapabilityInputForm(
                 rawDescription = form.rawDescription,
                 onDescriptionChanged = viewModel::onDescriptionChanged,
+                mentorId = form.mentorId,
+                onMentorIdChanged = viewModel::onMentorIdChanged,
                 selectedIndustry = form.selectedIndustry,
                 onIndustrySelected = viewModel::onIndustrySelected,
                 mentorCountry = form.mentorCountry,
                 onMentorCountryChanged = viewModel::onMentorCountrySelected,
                 clientCountry = form.clientCountry,
                 onClientCountryChanged = viewModel::onClientCountrySelected,
+                baseRateFloor = form.baseRateFloor,
+                onBaseRateFloorChanged = viewModel::onBaseRateFloorChanged,
             )
 
             SaturationSlider(

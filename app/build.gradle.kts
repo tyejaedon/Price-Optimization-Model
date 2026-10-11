@@ -32,10 +32,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
-        // Flipped on by issue #76 (M13.1) once the authenticated Retrofit path is implemented and
-        // tested end-to-end; until then the app runs entirely on FakePricingRepository.
-        buildConfigField("boolean", "USE_LIVE_BACKEND", "false")
-        buildConfigField("String", "PRICING_API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+        val liveBackendValue =
+            providers
+                .gradleProperty("useLiveBackend")
+                .orElse("false")
+                .get()
+        require(liveBackendValue == "true" || liveBackendValue == "false") {
+            "useLiveBackend must be either true or false."
+        }
+        buildConfigField("boolean", "USE_LIVE_BACKEND", liveBackendValue)
+        val pricingApiBaseUrl =
+            buildConfigValue("pricingApiBaseUrl", "PRICING_API_BASE_URL")
+                .ifBlank { "http://10.0.2.2:8000/" }
+        require(pricingApiBaseUrl.endsWith("/")) {
+            "pricingApiBaseUrl must end with a slash."
+        }
+        buildConfigField(
+            "String",
+            "PRICING_API_BASE_URL",
+            "\"$pricingApiBaseUrl\"",
+        )
         buildConfigField("String", "FIREBASE_API_KEY", "\"${buildConfigValue("firebaseApiKey", "FIREBASE_API_KEY")}\"")
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${buildConfigValue("firebaseApplicationId", "FIREBASE_APPLICATION_ID")}\"")
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${buildConfigValue("firebaseProjectId", "FIREBASE_PROJECT_ID")}\"")
@@ -109,7 +125,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Networking for M13.1 (#76): Retrofit client wiring lives behind IPricingRepository.
+    // Networking for M13.1 (#76): Retrofit is exercised with MockWebServer in repository tests.
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -125,6 +141,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("app.cash.turbine:turbine:1.1.0")
     testImplementation("com.google.truth:truth:1.4.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

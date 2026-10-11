@@ -14,7 +14,7 @@ sealed interface PricingOutcome<out T> {
     ) : PricingOutcome<Nothing>
 }
 
-/** Explicit, user-presentable failure categories (extended with HTTP mapping in #76). */
+/** Explicit, user-presentable failure categories for backend and authentication errors. */
 sealed class PricingFailure(
     val message: String,
 ) {
@@ -24,6 +24,8 @@ sealed class PricingFailure(
     ) : PricingFailure(detail)
 
     data object Unauthorized : PricingFailure("Your session expired. Please sign in again.")
+
+    data object Forbidden : PricingFailure("Your account is not authorized for this mentor profile.")
 
     data object Network : PricingFailure("No connection. Check your network and try again.")
 

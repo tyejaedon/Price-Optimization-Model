@@ -13,7 +13,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | #74 M12.1 | 12 | Compose MVVM scaffold, `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`, Idle/Loading/Success/Error states | Implemented in this PR; see below |
 | #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Theme/primitives/previews/semantics landed in this PR; automated accessibility-check test and dynamic-color QA remain open follow-up |
 | #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
-| #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Not implemented here; `PricingApiService`/`PricingRepositoryImpl` fix the shape, gated behind `BuildConfig.USE_LIVE_BACKEND = false` |
+| #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Implemented with opt-in live mode, refreshed bearer tokens and MockWebServer coverage |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
 | #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | `PricingResultCard` implemented in this PR; instrumented Compose UI tests remain open follow-up |
 | #144 M12.1.4 | 12 | Shared Android Studio run/debug configuration for `app` | Implemented in this PR; `.idea/runConfigurations/` committed, see "IDE caveat" below |
@@ -111,14 +111,31 @@ session lifecycle; sign-out clears that SDK-managed session. `EncryptedSharedPre
 deprecated in the selected AndroidX Security release line, so this app deliberately avoids adding
 a second credential cache instead of persisting tokens in plaintext or using the deprecated API.
 
+## Protected pricing API (#76)
+
+The client posts the canonical DTO to `POST /api/v1/optimize-price` and parses the response fields
+used by the pricing dashboard. Every request obtains a fresh Firebase ID token, sends it only in
+the `Authorization: Bearer` header, and runs on `Dispatchers.IO`. The OkHttp client uses bounded
+connect/read/write/call timeouts; errors map to sign-in required (401), mentor authorization (403),
+input correction (422), temporary service unavailability (503), network/timeout, or an explicit
+unexpected-server error. Cancellation is propagated. HTTP logs contain neither tokens nor bodies.
+
+Build with `-PuseLiveBackend=true` to select Retrofit instead of the fake repository. Override the
+endpoint with `-PpricingApiBaseUrl=https://<test-host>/` or `PRICING_API_BASE_URL`; the URL must end
+in `/`. The Android emulator's default `http://10.0.2.2:8000/` is permitted only in debug builds.
+Production builds must use HTTPS. The mentor profile document ID is entered separately because it
+is not assumed to equal the Firebase UID; the server performs the ownership check.
+
 ## Why a fake repository ships by default
 
 `AppContainer.pricingRepository` resolves to `FakePricingRepository` while
 `BuildConfig.USE_LIVE_BACKEND = false`. This lets the app build, run, and demo the full Idle →
-Loading → Success/Error flow and the results dashboard **without** a configured Firebase project or
-a reachable backend. Flipping `USE_LIVE_BACKEND` to `true` is explicitly scoped to #76 once the authenticated Retrofit path has
-its own mock-server test coverage (401/403/422/503/timeout/cancellation per that issue's acceptance
-criteria).
+Loading → Success/Error flow and the results dashboard without Firebase or a reachable backend.
+For a local emulator-backed API, build with `-PuseLiveBackend=true`; the default URL is
+`http://10.0.2.2:8000/`. Set `-PpricingApiBaseUrl=https://<test-api>/` for a protected test service.
+The cleartext exception exists only in the debug manifest. Supply the Firebase client properties
+described above. The app asks for the mentor profile document ID separately from the Firebase
+account; the backend authorizes ownership and does not assume the IDs are equal.
 
 ## DTO parity contract
 
@@ -132,7 +149,7 @@ must be reflected here in the same PR, or the Kotlin client will silently drop o
 Not every contributor environment has an Android SDK or local Gradle distribution pre-installed.
 This scaffold has been verified locally (Gradle 9.3.0, Java/Kotlin compile targets pinned to 17):
 `gradle :app:ktlintCheck`, `:app:assembleDebug`, `:app:lintDebug` and `:app:testDebugUnitTest`
-(9 offline tests: six pricing ViewModel cases and three auth lifecycle cases) all pass, and the same four tasks are
+(19 offline tests: seven pricing ViewModel, three auth lifecycle and nine API integration cases) all pass, and the same four tasks are
 enforced on every PR by `.github/workflows/android-ci.yml`. If your environment lacks Gradle/the
 Android SDK, verify with one of:
 
@@ -147,4 +164,4 @@ Android SDK, verify with one of:
   48dp touch targets are in place so far.
 - #142: `PricingResultCard` success/empty-comparables/error rendering is only covered indirectly via
   `PricingViewModelTest`; dedicated Compose UI tests (`createComposeRule`) are still open.
-- #76: the authenticated live network path remains opt-in until its mock-server coverage is added.
+- #76: live use still requires a reachable protected API and externally configured Firebase client.

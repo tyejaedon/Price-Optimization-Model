@@ -9,6 +9,7 @@ import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
  */
 data class PricingFormState(
     val rawDescription: String = "",
+    val mentorId: String = "",
     val selectedIndustry: String = "",
     val mentorCountry: String = "",
     val clientCountry: String = "",
@@ -17,10 +18,27 @@ data class PricingFormState(
     val validationError: String? = null,
 ) {
     fun isFormValid(): Boolean =
-        rawDescription.trim().length >= 20 &&
+        rawDescription.trim().length in 20..2000 &&
+            mentorId.isNotBlank() &&
             selectedIndustry.isNotBlank() &&
-            mentorCountry.length == 2 &&
-            clientCountry.length == 2
+            ISO_2_COUNTRY_CODE
+                .matches(mentorCountry) &&
+            ISO_2_COUNTRY_CODE
+                .matches(clientCountry) &&
+            isBaseRateFloorValid()
+
+    private fun isBaseRateFloorValid(): Boolean {
+        if (baseRateFloor.isBlank()) return true
+        val floor = baseRateFloor.toFloatOrNull() ?: return false
+        return floor.isFinite() && floor >= 0f
+    }
+
+    private companion object {
+        val ISO_2_COUNTRY_CODE =
+            Regex(
+                "[A-Za-z]{2}",
+            )
+    }
 }
 
 sealed interface PricingUiState {

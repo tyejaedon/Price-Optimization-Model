@@ -32,8 +32,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             PricingTheme {
                 val authState by authViewModel.uiState.collectAsStateWithLifecycle()
-                when (authState) {
-                    is AuthUiState.SignedIn ->
+                when {
+                    !BuildConfig.USE_LIVE_BACKEND -> PricingScreen(viewModel = viewModel, demoMode = true)
+                    authState is AuthUiState.SignedIn ->
                         PricingScreen(viewModel = viewModel, onSignOut = authViewModel::signOut)
                     else -> AuthenticationScreen(viewModel = authViewModel)
                 }
