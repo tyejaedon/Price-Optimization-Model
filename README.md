@@ -110,11 +110,16 @@ Online density is the median training value for the selected partition, not the 
 
 Requires Python 3.11+, raw input datasets under `data/raw/` for ingestion, and the dependencies in `requirements.txt`. Datasets, generated artifacts and service credentials must remain outside version control.
 
+If a fresh machine is missing the large Upwork jobs CSV, you can bootstrap the ignored local copy from Kaggle. The downloader uses `kagglehub` and writes the selected CSV to the exact path expected by `src.ingest_multisource`: `data/raw/upwork-jobs.csv/upwork-jobs.csv`.
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
+
+# Requires Kaggle credentials configured for kagglehub.
+python .\scripts\download_upwork_jobs_dataset.py
 
 python -m src.ingest_multisource --mode macro_lookup --output data/processed/macro_lookup_table.json
 python -m src.ingest_multisource --mode harmonize_parquet --macro-lookup data/processed/macro_lookup_table.json --output data/processed/harmonized_marketplace_corpus.parquet
@@ -122,6 +127,8 @@ python -m src.train_pipeline --mode evaluate --harmonized-parquet data/processed
 $env:PRICING_ARTIFACT_MANIFEST_SHA256 = (Get-FileHash .\artifacts\artifact_manifest.json -Algorithm SHA256).Hash.ToLowerInvariant()  # local export only
 uvicorn src.serve:app --host 127.0.0.1 --port 8000
 ```
+
+If the file already exists locally, rerun with `--force` to replace it, or `--dry-run` to preview the selected Kaggle CSV without copying it.
 
 The training command above disables historical stratified R² and baseline promotion checks for **local exploratory export only**; its proxy job-budget/profile-rate metrics do not validate real mentor earnings. The local hash command is appropriate only for an export you just built yourself; **never** auto-pin a downloaded/untrusted bundle. Old artifacts require retraining/re-exporting, not an on-the-fly manifest generated around unknown joblib. Verified mentor transaction acquisition and empirical OOT/R2 gating are deferred, not prerequisites for the CS-focused API, security, artifact-parity and Android work (see [issue #91 audit](docs/Label_Provenance_Audit_91.md)). Continue software correctness and security tests. Use `/docs` for the current request schema and `/health` for model readiness. Android build/run instructions will be added when the client exists (#74-#76).
 

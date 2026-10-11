@@ -1,0 +1,165 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-09-17T09:32:36.970677+00:00",
+    "indicator_series_code": "PA.NUS.PPP",
+    "mpesa_tariffs": {
+      "source_file": "tarrifs.csv",
+      "summary": {
+        "category_count": 7,
+        "consumer_transfer_band_count": 15,
+        "max_fee_kes": 309.0,
+        "row_count": 96,
+        "transaction_type_count": 8
+      }
+    },
+    "raw_data_dir": "C:\\Users\\Tyeja\\PycharmProjects\\Price-Optimization-Model\\data\\raw",
+    "target_economies": [
+      "KE",
+      "UG",
+      "TZ",
+      "RW",
+      "US",
+      "GB",
+      "DE",
+      "CA",
+      "IN"
+    ]
+  },
+  "records": {
+    "CA": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 64.8,
+      "country_iso2": "CA",
+      "country_iso3": "CAN",
+      "country_name": "Canada",
+      "local_purchasing_power_index": 103.7,
+      "ppp_lcu_per_intl_dollar": 1.166683,
+      "ppp_reference_year": 2025,
+      "rent_index": 33.2,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "DE": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 62.2,
+      "country_iso2": "DE",
+      "country_iso3": "DEU",
+      "country_name": "Germany",
+      "local_purchasing_power_index": 120.2,
+      "ppp_lcu_per_intl_dollar": 0.709983,
+      "ppp_reference_year": 2025,
+      "rent_index": 24.4,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "GB": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 62.0,
+      "country_iso2": "GB",
+      "country_iso3": "GBR",
+      "country_name": "United Kingdom",
+      "local_purchasing_power_index": 115.2,
+      "ppp_lcu_per_intl_dollar": 0.677133,
+      "ppp_reference_year": 2025,
+      "rent_index": 31.1,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "IN": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 21.2,
+      "country_iso2": "IN",
+      "country_iso3": "IND",
+      "country_name": "India",
+      "local_purchasing_power_index": 82.6,
+      "ppp_lcu_per_intl_dollar": 20.0886288014602,
+      "ppp_reference_year": 2025,
+      "rent_index": 5.6,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "KE": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 30.2,
+      "country_iso2": "KE",
+      "country_iso3": "KEN",
+      "country_name": "Kenya",
+      "local_purchasing_power_index": 34.2,
+      "ppp_lcu_per_intl_dollar": 43.5471478663385,
+      "ppp_reference_year": 2025,
+      "rent_index": 8.5,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "RW": {
+      "cost_index_fallback_used": true,
+      "cost_of_living_index": 29.1,
+      "country_iso2": "RW",
+      "country_iso3": "RWA",
+      "country_name": "Rwanda",
+      "local_purchasing_power_index": 0.0,
+      "ppp_lcu_per_intl_dollar": 385.463038224109,
+      "ppp_reference_year": 2025,
+      "rent_index": 0.0,
+      "sources": {
+        "cost_of_living": "fallback_seed",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "TZ": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 23.8,
+      "country_iso2": "TZ",
+      "country_iso3": "TZA",
+      "country_name": "Tanzania",
+      "local_purchasing_power_index": 25.9,
+      "ppp_lcu_per_intl_dollar": 749.533488393139,
+      "ppp_reference_year": 2025,
+      "rent_index": 8.4,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "UG": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 29.1,
+      "country_iso2": "UG",
+      "country_iso3": "UGA",
+      "country_name": "Uganda",
+      "local_purchasing_power_index": 17.8,
+      "ppp_lcu_per_intl_dollar": 1271.51526728309,
+      "ppp_reference_year": 2025,
+      "rent_index": 7.7,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    },
+    "US": {
+      "cost_index_fallback_used": false,
+      "cost_of_living_index": 70.4,
+      "country_iso2": "US",
+      "country_iso3": "USA",
+      "country_name": "United States",
+      "local_purchasing_power_index": 142.3,
+      "ppp_lcu_per_intl_dollar": 1.0,
+      "ppp_reference_year": 2025,
+      "rent_index": 41.7,
+      "sources": {
+        "cost_of_living": "Cost_of_Living_Index_by_Country_2024.csv",
+        "ppp": "World_Data.csv"
+      }
+    }
+  }
+}

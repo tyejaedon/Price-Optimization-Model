@@ -1,0 +1,825 @@
+{
+  "dataset_sha256": "da5432eec261e8b8aff66d046f276562a75d24b2106d61a9c189571e8725a5ca",
+  "dataset_version": "local-proxy-job-budgets-2026-10-05",
+  "feature_fit_scope": "training rows only; fixed 50D text plus three scaled metadata",
+  "final_test_policy": "selection_frozen.json written before test transforms and outcomes are evaluated",
+  "issue": 93,
+  "label_units": "raw proxy KES/hour; NOT verified mentor transaction prices",
+  "latency_scope": "warmed local NLP + metadata + IDW only; not full authenticated API (#70)",
+  "macro_lookup_sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901",
+  "memory_scope": "tracemalloc peak Python allocations during candidate fit, not process RSS",
+  "protocol": {
+    "description_groups_purged": true,
+    "disjoint_record_ids": true,
+    "excluded_cross_split_or_repeated_descriptions": {
+      "test": 3,
+      "train": 16,
+      "validation": 2
+    },
+    "excluded_invalid_or_out_of_bounds_post_arbitrage": 6049,
+    "excluded_other_sources": 130,
+    "input_rows": 22677,
+    "population": "dated upwork_jobs posted budgets, not verified mentor transactions",
+    "rate_bounds_kes_per_hour": [
+      500.0,
+      35000.0
+    ],
+    "split_policy": "strict chronological train <= validation_cutoff < validation <= test_cutoff < test",
+    "split_rows": {
+      "test": 3390,
+      "train": 10703,
+      "validation": 2384
+    },
+    "test_cutoff_utc": "2024-02-22T00:00:00+00:00",
+    "test_start_utc": "2024-02-22T01:51:34+00:00",
+    "train_end_utc": "2024-02-19T23:59:44+00:00",
+    "validation_cutoff_utc": "2024-02-20T00:00:00+00:00",
+    "validation_end_utc": "2024-02-21T02:12:50+00:00",
+    "validation_start_utc": "2024-02-20T00:00:43+00:00"
+  },
+  "quality_gate": "not evaluated: #81 empirical mentor-pricing gate is deferred; proxy scores are not approval",
+  "results": [
+    {
+      "name": "category_mean",
+      "promotion_status": "comparator_only",
+      "test": {
+        "mae": 9063.474097,
+        "median_absolute_error": 8398.937872,
+        "r2": 0.000926,
+        "rmse": 10403.767651,
+        "smape_percent": 90.44193
+      },
+      "test_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 8823.202601,
+          "median_absolute_error": 8303.114321,
+          "r2": -0.003295,
+          "rmse": 10005.740215,
+          "rows": 386,
+          "smape_percent": 89.167428
+        },
+        {
+          "industry": "design_creative",
+          "mae": 9205.014813,
+          "median_absolute_error": 8720.975,
+          "r2": -0.000415,
+          "rmse": 10513.169331,
+          "rows": 1502,
+          "smape_percent": 88.747155
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 8939.601865,
+          "median_absolute_error": 7630.161411,
+          "r2": -0.060532,
+          "rmse": 10902.957059,
+          "rows": 62,
+          "smape_percent": 76.13048
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 7588.612156,
+          "median_absolute_error": 7458.035,
+          "r2": -9.6e-05,
+          "rmse": 9184.483447,
+          "rows": 180,
+          "smape_percent": 85.268159
+        },
+        {
+          "industry": "general_tech",
+          "mae": 8504.270777,
+          "median_absolute_error": 7306.970126,
+          "r2": -7e-06,
+          "rmse": 10159.422922,
+          "rows": 354,
+          "smape_percent": 92.073591
+        },
+        {
+          "industry": "mobile",
+          "mae": 8982.371114,
+          "median_absolute_error": 8945.31163,
+          "r2": -0.095425,
+          "rmse": 9820.4683,
+          "rows": 112,
+          "smape_percent": 101.683945
+        },
+        {
+          "industry": "product_management",
+          "mae": 7802.829896,
+          "median_absolute_error": 7486.113091,
+          "r2": -0.040339,
+          "rmse": 9214.848868,
+          "rows": 14,
+          "smape_percent": 90.556523
+        },
+        {
+          "industry": "web_backend",
+          "mae": 9548.084862,
+          "median_absolute_error": 8471.49671,
+          "r2": -0.001139,
+          "rmse": 10812.540776,
+          "rows": 780,
+          "smape_percent": 94.31088
+        }
+      ],
+      "validation": {
+        "mae": 9386.097307,
+        "median_absolute_error": 8606.970126,
+        "r2": 0.00307,
+        "rmse": 10757.774925,
+        "smape_percent": 92.768848
+      },
+      "validation_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 9418.769749,
+          "median_absolute_error": 8498.114321,
+          "r2": -0.001713,
+          "rmse": 10789.752478,
+          "rows": 261,
+          "smape_percent": 93.849219
+        },
+        {
+          "industry": "design_creative",
+          "mae": 9475.272827,
+          "median_absolute_error": 9006.257872,
+          "r2": -0.000391,
+          "rmse": 10822.306798,
+          "rows": 1046,
+          "smape_percent": 91.71934
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 8360.247882,
+          "median_absolute_error": 7109.421411,
+          "r2": -0.000338,
+          "rmse": 10308.649038,
+          "rows": 50,
+          "smape_percent": 81.91463
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 8238.53899,
+          "median_absolute_error": 7597.476446,
+          "r2": -1.4e-05,
+          "rmse": 9715.653522,
+          "rows": 119,
+          "smape_percent": 91.317754
+        },
+        {
+          "industry": "general_tech",
+          "mae": 8579.15343,
+          "median_absolute_error": 7241.970126,
+          "r2": -0.000618,
+          "rmse": 10005.50464,
+          "rows": 248,
+          "smape_percent": 94.660859
+        },
+        {
+          "industry": "mobile",
+          "mae": 10009.083568,
+          "median_absolute_error": 9413.60163,
+          "r2": -0.000824,
+          "rmse": 11167.750635,
+          "rows": 82,
+          "smape_percent": 96.648585
+        },
+        {
+          "industry": "product_management",
+          "mae": 8308.961798,
+          "median_absolute_error": 7788.093091,
+          "r2": -0.000278,
+          "rmse": 10046.203558,
+          "rows": 18,
+          "smape_percent": 92.334575
+        },
+        {
+          "industry": "web_backend",
+          "mae": 9840.512409,
+          "median_absolute_error": 8796.49671,
+          "r2": -0.000451,
+          "rmse": 11147.325697,
+          "rows": 560,
+          "smape_percent": 94.111096
+        }
+      ]
+    },
+    {
+      "artifact_bytes": 10427157,
+      "name": "baseline_53d",
+      "outcome": "rejected_by_validation_or_replay; not promoted",
+      "promotion_status": "research_only_not_promoted",
+      "reload_prediction_parity": true,
+      "request_coordinate_parity": true,
+      "request_parity_samples": 25,
+      "research_artifacts": "report subdirectory only; no production manifest or promotion",
+      "settings": {
+        "fitted_text_dimensions": 50,
+        "idw_epsilon": 1e-06,
+        "k_neighbors": 5,
+        "max_features": 12000,
+        "metadata_weight": 1.0,
+        "min_df": 1,
+        "ngram_range": [
+          1,
+          2
+        ],
+        "normalize_output": false,
+        "requested_text_dimensions": 50,
+        "text_weight": 1.0
+      },
+      "test": {
+        "mae": 3846.621628,
+        "median_absolute_error": 1972.045,
+        "r2": 0.678648,
+        "rmse": 5900.408981,
+        "smape_percent": 41.584609
+      },
+      "test_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3734.435233,
+          "median_absolute_error": 1967.28,
+          "r2": 0.693378,
+          "rmse": 5531.419791,
+          "rows": 386,
+          "smape_percent": 40.845079
+        },
+        {
+          "industry": "design_creative",
+          "mae": 3998.226937,
+          "median_absolute_error": 2068.185,
+          "r2": 0.653787,
+          "rmse": 6184.651942,
+          "rows": 1502,
+          "smape_percent": 41.246635
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 6178.254032,
+          "median_absolute_error": 4931.84,
+          "r2": 0.437915,
+          "rmse": 7937.497909,
+          "rows": 62,
+          "smape_percent": 53.086973
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 3979.391222,
+          "median_absolute_error": 1968.505,
+          "r2": 0.552021,
+          "rmse": 6146.995935,
+          "rows": 180,
+          "smape_percent": 46.7576
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3335.419972,
+          "median_absolute_error": 1703.04,
+          "r2": 0.740152,
+          "rmse": 5178.782704,
+          "rows": 354,
+          "smape_percent": 39.435799
+        },
+        {
+          "industry": "mobile",
+          "mae": 2760.724196,
+          "median_absolute_error": 1775.385,
+          "r2": 0.80115,
+          "rmse": 4184.116576,
+          "rows": 112,
+          "smape_percent": 41.915992
+        },
+        {
+          "industry": "product_management",
+          "mae": 4248.527143,
+          "median_absolute_error": 2321.985,
+          "r2": 0.53173,
+          "rmse": 6182.285569,
+          "rows": 14,
+          "smape_percent": 48.449449
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3774.945038,
+          "median_absolute_error": 1873.155,
+          "r2": 0.713868,
+          "rmse": 5780.481195,
+          "rows": 780,
+          "smape_percent": 41.29777
+        }
+      ],
+      "training_python_peak_bytes": 238622132,
+      "validation": {
+        "mae": 3664.677102,
+        "median_absolute_error": 1956.955,
+        "r2": 0.729001,
+        "rmse": 5608.848092,
+        "smape_percent": 40.735029
+      },
+      "validation_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3679.808123,
+          "median_absolute_error": 2075.12,
+          "r2": 0.744963,
+          "rmse": 5444.293887,
+          "rows": 261,
+          "smape_percent": 44.249345
+        },
+        {
+          "industry": "design_creative",
+          "mae": 3651.896721,
+          "median_absolute_error": 1985.635,
+          "r2": 0.733692,
+          "rmse": 5583.759248,
+          "rows": 1046,
+          "smape_percent": 40.673841
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 4833.1914,
+          "median_absolute_error": 3321.97,
+          "r2": 0.567881,
+          "rmse": 6775.324868,
+          "rows": 50,
+          "smape_percent": 51.38604
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 3857.318403,
+          "median_absolute_error": 1779.1,
+          "r2": 0.571454,
+          "rmse": 6360.154862,
+          "rows": 119,
+          "smape_percent": 42.090885
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3418.335605,
+          "median_absolute_error": 1625.45,
+          "r2": 0.70361,
+          "rmse": 5445.485432,
+          "rows": 248,
+          "smape_percent": 41.572225
+        },
+        {
+          "industry": "mobile",
+          "mae": 3689.547195,
+          "median_absolute_error": 2535.125,
+          "r2": 0.766155,
+          "rmse": 5398.227096,
+          "rows": 82,
+          "smape_percent": 42.648581
+        },
+        {
+          "industry": "product_management",
+          "mae": 5396.174444,
+          "median_absolute_error": 4074.58,
+          "r2": 0.541063,
+          "rmse": 6804.847225,
+          "rows": 18,
+          "smape_percent": 70.046681
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3586.026107,
+          "median_absolute_error": 1727.15,
+          "r2": 0.756111,
+          "rmse": 5503.880321,
+          "rows": 560,
+          "smape_percent": 36.379176
+        }
+      ],
+      "validation_vs_53d_baseline": {
+        "delta_r2": 0.0,
+        "delta_rmse_kes": 0.0
+      },
+      "warmed_query_p95_ms": 16.8473,
+      "warmed_query_samples": 25
+    },
+    {
+      "artifact_bytes": 10371757,
+      "name": "unigram_53d",
+      "outcome": "rejected_by_validation_or_replay; not promoted",
+      "promotion_status": "research_only_not_promoted",
+      "reload_prediction_parity": true,
+      "request_coordinate_parity": true,
+      "request_parity_samples": 25,
+      "research_artifacts": "report subdirectory only; no production manifest or promotion",
+      "settings": {
+        "fitted_text_dimensions": 50,
+        "idw_epsilon": 1e-06,
+        "k_neighbors": 5,
+        "max_features": 12000,
+        "metadata_weight": 1.0,
+        "min_df": 1,
+        "ngram_range": [
+          1,
+          1
+        ],
+        "normalize_output": false,
+        "requested_text_dimensions": 50,
+        "text_weight": 1.0
+      },
+      "training_python_peak_bytes": 57595420,
+      "validation": {
+        "mae": 3686.438846,
+        "median_absolute_error": 1931.815,
+        "r2": 0.728481,
+        "rmse": 5614.234399,
+        "smape_percent": 40.860678
+      },
+      "validation_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3787.749004,
+          "median_absolute_error": 2121.23,
+          "r2": 0.737211,
+          "rmse": 5526.41636,
+          "rows": 261,
+          "smape_percent": 45.173402
+        },
+        {
+          "industry": "design_creative",
+          "mae": 3784.873576,
+          "median_absolute_error": 2061.38,
+          "r2": 0.718303,
+          "rmse": 5742.831143,
+          "rows": 1046,
+          "smape_percent": 41.344506
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 4327.906,
+          "median_absolute_error": 2740.215,
+          "r2": 0.642098,
+          "rmse": 6166.100235,
+          "rows": 50,
+          "smape_percent": 44.901299
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 3821.185882,
+          "median_absolute_error": 1863.29,
+          "r2": 0.584019,
+          "rmse": 6266.223773,
+          "rows": 119,
+          "smape_percent": 43.463057
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3236.259758,
+          "median_absolute_error": 1587.855,
+          "r2": 0.730104,
+          "rmse": 5196.401291,
+          "rows": 248,
+          "smape_percent": 39.895334
+        },
+        {
+          "industry": "mobile",
+          "mae": 3738.55939,
+          "median_absolute_error": 2657.29,
+          "r2": 0.778335,
+          "rmse": 5255.758862,
+          "rows": 82,
+          "smape_percent": 43.521798
+        },
+        {
+          "industry": "product_management",
+          "mae": 5327.698889,
+          "median_absolute_error": 4005.11,
+          "r2": 0.531786,
+          "rmse": 6873.279852,
+          "rows": 18,
+          "smape_percent": 67.589754
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3508.429768,
+          "median_absolute_error": 1634.62,
+          "r2": 0.76582,
+          "rmse": 5393.216711,
+          "rows": 560,
+          "smape_percent": 36.211838
+        }
+      ],
+      "validation_vs_53d_baseline": {
+        "delta_r2": -0.00052,
+        "delta_rmse_kes": 5.386307
+      },
+      "warmed_query_p95_ms": 20.2989,
+      "warmed_query_samples": 25
+    },
+    {
+      "artifact_bytes": 10427156,
+      "name": "normalized_text_53d",
+      "outcome": "rejected_by_validation_or_replay; not promoted",
+      "promotion_status": "research_only_not_promoted",
+      "reload_prediction_parity": true,
+      "request_coordinate_parity": true,
+      "request_parity_samples": 25,
+      "research_artifacts": "report subdirectory only; no production manifest or promotion",
+      "settings": {
+        "fitted_text_dimensions": 50,
+        "idw_epsilon": 1e-06,
+        "k_neighbors": 5,
+        "max_features": 12000,
+        "metadata_weight": 1.0,
+        "min_df": 1,
+        "ngram_range": [
+          1,
+          2
+        ],
+        "normalize_output": true,
+        "requested_text_dimensions": 50,
+        "text_weight": 1.0
+      },
+      "training_python_peak_bytes": 156324770,
+      "validation": {
+        "mae": 3680.791879,
+        "median_absolute_error": 1969.33,
+        "r2": 0.726509,
+        "rmse": 5634.585547,
+        "smape_percent": 40.802915
+      },
+      "validation_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3594.058123,
+          "median_absolute_error": 1948.2,
+          "r2": 0.74803,
+          "rmse": 5411.455099,
+          "rows": 261,
+          "smape_percent": 43.084138
+        },
+        {
+          "industry": "design_creative",
+          "mae": 3676.81108,
+          "median_absolute_error": 1988.695,
+          "r2": 0.726401,
+          "rmse": 5659.686084,
+          "rows": 1046,
+          "smape_percent": 40.483489
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 4230.2254,
+          "median_absolute_error": 2745.94,
+          "r2": 0.645486,
+          "rmse": 6136.841185,
+          "rows": 50,
+          "smape_percent": 46.697263
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 3772.443866,
+          "median_absolute_error": 1859.46,
+          "r2": 0.582119,
+          "rmse": 6280.518136,
+          "rows": 119,
+          "smape_percent": 42.996868
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3289.282782,
+          "median_absolute_error": 1682.665,
+          "r2": 0.735803,
+          "rmse": 5141.246639,
+          "rows": 248,
+          "smape_percent": 40.766688
+        },
+        {
+          "industry": "mobile",
+          "mae": 4096.358415,
+          "median_absolute_error": 3084.26,
+          "r2": 0.736716,
+          "rmse": 5727.944873,
+          "rows": 82,
+          "smape_percent": 47.513132
+        },
+        {
+          "industry": "product_management",
+          "mae": 4730.802778,
+          "median_absolute_error": 3939.0,
+          "r2": 0.639178,
+          "rmse": 6033.763465,
+          "rows": 18,
+          "smape_percent": 62.935072
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3738.900393,
+          "median_absolute_error": 1885.79,
+          "r2": 0.740323,
+          "rmse": 5679.229705,
+          "rows": 560,
+          "smape_percent": 37.665932
+        }
+      ],
+      "validation_vs_53d_baseline": {
+        "delta_r2": -0.002492,
+        "delta_rmse_kes": 25.737455
+      },
+      "warmed_query_p95_ms": 17.25858,
+      "warmed_query_samples": 25
+    },
+    {
+      "artifact_bytes": 10427157,
+      "name": "metadata_half_53d",
+      "outcome": "selected_for_research_test",
+      "promotion_status": "research_only_not_promoted",
+      "reload_prediction_parity": true,
+      "request_coordinate_parity": true,
+      "request_parity_samples": 25,
+      "research_artifacts": "report subdirectory only; no production manifest or promotion",
+      "settings": {
+        "fitted_text_dimensions": 50,
+        "idw_epsilon": 1e-06,
+        "k_neighbors": 5,
+        "max_features": 12000,
+        "metadata_weight": 0.5,
+        "min_df": 1,
+        "ngram_range": [
+          1,
+          2
+        ],
+        "normalize_output": false,
+        "requested_text_dimensions": 50,
+        "text_weight": 1.0
+      },
+      "test": {
+        "mae": 3861.691903,
+        "median_absolute_error": 1978.305,
+        "r2": 0.676695,
+        "rmse": 5918.314772,
+        "smape_percent": 41.669804
+      },
+      "test_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3664.599456,
+          "median_absolute_error": 1967.26,
+          "r2": 0.701793,
+          "rmse": 5454.99124,
+          "rows": 386,
+          "smape_percent": 40.562485
+        },
+        {
+          "industry": "design_creative",
+          "mae": 4007.933642,
+          "median_absolute_error": 2096.2,
+          "r2": 0.653105,
+          "rmse": 6190.738922,
+          "rows": 1502,
+          "smape_percent": 41.297222
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 6369.808065,
+          "median_absolute_error": 4931.84,
+          "r2": 0.402108,
+          "rmse": 8186.413817,
+          "rows": 62,
+          "smape_percent": 53.891724
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 4037.324333,
+          "median_absolute_error": 1969.78,
+          "r2": 0.533526,
+          "rmse": 6272.598709,
+          "rows": 180,
+          "smape_percent": 47.071869
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3387.723051,
+          "median_absolute_error": 1688.99,
+          "r2": 0.732766,
+          "rmse": 5251.867199,
+          "rows": 354,
+          "smape_percent": 39.793325
+        },
+        {
+          "industry": "mobile",
+          "mae": 2826.232143,
+          "median_absolute_error": 1774.545,
+          "r2": 0.79604,
+          "rmse": 4237.535733,
+          "rows": 112,
+          "smape_percent": 42.204503
+        },
+        {
+          "industry": "product_management",
+          "mae": 4229.745,
+          "median_absolute_error": 2321.985,
+          "r2": 0.535202,
+          "rmse": 6159.322626,
+          "rows": 14,
+          "smape_percent": 48.344238
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3794.908923,
+          "median_absolute_error": 1824.875,
+          "r2": 0.712962,
+          "rmse": 5789.619479,
+          "rows": 780,
+          "smape_percent": 41.372185
+        }
+      ],
+      "training_python_peak_bytes": 156324690,
+      "validation": {
+        "mae": 3647.445168,
+        "median_absolute_error": 1954.895,
+        "r2": 0.732678,
+        "rmse": 5570.66979,
+        "smape_percent": 40.673047
+      },
+      "validation_per_industry": [
+        {
+          "industry": "data_ai",
+          "mae": 3642.488352,
+          "median_absolute_error": 2109.74,
+          "r2": 0.751867,
+          "rmse": 5370.098196,
+          "rows": 261,
+          "smape_percent": 44.02856
+        },
+        {
+          "industry": "design_creative",
+          "mae": 3643.620411,
+          "median_absolute_error": 1983.25,
+          "r2": 0.733972,
+          "rmse": 5580.830105,
+          "rows": 1046,
+          "smape_percent": 40.600086
+        },
+        {
+          "industry": "devops_cloud",
+          "mae": 4693.9174,
+          "median_absolute_error": 3326.21,
+          "r2": 0.59838,
+          "rmse": 6531.847,
+          "rows": 50,
+          "smape_percent": 50.625055
+        },
+        {
+          "industry": "digital_marketing",
+          "mae": 3819.273529,
+          "median_absolute_error": 1789.25,
+          "r2": 0.585102,
+          "rmse": 6258.060287,
+          "rows": 119,
+          "smape_percent": 42.017863
+        },
+        {
+          "industry": "general_tech",
+          "mae": 3336.854395,
+          "median_absolute_error": 1573.0,
+          "r2": 0.716826,
+          "rmse": 5322.693716,
+          "rows": 248,
+          "smape_percent": 41.037439
+        },
+        {
+          "industry": "mobile",
+          "mae": 3637.658659,
+          "median_absolute_error": 2602.985,
+          "r2": 0.774583,
+          "rmse": 5300.058195,
+          "rows": 82,
+          "smape_percent": 43.402349
+        },
+        {
+          "industry": "product_management",
+          "mae": 5554.551667,
+          "median_absolute_error": 4069.05,
+          "r2": 0.52861,
+          "rmse": 6896.546064,
+          "rows": 18,
+          "smape_percent": 70.90521
+        },
+        {
+          "industry": "web_backend",
+          "mae": 3604.631464,
+          "median_absolute_error": 1742.19,
+          "r2": 0.757077,
+          "rmse": 5492.97204,
+          "rows": 560,
+          "smape_percent": 36.538305
+        }
+      ],
+      "validation_vs_53d_baseline": {
+        "delta_r2": 0.003677,
+        "delta_rmse_kes": -38.178302
+      },
+      "warmed_query_p95_ms": 21.98972,
+      "warmed_query_samples": 25
+    }
+  ],
+  "selected_by_validation": "metadata_half_53d",
+  "status": "research_only_no_promotion"
+}
