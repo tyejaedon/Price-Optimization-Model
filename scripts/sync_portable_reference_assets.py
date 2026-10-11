@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +13,7 @@ TRACKING_ISSUE = 148
 RAW_ALLOWED_EXTENSIONS = {".csv", ".json", ".md", ".txt"}
 REPORT_ALLOWED_EXTENSIONS = {".csv", ".json", ".log", ".md", ".png", ".txt"}
 EXCLUDED_EXTENSIONS = {".joblib", ".parquet", ".pyc"}
+BINARY_EXTENSIONS = {".png"}
 
 
 @dataclass(frozen=True)
@@ -32,12 +32,17 @@ class SyncCandidate:
         return self.destination_root / self.relative_source
 
 
-def sha256_for(path: Path) -> str:
+def sha256_for_bytes(payload: bytes) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    digest.update(payload)
     return digest.hexdigest()
+
+
+def materialize_candidate_bytes(candidate: SyncCandidate) -> bytes:
+    payload = candidate.source_path.read_bytes()
+    if candidate.source_path.suffix.lower() not in BINARY_EXTENSIONS:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return payload
 
 
 def collect_candidates(
@@ -71,7 +76,10 @@ def reset_destination(root: Path, dry_run: bool) -> None:
     if dry_run:
         return
     if root.exists():
-        shutil.rmtree(root)
+        for path in sorted((p for p in root.rglob("*") if p.is_file()), reverse=True):
+            path.unlink()
+        for path in sorted((p for p in root.rglob("*") if p.is_dir()), reverse=True):
+            path.rmdir()
     root.mkdir(parents=True, exist_ok=True)
 
 
@@ -83,11 +91,12 @@ def copy_candidates(
     manifest_files: list[dict[str, object]] = []
     for candidate in candidates:
         destination_path = candidate.destination_path
+        payload = materialize_candidate_bytes(candidate)
         if not dry_run:
             destination_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(candidate.source_path, destination_path)
-        size_bytes = candidate.source_path.stat().st_size
-        sha256 = sha256_for(candidate.source_path)
+            destination_path.write_bytes(payload)
+        size_bytes = len(payload)
+        sha256 = sha256_for_bytes(payload)
         manifest_files.append(
             {
                 "category": candidate.category,

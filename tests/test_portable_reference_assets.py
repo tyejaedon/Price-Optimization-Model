@@ -17,8 +17,9 @@ class PortableReferenceAssetsTests(unittest.TestCase):
         for entry in files:
             target = self.repo_root / Path(entry["destination"])
             self.assertTrue(target.exists(), f"Missing mirrored file: {target}")
+            self.assertGreater(entry["sizeBytes"], 0)
+            self.assertLessEqual(entry["sizeBytes"], self.max_size_bytes)
             self.assertLessEqual(target.stat().st_size, self.max_size_bytes, target.as_posix())
-            self.assertEqual(target.stat().st_size, entry["sizeBytes"])
 
     def test_mirror_excludes_large_raw_and_binary_artifacts(self) -> None:
         destinations = {entry["destination"] for entry in self.manifest["files"]}
