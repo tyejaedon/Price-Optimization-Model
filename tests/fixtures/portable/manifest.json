@@ -1,0 +1,678 @@
+{
+  "generatedAtUtc": "2026-10-11T20:51:10+00:00",
+  "issue": 148,
+  "purpose": "Portable tracked mirrors of useful small raw/report reference files for cross-machine development.",
+  "selectionPolicy": {
+    "sourceDirectories": [
+      "data/raw",
+      "reports"
+    ],
+    "trackedDestination": "tests/fixtures/portable",
+    "maxFileSizeMB": 1.0,
+    "excludeExtensions": [
+      ".joblib",
+      ".parquet",
+      ".pyc"
+    ],
+    "rawAllowedExtensions": [
+      ".csv",
+      ".json",
+      ".md",
+      ".txt"
+    ],
+    "reportAllowedExtensions": [
+      ".csv",
+      ".json",
+      ".log",
+      ".md",
+      ".png",
+      ".txt"
+    ],
+    "notes": [
+      "Source directories remain git-ignored; only curated copies under tests/fixtures/portable are tracked.",
+      "Large raw datasets and binary model artifacts are intentionally excluded.",
+      "Use this mirror for cross-machine onboarding, fixture inspection, and reproducible docs/tests only."
+    ]
+  },
+  "summary": {
+    "repository": "Price-Optimization-Model",
+    "fileCount": 79,
+    "totalBytes": 2000427,
+    "rawFileCount": 12,
+    "reportFileCount": 67
+  },
+  "files": [
+    {
+      "category": "raw",
+      "source": "data/raw/Cost_Index/Cost_of_Living_Index_by_Country_2024.csv",
+      "sourceRelative": "Cost_Index/Cost_of_Living_Index_by_Country_2024.csv",
+      "destination": "tests/fixtures/portable/raw/Cost_Index/Cost_of_Living_Index_by_Country_2024.csv",
+      "sizeBytes": 5252,
+      "sha256": "789aec53ead58b10f378e0a93b2788b4c467838bef41611772bc5c35a23329b7"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/Data_Scientist_Upwork/upwork_data_scientists.csv",
+      "sourceRelative": "Data_Scientist_Upwork/upwork_data_scientists.csv",
+      "destination": "tests/fixtures/portable/raw/Data_Scientist_Upwork/upwork_data_scientists.csv",
+      "sizeBytes": 295288,
+      "sha256": "541f5ea54e258dede4325e11c5f927704d45a96ab372daece40cf331cba3cfb4"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/Developer_Survey/Developer_Sumarry.csv",
+      "sourceRelative": "Developer_Survey/Developer_Sumarry.csv",
+      "destination": "tests/fixtures/portable/raw/Developer_Survey/Developer_Sumarry.csv",
+      "sizeBytes": 12591,
+      "sha256": "9a418863cc2ca065727ad7297a90460355ca913837a1a54a1c3046963589972b"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/Developer_Survey/Developer_Summary_Results.csv",
+      "sourceRelative": "Developer_Survey/Developer_Summary_Results.csv",
+      "destination": "tests/fixtures/portable/raw/Developer_Survey/Developer_Summary_Results.csv",
+      "sizeBytes": 200742,
+      "sha256": "4e8e977329eda8c2f3b65d74503bdb0c78bc71a9b28d74b8f1f101890268d907"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/freelancer_earnings/freelancer_earnings - freelancer_earnings_vs_skillstack_dataset.csv",
+      "sourceRelative": "freelancer_earnings/freelancer_earnings - freelancer_earnings_vs_skillstack_dataset.csv",
+      "destination": "tests/fixtures/portable/raw/freelancer_earnings/freelancer_earnings - freelancer_earnings_vs_skillstack_dataset.csv",
+      "sizeBytes": 61391,
+      "sha256": "33b2f03e5c910ae7a91a0eed64cdc993da4b914c3a81e88d42b9c84bcbdf02b9"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/freelancer_earnings/freelancer_earnings_bd.csv",
+      "sourceRelative": "freelancer_earnings/freelancer_earnings_bd.csv",
+      "destination": "tests/fixtures/portable/raw/freelancer_earnings/freelancer_earnings_bd.csv",
+      "sizeBytes": 193651,
+      "sha256": "3c9e05a029c816f96cf0982fd919f96f174f171c0802a95707b03fc145b0c547"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/freelancer_earnings/global_freelancers_raw-selected-columns.csv",
+      "sourceRelative": "freelancer_earnings/global_freelancers_raw-selected-columns.csv",
+      "destination": "tests/fixtures/portable/raw/freelancer_earnings/global_freelancers_raw-selected-columns.csv",
+      "sizeBytes": 74757,
+      "sha256": "41861e46a1a6ea4703a5ade3602e46b3cea1d1bd2d3407ec06e5a59d233e6a70"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/Mpesa_Tarrifs/tarrifs.csv",
+      "sourceRelative": "Mpesa_Tarrifs/tarrifs.csv",
+      "destination": "tests/fixtures/portable/raw/Mpesa_Tarrifs/tarrifs.csv",
+      "sizeBytes": 7705,
+      "sha256": "53c8a521dc26e3626a4a9cc2446ca7643a76334d1f924c93ff62e8ca7176bc46"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/World_Development_Indicators/Data.csv",
+      "sourceRelative": "World_Development_Indicators/Data.csv",
+      "destination": "tests/fixtures/portable/raw/World_Development_Indicators/Data.csv",
+      "sizeBytes": 28975,
+      "sha256": "8432c908e0d5586292df67cf12036ae729fe207b61ec76d68ca99e9a40b2773b"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/World_Development_Indicators/Series - Metadata.csv",
+      "sourceRelative": "World_Development_Indicators/Series - Metadata.csv",
+      "destination": "tests/fixtures/portable/raw/World_Development_Indicators/Series - Metadata.csv",
+      "sizeBytes": 35814,
+      "sha256": "93067627795f7129ec66304735245bf2cf5e2ce0d179fa2136f2596b7e0ed220"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/World_Development_Indicators/World_Data.csv",
+      "sourceRelative": "World_Development_Indicators/World_Data.csv",
+      "destination": "tests/fixtures/portable/raw/World_Development_Indicators/World_Data.csv",
+      "sizeBytes": 62145,
+      "sha256": "585aea2dcb7cc26e92d6eb182d9cd44aa712bf0f36a3c84dff448c9050be8765"
+    },
+    {
+      "category": "raw",
+      "source": "data/raw/World_Development_Indicators/World_Series - Metadata.csv",
+      "sourceRelative": "World_Development_Indicators/World_Series - Metadata.csv",
+      "destination": "tests/fixtures/portable/raw/World_Development_Indicators/World_Series - Metadata.csv",
+      "sizeBytes": 68984,
+      "sha256": "c3f3b84593ce93e0115039505403fbd5b5680d6ce423bf3b4a946f11afaed890"
+    },
+    {
+      "category": "reports",
+      "source": "reports/label_provenance_audit.json",
+      "sourceRelative": "label_provenance_audit.json",
+      "destination": "tests/fixtures/portable/reports/label_provenance_audit.json",
+      "sizeBytes": 13768,
+      "sha256": "16d09a17983b6669680ebaad46aa9142ab09cb57c7893e4fdffe8ed99b61ecfd"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m10_protected_pricing/latency.json",
+      "sourceRelative": "m10_protected_pricing/latency.json",
+      "destination": "tests/fixtures/portable/reports/m10_protected_pricing/latency.json",
+      "sizeBytes": 10202,
+      "sha256": "2c6d10f3cb74c4ad932f7b410447a97e89259236b58c67065673db90134e73e2"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/duplicate_analysis.json",
+      "sourceRelative": "m6_7_validation_diagnostics/duplicate_analysis.json",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/duplicate_analysis.json",
+      "sizeBytes": 29685,
+      "sha256": "a8a96336fccd4f0c8ed0d9b31574f835d1c41a6555ab7f643958ae4ebe8c8710"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/seed_test_metrics.csv",
+      "sourceRelative": "m6_7_validation_diagnostics/seed_test_metrics.csv",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/seed_test_metrics.csv",
+      "sizeBytes": 111,
+      "sha256": "9cfb7d1fbaed9c131872522ab96a02d9178fefaf99478870d6b4a887c824890f"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/seed_validation_metrics.csv",
+      "sourceRelative": "m6_7_validation_diagnostics/seed_validation_metrics.csv",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/seed_validation_metrics.csv",
+      "sizeBytes": 112,
+      "sha256": "da8c91f7e330a6d191637052a555a51e4a96957971577bdfd2a81b1bf4ef2842"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/test_partition_metrics.csv",
+      "sourceRelative": "m6_7_validation_diagnostics/test_partition_metrics.csv",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/test_partition_metrics.csv",
+      "sizeBytes": 624,
+      "sha256": "09df4ae4c1a54a1aea8d8fbb15e5ee7afd2fc2b03c1dc6687fb6702fd125c99a"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/validation_diagnostics.json",
+      "sourceRelative": "m6_7_validation_diagnostics/validation_diagnostics.json",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/validation_diagnostics.json",
+      "sizeBytes": 32725,
+      "sha256": "7d20f4e3caa5d52dd65b71a3e26391bb217a8b2de6437e98a119d4d474ca2e84"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/validation_diagnostics.md",
+      "sourceRelative": "m6_7_validation_diagnostics/validation_diagnostics.md",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/validation_diagnostics.md",
+      "sizeBytes": 33832,
+      "sha256": "7d317c850815ae96e87b52c80fdc820018716b119bfe9671f93438f480f44310"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m6_7_validation_diagnostics/validation_partition_metrics.csv",
+      "sourceRelative": "m6_7_validation_diagnostics/validation_partition_metrics.csv",
+      "destination": "tests/fixtures/portable/reports/m6_7_validation_diagnostics/validation_partition_metrics.csv",
+      "sizeBytes": 631,
+      "sha256": "0860afb98e560550ead03fb1a0fa0810bd44bfc78e34de96b710ff0127fd85cc"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_industry_error_diagnostics/industry_error_diagnostics.json",
+      "sourceRelative": "m9_industry_error_diagnostics/industry_error_diagnostics.json",
+      "destination": "tests/fixtures/portable/reports/m9_industry_error_diagnostics/industry_error_diagnostics.json",
+      "sizeBytes": 20796,
+      "sha256": "fd7383d41d2b484a22572d0ee5dd6893cd458b6e3ac326e00c9cba38befddfa4"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/baseline_53d/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/baseline_53d/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/baseline_53d/industry_kdtrees_metadata.json",
+      "sizeBytes": 599,
+      "sha256": "6e006e5e7c6f33590589ab2352e74111ade2e8e99f6564bb279fa32005833726"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/baseline_53d/inference_config.json",
+      "sourceRelative": "m9_inference_safe_benchmark/baseline_53d/inference_config.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/baseline_53d/inference_config.json",
+      "sizeBytes": 649,
+      "sha256": "3b83e4fc3c9f3a06ba7e5cc97f0d09f9429d855e927f5564ef4e8e6182d3f838"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/baseline_53d/macro_lookup_table.json",
+      "sourceRelative": "m9_inference_safe_benchmark/baseline_53d/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/baseline_53d/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/baseline_53d/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/baseline_53d/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/baseline_53d/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/baseline_53d/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/baseline_53d/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/baseline_53d/nlp_reducer_metadata.json",
+      "sizeBytes": 229,
+      "sha256": "e3ed63974d5c0700f6fc65fd3e0c5142f3d5a4371930b2621b721e6ad8cccae9"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/benchmark.json",
+      "sourceRelative": "m9_inference_safe_benchmark/benchmark.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/benchmark.json",
+      "sizeBytes": 24778,
+      "sha256": "d390e8c95f316102f1b03f2b286c08f03c6078545e018ae20b4665e1eb10311a"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/metadata_half_53d/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/metadata_half_53d/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/metadata_half_53d/industry_kdtrees_metadata.json",
+      "sizeBytes": 599,
+      "sha256": "6e006e5e7c6f33590589ab2352e74111ade2e8e99f6564bb279fa32005833726"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/metadata_half_53d/inference_config.json",
+      "sourceRelative": "m9_inference_safe_benchmark/metadata_half_53d/inference_config.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/metadata_half_53d/inference_config.json",
+      "sizeBytes": 649,
+      "sha256": "26e647e8af5f0563aef24bbc81d47edcb8970a5cfd647d7514ffc538b247a351"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/metadata_half_53d/macro_lookup_table.json",
+      "sourceRelative": "m9_inference_safe_benchmark/metadata_half_53d/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/metadata_half_53d/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/metadata_half_53d/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/metadata_half_53d/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/metadata_half_53d/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/metadata_half_53d/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/metadata_half_53d/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/metadata_half_53d/nlp_reducer_metadata.json",
+      "sizeBytes": 229,
+      "sha256": "e3ed63974d5c0700f6fc65fd3e0c5142f3d5a4371930b2621b721e6ad8cccae9"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/normalized_text_53d/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/normalized_text_53d/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/normalized_text_53d/industry_kdtrees_metadata.json",
+      "sizeBytes": 599,
+      "sha256": "6e006e5e7c6f33590589ab2352e74111ade2e8e99f6564bb279fa32005833726"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/normalized_text_53d/inference_config.json",
+      "sourceRelative": "m9_inference_safe_benchmark/normalized_text_53d/inference_config.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/normalized_text_53d/inference_config.json",
+      "sizeBytes": 649,
+      "sha256": "3b83e4fc3c9f3a06ba7e5cc97f0d09f9429d855e927f5564ef4e8e6182d3f838"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/normalized_text_53d/macro_lookup_table.json",
+      "sourceRelative": "m9_inference_safe_benchmark/normalized_text_53d/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/normalized_text_53d/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/normalized_text_53d/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/normalized_text_53d/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/normalized_text_53d/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/normalized_text_53d/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/normalized_text_53d/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/normalized_text_53d/nlp_reducer_metadata.json",
+      "sizeBytes": 228,
+      "sha256": "7901cd14cca33641bf42a12ef325b7e55e08ec8820bafb63530ac3c6b85e5bb5"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/selection_frozen.json",
+      "sourceRelative": "m9_inference_safe_benchmark/selection_frozen.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/selection_frozen.json",
+      "sizeBytes": 202,
+      "sha256": "c02723cf6781af5332422765bc4bb74989db5970532630d11060e98a2e71938a"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/unigram_53d/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/unigram_53d/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/unigram_53d/industry_kdtrees_metadata.json",
+      "sizeBytes": 599,
+      "sha256": "6e006e5e7c6f33590589ab2352e74111ade2e8e99f6564bb279fa32005833726"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/unigram_53d/inference_config.json",
+      "sourceRelative": "m9_inference_safe_benchmark/unigram_53d/inference_config.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/unigram_53d/inference_config.json",
+      "sizeBytes": 649,
+      "sha256": "3b83e4fc3c9f3a06ba7e5cc97f0d09f9429d855e927f5564ef4e8e6182d3f838"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/unigram_53d/macro_lookup_table.json",
+      "sourceRelative": "m9_inference_safe_benchmark/unigram_53d/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/unigram_53d/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/unigram_53d/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/unigram_53d/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/unigram_53d/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_inference_safe_benchmark/unigram_53d/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_inference_safe_benchmark/unigram_53d/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_inference_safe_benchmark/unigram_53d/nlp_reducer_metadata.json",
+      "sizeBytes": 229,
+      "sha256": "6350437876b707b60b974b0fc9c7fc3219e120165072b2b3a4b847479f4ceb8c"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/benchmark.json",
+      "sourceRelative": "m9_svd_dimensions_117/benchmark.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/benchmark.json",
+      "sizeBytes": 25716,
+      "sha256": "c7ab37492ed1bb8438998498ee7f3a7ae5bfc6d372f314de501a7eaae513bdf7"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/protocol_frozen.json",
+      "sourceRelative": "m9_svd_dimensions_117/protocol_frozen.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/protocol_frozen.json",
+      "sizeBytes": 2499,
+      "sha256": "adf525a644ef84df1d2d1ab6a2dab65547f0a3d84e2c73e2f3ff495dc19681ec"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_100/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_100/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_100/industry_kdtrees_metadata.json",
+      "sizeBytes": 636,
+      "sha256": "d1f39fdaf79bbce4ca1bbdb20fd68bfe95a59a87c176bc9c4ea569e9470c2305"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_100/macro_lookup_table.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_100/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_100/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_100/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_100/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_100/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_100/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_100/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_100/nlp_reducer_metadata.json",
+      "sizeBytes": 231,
+      "sha256": "5ffc86172de29c3d9400eded8df0e8c74a0ea6fa01792d271ecd322e360b8f40"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_25/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_25/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_25/industry_kdtrees_metadata.json",
+      "sizeBytes": 635,
+      "sha256": "341d56714d8a95c7631c19bcc4452c13a734cf0125a678b1985f5012eef87ebb"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_25/macro_lookup_table.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_25/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_25/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_25/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_25/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_25/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_25/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_25/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_25/nlp_reducer_metadata.json",
+      "sizeBytes": 229,
+      "sha256": "0afcf7535a735afe201863e0dcc994d5874b5c36c1614ecf674b980ea7caec55"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_50/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_50/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_50/industry_kdtrees_metadata.json",
+      "sizeBytes": 635,
+      "sha256": "9da9d153f0a657a25a42869421d05e2e6af2f84ed6a9bb6e77676dea12dc3822"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_50/macro_lookup_table.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_50/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_50/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_50/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_50/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_50/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_50/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_50/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_50/nlp_reducer_metadata.json",
+      "sizeBytes": 229,
+      "sha256": "e3ed63974d5c0700f6fc65fd3e0c5142f3d5a4371930b2621b721e6ad8cccae9"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_75/industry_kdtrees_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_75/industry_kdtrees_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_75/industry_kdtrees_metadata.json",
+      "sizeBytes": 635,
+      "sha256": "ca48d519d51844179afd9a19ccd26753d0304eaa3d0477d26bbcc7a2fa207351"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_75/macro_lookup_table.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_75/macro_lookup_table.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_75/macro_lookup_table.json",
+      "sizeBytes": 4969,
+      "sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_75/metadata_scaler_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_75/metadata_scaler_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_75/metadata_scaler_metadata.json",
+      "sizeBytes": 351,
+      "sha256": "cf3f2a42d2cc3df298f8a00e7dad9e29bb214650272c0c2178a1d2091b19b1ad"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/svd_75/nlp_reducer_metadata.json",
+      "sourceRelative": "m9_svd_dimensions_117/svd_75/nlp_reducer_metadata.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/svd_75/nlp_reducer_metadata.json",
+      "sizeBytes": 228,
+      "sha256": "fb1e95efef5994eecbe4e67d35be111a73bf4e3fd7295a9b82fa8b2c12528f54"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_dimensions_117/validation_frozen.json",
+      "sourceRelative": "m9_svd_dimensions_117/validation_frozen.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_dimensions_117/validation_frozen.json",
+      "sizeBytes": 16092,
+      "sha256": "9e225bf9bdbee9bfd80309ac52a8147bd931dbfa36b47feccf5ee49aeaf62040"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_rolling_117/benchmark.json",
+      "sourceRelative": "m9_svd_rolling_117/benchmark.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_rolling_117/benchmark.json",
+      "sizeBytes": 119101,
+      "sha256": "1738f62fc0dcef53dc0df5134f222516f6882986481c8e89e5d8ac8b8e3c2bff"
+    },
+    {
+      "category": "reports",
+      "source": "reports/m9_svd_rolling_117/protocol_frozen.json",
+      "sourceRelative": "m9_svd_rolling_117/protocol_frozen.json",
+      "destination": "tests/fixtures/portable/reports/m9_svd_rolling_117/protocol_frozen.json",
+      "sizeBytes": 2472,
+      "sha256": "9046c0998baa708682edfb878a5871a314f137119e1cc5a2ec3ddf2f50801c13"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/dependent_variable_summary.csv",
+      "sourceRelative": "model_evaluation/dependent_variable_summary.csv",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/dependent_variable_summary.csv",
+      "sizeBytes": 377,
+      "sha256": "7a757f4a9e38b485113497db121f3633109ec7dade2c01efeb412655c0183d3c"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/diagnostics_run.log",
+      "sourceRelative": "model_evaluation/diagnostics_run.log",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/diagnostics_run.log",
+      "sizeBytes": 65456,
+      "sha256": "240b00525516244e262039d57b6cbed4d750ea04a2e046d4f031891f23a1e9ca"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/experiment_report.json",
+      "sourceRelative": "model_evaluation/experiment_report.json",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/experiment_report.json",
+      "sizeBytes": 4160,
+      "sha256": "254072473db58f883b63e9966a7e0417d948161860b761377925df1f5ad195fd"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/experiment_report.md",
+      "sourceRelative": "model_evaluation/experiment_report.md",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/experiment_report.md",
+      "sizeBytes": 10655,
+      "sha256": "11f4df582bfdbb9652138fac8c7474ad5e42717d2254f6b5085cd743c420f5f7"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/hybrid_distance_results.csv",
+      "sourceRelative": "model_evaluation/hybrid_distance_results.csv",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/hybrid_distance_results.csv",
+      "sizeBytes": 1639,
+      "sha256": "255481a53de5e4e0cb3e7084be70a5ca297df53e03c26470289abc2b0d944b7c"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/hyperparameter_results.csv",
+      "sourceRelative": "model_evaluation/hyperparameter_results.csv",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/hyperparameter_results.csv",
+      "sizeBytes": 1828,
+      "sha256": "1d5de890f14bbf2c9a6e5c40c70c497a223de57317204ccb5ca749a7816163b3"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/hyperparameter_trends.png",
+      "sourceRelative": "model_evaluation/hyperparameter_trends.png",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/hyperparameter_trends.png",
+      "sizeBytes": 92979,
+      "sha256": "67fce4cab2df8755e4408fa09a698820e66a4b2e03be29c32df8b637b4deae0a"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/independent_variable_summary.csv",
+      "sourceRelative": "model_evaluation/independent_variable_summary.csv",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/independent_variable_summary.csv",
+      "sizeBytes": 4789,
+      "sha256": "6e5c45869ea85d1701e7c94179eb5fcff52d2f9c47edaa6a3d8ff4b36ec42424"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/model_progress.png",
+      "sourceRelative": "model_evaluation/model_progress.png",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/model_progress.png",
+      "sizeBytes": 95505,
+      "sha256": "39296c1cff0502970752e3affcd2ffd4af39694232a042cf53608fce7bd28074"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/model_training_report.md",
+      "sourceRelative": "model_evaluation/model_training_report.md",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/model_training_report.md",
+      "sizeBytes": 2895,
+      "sha256": "1fe7019711e3cd0c166a7ae49feadc527bd772a7895dc35f8e5fbf6c6e657b93"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/report_run.log",
+      "sourceRelative": "model_evaluation/report_run.log",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/report_run.log",
+      "sizeBytes": 8326,
+      "sha256": "9ae1ef0937becbe1f4ce2f050288cb884db372c6422b8c50e5e6411510229c9d"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/target_transformation_comparison.png",
+      "sourceRelative": "model_evaluation/target_transformation_comparison.png",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/target_transformation_comparison.png",
+      "sizeBytes": 189460,
+      "sha256": "328b16f2cdf2b60d85b5f1a90999e3693ef5f91a29c465eb704442cf3bad500b"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/target_transformation_results.csv",
+      "sourceRelative": "model_evaluation/target_transformation_results.csv",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/target_transformation_results.csv",
+      "sizeBytes": 1842,
+      "sha256": "db02e7a19049876d682f9fcb894b67b37131e50011382ac8fa2e56b270d70c21"
+    },
+    {
+      "category": "reports",
+      "source": "reports/model_evaluation/variable_effects.png",
+      "sourceRelative": "model_evaluation/variable_effects.png",
+      "destination": "tests/fixtures/portable/reports/model_evaluation/variable_effects.png",
+      "sizeBytes": 87950,
+      "sha256": "8d9b196a9efa14c65962af60ad8b1ba7eef15b1d0317ce9d0032681e910c3e17"
+    }
+  ]
+}

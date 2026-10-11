@@ -1,0 +1,28 @@
+{
+  "active_partitions": [
+    "data_ai",
+    "design_creative",
+    "devops_cloud",
+    "digital_marketing",
+    "general_tech",
+    "mobile",
+    "product_management",
+    "web_backend"
+  ],
+  "fallback_partition": "general_tech",
+  "has_listing_provenance": false,
+  "has_verified_rates": true,
+  "hybrid_dimensions": 103,
+  "leaf_size": 40,
+  "minimum_partition_size": 5,
+  "partition_counts": {
+    "data_ai": 1259,
+    "design_creative": 4568,
+    "devops_cloud": 241,
+    "digital_marketing": 605,
+    "general_tech": 1030,
+    "mobile": 319,
+    "product_management": 55,
+    "web_backend": 2626
+  }
+}

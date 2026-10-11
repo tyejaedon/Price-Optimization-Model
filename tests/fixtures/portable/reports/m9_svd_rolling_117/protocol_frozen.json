@@ -1,0 +1,103 @@
+{
+  "issue": 117,
+  "status": "retrospective_sensitivity_only_no_promotion",
+  "dataset_version": "local-proxy-job-budgets-2026-10-05",
+  "dataset_sha256": "da5432eec261e8b8aff66d046f276562a75d24b2106d61a9c189571e8725a5ca",
+  "macro_lookup_sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901",
+  "population": {
+    "past_jobs_before_post_arbitrage_filter": 14834,
+    "excluded_invalid_or_out_of_bounds": 4115,
+    "excluded_repeated_descriptions": 16,
+    "eligible_distinct_past_jobs": 10703,
+    "future_rows_excluded_before_rate_inspection": true,
+    "rate_bounds_kes_per_hour": [
+      500.0,
+      35000.0
+    ]
+  },
+  "windows_utc": [
+    [
+      "2024-02-15T00:00:00+00:00",
+      "2024-02-16T00:00:00+00:00"
+    ],
+    [
+      "2024-02-16T00:00:00+00:00",
+      "2024-02-17T00:00:00+00:00"
+    ],
+    [
+      "2024-02-17T00:00:00+00:00",
+      "2024-02-18T00:00:00+00:00"
+    ],
+    [
+      "2024-02-18T00:00:00+00:00",
+      "2024-02-19T00:00:00+00:00"
+    ],
+    [
+      "2024-02-19T00:00:00+00:00",
+      "2024-02-20T00:00:00+00:00"
+    ]
+  ],
+  "split_rows": [
+    {
+      "train": 3361,
+      "validation": 519
+    },
+    {
+      "train": 3880,
+      "validation": 1970
+    },
+    {
+      "train": 5850,
+      "validation": 1382
+    },
+    {
+      "train": 7232,
+      "validation": 1258
+    },
+    {
+      "train": 8490,
+      "validation": 2213
+    }
+  ],
+  "dimensions": [
+    25,
+    50,
+    75
+  ],
+  "seeds": [
+    42,
+    7
+  ],
+  "samples_per_window_candidate": 20,
+  "fixed_settings": {
+    "max_features": 12000,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "normalize_output": false,
+    "alpha": 0.5,
+    "k_neighbors": 5,
+    "epsilon": 1e-06,
+    "minimum_partition_size": 5,
+    "text_weight": 1,
+    "metadata_weight": 1
+  },
+  "test_policy": "only earlier training-era dated jobs; #93 validation and final test NEVER scored here",
+  "label_scope": "upwork_jobs posted budgets; not mentor payments or a fresh blind test",
+  "environment": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "numpy": "2.5.3",
+    "sklearn": "1.9.0",
+    "threads": {
+      "OPENBLAS_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    }
+  },
+  "results": [],
+  "no_production_promotion": true
+}

@@ -1,0 +1,153 @@
+{
+  "config": {
+    "generated_at_utc": "2026-10-04T17:52:47.048307+00:00",
+    "k_values": [
+      1,
+      3,
+      5,
+      7,
+      10,
+      15,
+      20,
+      30,
+      50
+    ],
+    "random_state": 42,
+    "quality_gate_r2": 0.75,
+    "input_rows": 22677,
+    "split_rows": {
+      "train": 15873,
+      "validation": 3402,
+      "test": 3402
+    },
+    "independent_variable_dimensions": 53,
+    "dependent_variable": "target_rate"
+  },
+  "best_configuration": {
+    "model": "idw",
+    "k_neighbors": 10,
+    "validation_rmse": 20999.112212,
+    "validation_mae": 11062.517278,
+    "validation_median_absolute_error": 4049.775,
+    "validation_smape_percent": 44.160576,
+    "validation_r2": 0.563592,
+    "test_rmse": 20870.888957,
+    "test_mae": 10848.984095,
+    "test_median_absolute_error": 3921.96,
+    "test_smape_percent": 42.993211,
+    "test_r2": 0.579124,
+    "validation_rmse_improvement_vs_baseline": 10261.651371,
+    "test_rmse_improvement_vs_baseline": 10601.130946,
+    "validation_r2_improvement_vs_baseline": 0.530734,
+    "test_r2_improvement_vs_baseline": 0.536145,
+    "best_validation_configuration": true
+  },
+  "best_log_configuration": {
+    "model": "idw_log1p",
+    "k_neighbors": 20,
+    "validation_log_r2": 0.821865,
+    "test_log_r2": 0.830436,
+    "validation_log_rmse": 0.590191,
+    "test_log_rmse": 0.57712,
+    "validation_raw_r2": 0.540041,
+    "test_raw_r2": 0.557211,
+    "validation_raw_rmse": 21558.28726,
+    "test_raw_rmse": 21407.324321,
+    "validation_raw_mae": 10430.123065,
+    "test_raw_mae": 10307.300898,
+    "validation_raw_median_absolute_error": 3411.499251,
+    "test_raw_median_absolute_error": 3497.408124,
+    "validation_raw_smape_percent": 41.751998,
+    "test_raw_smape_percent": 41.169436,
+    "best_validation_log_configuration": true
+  },
+  "best_hybrid_configuration": {
+    "model": "idw_weighted",
+    "k_neighbors": 10,
+    "text_weight": 1.0,
+    "metadata_weight": 1.0,
+    "minimum_partition_size": 1,
+    "epsilon": 1e-09,
+    "allow_fallback": true,
+    "validation_rmse": 20999.112212,
+    "validation_mae": 11062.517278,
+    "validation_median_absolute_error": 4049.775,
+    "validation_smape_percent": 44.160576,
+    "validation_r2": 0.563592,
+    "test_rmse": 20870.888957,
+    "test_mae": 10848.984095,
+    "test_median_absolute_error": 3921.96,
+    "test_smape_percent": 42.993211,
+    "test_r2": 0.579124,
+    "best_validation_configuration": true
+  },
+  "baseline_metrics": {
+    "validation": {
+      "rmse": 31260.763583,
+      "mae": 22067.063016,
+      "median_absolute_error": 19406.702416,
+      "smape_percent": 96.357882,
+      "r2": 0.032858
+    },
+    "test": {
+      "rmse": 31472.019903,
+      "mae": 22138.829998,
+      "median_absolute_error": 19731.702416,
+      "smape_percent": 95.929506,
+      "r2": 0.042979
+    }
+  },
+  "target_transformation": {
+    "raw": "identity",
+    "log": "log1p",
+    "inverse": "expm1"
+  },
+  "hybrid_tuning": {
+    "text_weights": [
+      1.0
+    ],
+    "metadata_weights": [
+      1.0
+    ],
+    "minimum_partition_sizes": [
+      1
+    ],
+    "epsilons": [
+      1e-09
+    ],
+    "fallback_policies": [
+      true
+    ]
+  },
+  "best_model_metrics": {
+    "validation": {
+      "rmse": 20999.112212,
+      "mae": 11062.517278,
+      "median_absolute_error": 4049.775,
+      "smape_percent": 44.160576,
+      "r2": 0.563592
+    },
+    "test": {
+      "rmse": 20870.888957,
+      "mae": 10848.984095,
+      "median_absolute_error": 3921.96,
+      "smape_percent": 42.993211,
+      "r2": 0.579124
+    }
+  },
+  "output_dir": "reports\\model_evaluation",
+  "files": [
+    "dependent_variable_summary.csv",
+    "experiment_report.json",
+    "experiment_report.md",
+    "hybrid_distance_results.csv",
+    "hyperparameter_results.csv",
+    "hyperparameter_trends.png",
+    "independent_variable_summary.csv",
+    "model_progress.png",
+    "report_run.log",
+    "target_transformation_comparison.png",
+    "target_transformation_results.csv",
+    "variable_effects.png"
+  ]
+}
