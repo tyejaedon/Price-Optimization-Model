@@ -38,6 +38,7 @@ def create_deployment_app():
         repository=repository,
         token_verifier=verify_token,
         readiness_probe=repository.probe_readiness,
+        cors_allowed_origins=config.cors_allowed_origins,
     )
 
 

@@ -22,6 +22,7 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
+from starlette.middleware.cors import CORSMiddleware
 
 from src.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
 from src.platform_price import register_platform_price
@@ -311,6 +312,7 @@ def create_app(
     readiness_probe: Optional[Callable[[], bool]] = None,
     trusted_manifest_sha256: Optional[str] = None,
     trusted_tariff_sha256: Optional[str] = None,
+    cors_allowed_origins: tuple[str, ...] = (),
 ) -> FastAPI:
     """Build a local app or a gateway by injecting its external dependencies.
 
@@ -346,6 +348,15 @@ def create_app(
 
     app = FastAPI(title="Price Optimization Model API", version="1.0.0", lifespan=lifespan)
     app.state.dependencies = dependencies
+    if cors_allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(cors_allowed_origins),
+            allow_credentials=False,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type"],
+            max_age=300,
+        )
     # Career Mentor OS platform contract (#99). Closed unless PLATFORM_PRICE_KEY is set.
     register_platform_price(app, dependencies)
 
