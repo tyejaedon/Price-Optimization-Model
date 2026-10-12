@@ -2,16 +2,11 @@ name: Android CI
 
 on:
   pull_request:
-    paths:
-      - "app/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle.properties"
-      - ".github/workflows/android-ci.yml"
   push:
     branches: [master]
     paths:
       - "app/**"
+  workflow_dispatch:
 
 # Android build/lint/style/unit-test quality gate (issue #141, Milestone 13), run alongside the
 # existing Policy Gates / Repository Integrity / Python Sanity checks in ci-checks.yml and
@@ -55,4 +50,3 @@ jobs:
           path: |
             app/build/reports/
           retention-days: 7
-

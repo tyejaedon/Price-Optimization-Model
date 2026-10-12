@@ -227,11 +227,18 @@ Merge requires:
   - `Policy Gates`
   - `Repository Integrity`
   - `Python Sanity`
+  - `Gradle build, lint, ktlint and unit tests` (Android CI)
 
 Workflow files responsible for these gates:
 
 - `.github/workflows/pr-governance.yml`
 - `.github/workflows/ci-checks.yml`
+- `.github/workflows/android-ci.yml`
+
+Android CI runs for every pull request so its required status is present even when a
+pull request changes only documentation or non-Android files. It checks the debug APK
+build, Android lint, ktlint, and unit tests; failed lint/test reports are uploaded as
+workflow artifacts.
 
 ---
 
