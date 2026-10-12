@@ -58,6 +58,22 @@ class SusAnalysisTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 analyze_responses(csv_path)
 
+    def test_csv_requires_anonymous_ids_and_at_least_one_response(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            csv_path = Path(temp_dir) / "responses.csv"
+            headers = ["participant_id", *(f"item_{number}" for number in range(1, 11))]
+            with csv_path.open("w", newline="", encoding="utf-8") as response_file:
+                csv.writer(response_file).writerow(headers)
+            with self.assertRaisesRegex(ValueError, "at least one complete response"):
+                analyze_responses(csv_path)
+
+            with csv_path.open("w", newline="", encoding="utf-8") as response_file:
+                writer = csv.writer(response_file)
+                writer.writerow(headers)
+                writer.writerow(["participant@example.com", *([4] * 10)])
+            with self.assertRaisesRegex(ValueError, "anonymous code"):
+                analyze_responses(csv_path)
+
 
 if __name__ == "__main__":
     unittest.main()
