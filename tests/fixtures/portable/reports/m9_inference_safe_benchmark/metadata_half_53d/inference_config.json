@@ -1,0 +1,26 @@
+{
+  "allow_fallback": true,
+  "fallback_partition": "general_tech",
+  "idw_epsilon": 1e-06,
+  "k_neighbors": 5,
+  "metadata_features": [
+    "bilateral_arbitrage_factor",
+    "market_saturation_score",
+    "industry_relative_density"
+  ],
+  "metadata_weight": 0.5,
+  "minimum_partition_size": 5,
+  "partition_density": {
+    "data_ai": 0.275613,
+    "design_creative": 1.0,
+    "devops_cloud": 0.052758,
+    "digital_marketing": 0.132443,
+    "general_tech": 0.225482,
+    "mobile": 0.069834,
+    "product_management": 0.01204,
+    "web_backend": 0.574869
+  },
+  "text_dimensions": 50,
+  "text_weight": 1.0,
+  "version": 1
+}

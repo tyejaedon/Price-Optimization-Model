@@ -12,20 +12,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Matches the class diagram's `PricingViewModel`: a single `-repository: IPricingRepository`
- * dependency, a private mutable `_uiState` and a public read-only `uiState: StateFlow`, plus the
- * listed intent methods. `mentorId` is supplied by the authenticated session (wired in #75/#76);
- * it defaults to an empty placeholder here so this scaffold compiles and is independently testable.
+ * Matches the class diagram's `PricingViewModel`. The mentor profile document ID is entered
+ * explicitly; the protected backend verifies it belongs to the signed-in Firebase UID.
  */
 class PricingViewModel(
     private val repository: IPricingRepository,
-    private val mentorId: String = "unauthenticated-preview-mentor",
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<PricingUiState>(PricingUiState.Idle())
     val uiState: StateFlow<PricingUiState> = _uiState.asStateFlow()
 
     fun onDescriptionChanged(text: String) {
         updateForm { it.copy(rawDescription = text, validationError = null) }
+    }
+
+    fun onMentorIdChanged(mentorId: String) {
+        updateForm { it.copy(mentorId = mentorId, validationError = null) }
     }
 
     fun onIndustrySelected(industry: String) {
@@ -77,15 +78,22 @@ class PricingViewModel(
     private fun validateFormInputs(form: PricingFormState): String? =
         when {
             form.rawDescription.trim().length < 20 -> "Description must be at least 20 characters."
+            form.rawDescription.trim().length > 2000 -> "Description must be at most 2000 characters."
+            form.mentorId.isBlank() -> "Enter your mentor profile ID."
             form.selectedIndustry.isBlank() -> "Select an industry."
-            form.mentorCountry.length != 2 -> "Enter a 2-letter country code for your country."
-            form.clientCountry.length != 2 -> "Enter a 2-letter country code for the client."
+            !Regex("[A-Za-z]{2}").matches(form.mentorCountry) ->
+                "Enter a 2-letter country code for your country."
+            !Regex("[A-Za-z]{2}").matches(form.clientCountry) ->
+                "Enter a 2-letter country code for the client."
+            form.baseRateFloor.isNotBlank() &&
+                (form.baseRateFloor.toFloatOrNull()?.let { !it.isFinite() || it < 0f } != false) ->
+                "Minimum rate must be a finite, non-negative number."
             else -> null
         }
 
     private fun constructQueryPayload(form: PricingFormState): PricingQueryDTO =
         PricingQueryDTO(
-            mentorId = mentorId,
+            mentorId = form.mentorId.trim(),
             rawText = form.rawDescription.trim(),
             industry = form.selectedIndustry,
             mentorCountry = form.mentorCountry,

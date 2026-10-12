@@ -43,12 +43,16 @@ val SupportedIndustries =
 fun CapabilityInputForm(
     rawDescription: String,
     onDescriptionChanged: (String) -> Unit,
+    mentorId: String,
+    onMentorIdChanged: (String) -> Unit,
     selectedIndustry: String,
     onIndustrySelected: (String) -> Unit,
     mentorCountry: String,
     onMentorCountryChanged: (String) -> Unit,
     clientCountry: String,
     onClientCountryChanged: (String) -> Unit,
+    baseRateFloor: String,
+    onBaseRateFloorChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -62,6 +66,17 @@ fun CapabilityInputForm(
                 Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Service description input" },
+        )
+
+        Spacer(modifier = Modifier.height(PricingSpacing.Medium))
+
+        OutlinedTextField(
+            value = mentorId,
+            onValueChange = onMentorIdChanged,
+            label = { Text("Mentor profile ID") },
+            supportingText = { Text("Use the profile ID linked to your signed-in account.") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.height(PricingSpacing.Medium))
@@ -92,6 +107,18 @@ fun CapabilityInputForm(
                 Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Client country ISO 2-letter code" },
+        )
+
+        Spacer(modifier = Modifier.height(PricingSpacing.Small))
+
+        OutlinedTextField(
+            value = baseRateFloor,
+            onValueChange = onBaseRateFloorChanged,
+            label = { Text("Minimum base rate (KES/hour, optional)") },
+            supportingText = { Text("Does not include the M-Pesa fee.") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

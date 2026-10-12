@@ -24,6 +24,7 @@ class PricingViewModelTest {
 
     private fun validForm(viewModel: PricingViewModel) {
         viewModel.onDescriptionChanged("Senior Android engineer mentoring Kotlin and Compose teams.")
+        viewModel.onMentorIdChanged("mentor-profile-123")
         viewModel.onIndustrySelected("mobile")
         viewModel.onMentorCountrySelected("ke")
         viewModel.onClientCountrySelected("us")
@@ -76,6 +77,20 @@ class PricingViewModelTest {
             val state = viewModel.uiState.value
             assertThat(state).isInstanceOf(PricingUiState.Error::class.java)
             assertThat((state as PricingUiState.Error).message).contains("20 characters")
+        }
+
+    @Test
+    fun `invalid minimum rate is rejected before calling the repository`() =
+        runTest(dispatcher) {
+            val viewModel = PricingViewModel(FakePricingRepository())
+            validForm(viewModel)
+            viewModel.onBaseRateFloorChanged("NaN")
+
+            viewModel.submitPriceOptimization()
+
+            val state = viewModel.uiState.value
+            assertThat(state).isInstanceOf(PricingUiState.Error::class.java)
+            assertThat((state as PricingUiState.Error).message).contains("finite, non-negative")
         }
 
     @Test

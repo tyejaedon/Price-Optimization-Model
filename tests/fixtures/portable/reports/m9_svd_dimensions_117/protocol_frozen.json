@@ -1,0 +1,75 @@
+{
+  "issue": 117,
+  "status": "research_only_no_promotion",
+  "dataset_version": "local-proxy-job-budgets-2026-10-05",
+  "dataset_sha256": "da5432eec261e8b8aff66d046f276562a75d24b2106d61a9c189571e8725a5ca",
+  "macro_lookup_sha256": "30d8d6b351770b0a85287c4b2791f0549735a8f6b6eac5c914109b3c7782f901",
+  "protocol": {
+    "population": "dated upwork_jobs posted budgets, not verified mentor transactions",
+    "input_rows": 22677,
+    "excluded_other_sources": 130,
+    "excluded_invalid_or_out_of_bounds_post_arbitrage": 6049,
+    "excluded_cross_split_or_repeated_descriptions": {
+      "train": 16,
+      "validation": 2,
+      "test": 3
+    },
+    "rate_bounds_kes_per_hour": [
+      500.0,
+      35000.0
+    ],
+    "split_policy": "strict chronological train <= validation_cutoff < validation <= test_cutoff < test",
+    "validation_cutoff_utc": "2024-02-20T00:00:00+00:00",
+    "test_cutoff_utc": "2024-02-22T00:00:00+00:00",
+    "train_end_utc": "2024-02-19T23:59:44+00:00",
+    "validation_start_utc": "2024-02-20T00:00:43+00:00",
+    "validation_end_utc": "2024-02-21T02:12:50+00:00",
+    "test_start_utc": "2024-02-22T01:51:34+00:00",
+    "split_rows": {
+      "train": 10703,
+      "validation": 2384,
+      "test": 3390
+    },
+    "disjoint_record_ids": true,
+    "description_groups_purged": true
+  },
+  "dimensions_predeclared": [
+    25,
+    50,
+    75,
+    100
+  ],
+  "test_policy": "previously opened #93 final window; exploratory OOT reuse, not a blind test",
+  "fixed_settings": {
+    "tfidf_max_features": 12000,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "normalize_output": false,
+    "svd_random_state": 42,
+    "metadata_features": [
+      "bilateral_arbitrage_factor",
+      "market_saturation_score",
+      "industry_relative_density"
+    ],
+    "bilateral_alpha": 0.5,
+    "k": 5,
+    "epsilon": 1e-06,
+    "text_weight": 1.0,
+    "metadata_weight": 1.0,
+    "minimum_partition_size": 5
+  },
+  "environment": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "numpy": "2.5.3",
+    "sklearn": "1.9.0"
+  },
+  "measurement_scope": "local warmed NLP+metadata+KDTree/IDW, not authenticated API; peak Python tracemalloc allocations, not RSS",
+  "label_scope": "dated upwork_jobs posted proxy budgets in KES/hour; not verified mentor prices",
+  "results": [],
+  "no_production_promotion": true
+}
