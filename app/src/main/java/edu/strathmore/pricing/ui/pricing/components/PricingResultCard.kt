@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
 import edu.strathmore.pricing.ui.components.SectionCard
+import edu.strathmore.pricing.ui.pricing.formatting.formatKesRate
 import edu.strathmore.pricing.ui.theme.PricingSpacing
 import edu.strathmore.pricing.ui.theme.WarningAmber
 import edu.strathmore.pricing.ui.theme.WarningAmberDark
@@ -52,11 +53,11 @@ fun PricingResultCard(
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(
-                text = "${animatedRate.toInt()} KES/hour",
+                text = "${formatKesRate(animatedRate)} KES/hour",
                 style = MaterialTheme.typography.headlineMedium,
                 modifier =
                     Modifier.semantics {
-                        contentDescription = "Final quoted rate ${result.finalQuotedRate.toInt()} KES per hour"
+                        contentDescription = "Final quoted rate ${formatKesRate(result.finalQuotedRate)} KES per hour"
                     },
             )
 
@@ -71,7 +72,7 @@ fun PricingResultCard(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(PricingSpacing.Small))
 
-            LineItem(label = "M-Pesa transfer fee", value = "+${result.mpesaTariffSurcharge.toInt()} KES/hour")
+            LineItem(label = "M-Pesa transfer fee", value = "+${formatKesRate(result.mpesaTariffSurcharge)} KES/hour")
             LineItem(
                 label = "Confidence (uncalibrated)",
                 value = "${(result.confidenceScore * 100).toInt()}%",
@@ -126,13 +127,26 @@ private fun ComparablesList(result: PredictionResultDTO) {
     }
     LazyColumn(modifier = Modifier.height(PricingSpacing.ComparableRow * result.comparables.size.coerceAtMost(4))) {
         items(result.comparables) { peer ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = peer.jobTitle ?: peer.listingId,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(text = "${peer.verifiedRate.toInt()} KES/hr", style = MaterialTheme.typography.bodyMedium)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = peer.jobTitle?.takeIf(String::isNotBlank) ?: "Untitled listing",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(text = "${formatKesRate(peer.verifiedRate)} KES/hour", style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Listing ID: ${peer.listingId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = "Similarity: ${formatSimilarity(peer.similarityScore)}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }
@@ -151,7 +165,12 @@ private fun isReduceMotionEnabled(): Boolean {
             android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
             1f,
         ) == 0f
-    } catch (_: Exception) {
+    } catch (_: SecurityException) {
         false
     }
 }
+
+private fun formatSimilarity(score: Float): String =
+    java.text.NumberFormat
+        .getPercentInstance(java.util.Locale.getDefault())
+        .format(score.coerceIn(0f, 1f))

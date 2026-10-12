@@ -11,9 +11,9 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | Issue | Milestone | Scope | Status after this scaffold |
 | --- | --- | --- | --- |
 | #74 M12.1 | 12 | Compose MVVM scaffold, `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`, Idle/Loading/Success/Error states | Implemented in this PR; see below |
-| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Theme/primitives/previews/semantics landed in this PR; automated accessibility-check test and dynamic-color QA remain open follow-up |
-| #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
-| #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Implemented with opt-in live mode, refreshed bearer tokens and MockWebServer coverage |
+| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Centralized theme/typography, WCAG contrast checks, labeled controls, 2x font-scale coverage and Compose accessibility instrumentation tests |
+| #75 M12.2 | 12 | Firebase sign-in, encrypted token storage, refresh/logout | Not implemented here; `IAuthTokenProvider`/`FirebaseAuthManager` stub only fixes the shape |
+| #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Not implemented here; `PricingApiService`/`PricingRepositoryImpl` fix the shape, gated behind `BuildConfig.USE_LIVE_BACKEND = false` |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
 | #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | `PricingResultCard` implemented in this PR; instrumented Compose UI tests remain open follow-up |
 | #144 M12.1.4 | 12 | Shared Android Studio run/debug configuration for `app` | Implemented in this PR; `.idea/runConfigurations/` committed, see "IDE caveat" below |
@@ -135,3 +135,6 @@ Android SDK, verify with one of:
 - #142: `PricingResultCard` success/empty-comparables/error rendering is only covered indirectly via
   `PricingViewModelTest`; dedicated Compose UI tests (`createComposeRule`) are still open.
 - #76: live use still requires a reachable protected API and externally configured Firebase client.
+- #140: dynamic-color appearance still needs visual review on Android 12+ hardware; dynamic color is opt-in.
+- #75/#76: `FirebaseAuthManager` and `PricingRepositoryImpl` compile against the class-diagram shape
+  but are not wired as the default path and have no live-service test coverage yet.

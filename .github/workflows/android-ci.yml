@@ -42,6 +42,16 @@ jobs:
       - name: Unit tests (ViewModel/state + repository)
         run: gradle :app:testDebugUnitTest --console=plain
 
+      - name: Compose UI tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --console=plain
+
       - name: Upload failure reports
         if: failure()
         uses: actions/upload-artifact@v4

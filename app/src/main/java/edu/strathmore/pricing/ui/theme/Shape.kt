@@ -21,7 +21,7 @@ object PricingSpacing {
     val Large = 24.dp
     val ExtraLarge = 32.dp
     val RangeIndicatorHeight = 10.dp
-    val ComparableRow = 56.dp
+    val ComparableRow = 96.dp
 }
 
 /** Minimum touch target enforced on every interactive composable (WCAG 2.5.5 / Android a11y guidance). */
