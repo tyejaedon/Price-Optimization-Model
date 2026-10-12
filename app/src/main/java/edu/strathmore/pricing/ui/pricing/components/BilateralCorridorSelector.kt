@@ -12,9 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import edu.strathmore.pricing.ui.pricing.formatting.formatKesRate
 import edu.strathmore.pricing.ui.theme.AccentMint
 import edu.strathmore.pricing.ui.theme.PricingSpacing
-import kotlin.math.roundToInt
 
 /**
  * `BilateralCorridorSelector` from the canonical Sprint 4 acceptance (issue #74). Visualizes the
@@ -39,12 +39,12 @@ fun BilateralCorridorSelector(
                 .fillMaxWidth()
                 .semantics {
                     contentDescription =
-                        "Negotiation range from ${minRate.roundToInt()} to ${maxRate.roundToInt()} $currencyUnit, " +
-                        "recommended ${finalRate.roundToInt()}"
+                        "Negotiation range from ${formatKesRate(minRate)} to ${formatKesRate(maxRate)} $currencyUnit, " +
+                        "recommended ${formatKesRate(finalRate)}"
                 },
     ) {
         Text(
-            text = "${minRate.roundToInt()} - ${maxRate.roundToInt()} $currencyUnit",
+            text = "${formatKesRate(minRate)} - ${formatKesRate(maxRate)} $currencyUnit",
             style = MaterialTheme.typography.titleMedium,
         )
         Box(modifier = Modifier.fillMaxWidth().padding(top = PricingSpacing.ExtraSmall)) {
@@ -58,7 +58,7 @@ fun BilateralCorridorSelector(
             )
         }
         Text(
-            text = "Recommended: ${finalRate.roundToInt()} $currencyUnit",
+            text = "Recommended: ${formatKesRate(finalRate)} $currencyUnit",
             style = MaterialTheme.typography.bodyMedium,
         )
     }

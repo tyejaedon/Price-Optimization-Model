@@ -15,7 +15,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
 | #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Implemented with opt-in live mode, refreshed bearer tokens and MockWebServer coverage |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
-| #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | `PricingResultCard` implemented in this PR; instrumented Compose UI tests remain open follow-up |
+| #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | Formatted quote/corridor, explicit fee and confidence disclosure, provenance-rich comparable peers, and Compose UI tests |
 | #144 M12.1.4 | 12 | Shared Android Studio run/debug configuration for `app` | Implemented in this PR; `.idea/runConfigurations/` committed, see "IDE caveat" below |
 | #77 M13.2 | 13 | Backend Docker/CI | Already closed; unrelated to the Android module |
 | #85-#87 M14 | 14 | Browser demo harness, 3G RTT validation, SUS study | Unaffected by this PR |
@@ -129,9 +129,5 @@ Android SDK, verify with one of:
 
 ## Known follow-up gaps (tracked, not silently skipped)
 
-- #140: an automated accessibility check (Compose `SemanticsNode` traversal or
-  `AccessibilityChecks.enable()`) is not yet wired; only manual `contentDescription`/semantics and
-  48dp touch targets are in place so far.
-- #142: `PricingResultCard` success/empty-comparables/error rendering is only covered indirectly via
-  `PricingViewModelTest`; dedicated Compose UI tests (`createComposeRule`) are still open.
 - #76: live use still requires a reachable protected API and externally configured Firebase client.
+- #140: dynamic-color appearance still needs visual review on Android 12+ hardware; dynamic color is opt-in.
