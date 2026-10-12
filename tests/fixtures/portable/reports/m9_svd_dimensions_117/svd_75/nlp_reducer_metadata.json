@@ -1,0 +1,12 @@
+{
+  "explained_variance_sum": 0.2095397915312224,
+  "max_features": 12000,
+  "min_df": 1,
+  "n_components_fitted": 75,
+  "n_components_requested": 75,
+  "ngram_range": [
+    1,
+    2
+  ],
+  "normalize_output": false
+}

@@ -1,0 +1,19 @@
+{
+  "alpha": 0.5,
+  "feature_maxs": [
+    11.490402,
+    0.426796,
+    1.0
+  ],
+  "feature_mins": [
+    0.181661,
+    0.005139,
+    0.01204
+  ],
+  "feature_names": [
+    "bilateral_arbitrage_factor",
+    "market_saturation_score",
+    "industry_relative_density"
+  ],
+  "macro_lookup_path": "data/processed/macro_lookup_table.json"
+}

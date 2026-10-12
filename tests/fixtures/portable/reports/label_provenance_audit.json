@@ -1,0 +1,439 @@
+{
+  "country_mapping_note": "client_country_iso2 may default to KE when source_country is missing/unrecognized; KE is not necessarily verified origin.",
+  "dataset_sha256": "00098c3b3a7d8d00407081484d5ec2013c0ca19be7e87bcd20df529456c0d578",
+  "decision": {
+    "current_parquet_can_support_oot": false,
+    "limitations": "Published dates are job-post times, not verified mentor transaction dates; profile rates have no observation dates. A parquet without source timestamps cannot be chronologically split. Audit source reliability and dataset snapshot before #81; never use export/ingestion time as observation time.",
+    "mentor_rate_oot_supported": false,
+    "raw_candidate_counts_match_parquet": true
+  },
+  "exclusions_by_source_industry_reason": {
+    "upwork_data_scientists/data_ai/pre_arbitrage_kes_out_of_bounds": 1,
+    "upwork_data_scientists/web_backend/pre_arbitrage_kes_out_of_bounds": 1,
+    "upwork_jobs/data_ai/pre_arbitrage_kes_out_of_bounds": 32,
+    "upwork_jobs/design_creative/pre_arbitrage_kes_out_of_bounds": 212,
+    "upwork_jobs/devops_cloud/pre_arbitrage_kes_out_of_bounds": 3,
+    "upwork_jobs/digital_marketing/pre_arbitrage_kes_out_of_bounds": 51,
+    "upwork_jobs/general_tech/pre_arbitrage_kes_out_of_bounds": 53,
+    "upwork_jobs/mobile/pre_arbitrage_kes_out_of_bounds": 4,
+    "upwork_jobs/product_management/pre_arbitrage_kes_out_of_bounds": 2,
+    "upwork_jobs/web_backend/pre_arbitrage_kes_out_of_bounds": 52
+  },
+  "issue": 91,
+  "overall_rates": {
+    "post_arbitrage_kes_per_hour": {
+      "count": 22677,
+      "max": 343823.36,
+      "median": 14542.56,
+      "min": 166.9,
+      "p25": 3315.0,
+      "p75": 37329.39
+    },
+    "pre_arbitrage_kes_per_hour": {
+      "count": 22677,
+      "max": 34125.0,
+      "median": 2925.0,
+      "min": 520.0,
+      "p25": 1820.0,
+      "p75": 4550.0
+    },
+    "usd_per_hour": {
+      "count": 22677,
+      "max": 262.5,
+      "median": 22.5,
+      "min": 4.0,
+      "p25": 14.0,
+      "p75": 35.0
+    }
+  },
+  "pre_arbitrage_policy": {
+    "arbitrage_alpha_default": 0.5,
+    "maximum_kes_per_hour": 35000.0,
+    "minimum_description_length": 40,
+    "minimum_kes_per_hour": 500.0,
+    "order": "hourly USD candidate -> description -> USD*anchor KES bounds -> bilateral factor -> label",
+    "usd_to_kes_anchor": 130.0
+  },
+  "processed_rows": 22677,
+  "processed_source_country_counts": {
+    "upwork_data_scientists/CA": 1,
+    "upwork_data_scientists/DE": 1,
+    "upwork_data_scientists/IN": 26,
+    "upwork_data_scientists/KE": 95,
+    "upwork_data_scientists/US": 7,
+    "upwork_jobs/CA": 1076,
+    "upwork_jobs/DE": 461,
+    "upwork_jobs/GB": 1960,
+    "upwork_jobs/IN": 1139,
+    "upwork_jobs/KE": 7682,
+    "upwork_jobs/RW": 3,
+    "upwork_jobs/TZ": 7,
+    "upwork_jobs/UG": 6,
+    "upwork_jobs/US": 10213
+  },
+  "processed_source_industry_rates": {
+    "upwork_data_scientists/data_ai": {
+      "outside_post_bounds": 8,
+      "post_arbitrage_kes": {
+        "count": 119,
+        "max": 163725.41,
+        "median": 3900.0,
+        "min": 520.0,
+        "p25": 2600.0,
+        "p75": 5612.81
+      },
+      "pre_arbitrage_kes": {
+        "count": 119,
+        "max": 19500.0,
+        "median": 3250.0,
+        "min": 520.0,
+        "p25": 2600.0,
+        "p75": 5200.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 119,
+      "source_timestamp_present": 0
+    },
+    "upwork_data_scientists/design_creative": {
+      "outside_post_bounds": 1,
+      "post_arbitrage_kes": {
+        "count": 4,
+        "max": 90477.98,
+        "median": 2600.0,
+        "min": 712.03,
+        "p25": 2128.01,
+        "p75": 24569.49
+      },
+      "pre_arbitrage_kes": {
+        "count": 4,
+        "max": 10110.1,
+        "median": 2600.0,
+        "min": 577.2,
+        "p25": 2094.3,
+        "p75": 4477.52
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 4,
+      "source_timestamp_present": 0
+    },
+    "upwork_data_scientists/web_backend": {
+      "outside_post_bounds": 0,
+      "post_arbitrage_kes": {
+        "count": 7,
+        "max": 4290.0,
+        "median": 1560.0,
+        "min": 715.0,
+        "p25": 1072.5,
+        "p75": 2141.75
+      },
+      "pre_arbitrage_kes": {
+        "count": 7,
+        "max": 4290.0,
+        "median": 1560.0,
+        "min": 715.0,
+        "p25": 1072.5,
+        "p75": 2141.75
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 7,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/data_ai": {
+      "outside_post_bounds": 894,
+      "post_arbitrage_kes": {
+        "count": 2805,
+        "max": 311078.28,
+        "median": 18337.25,
+        "min": 520.0,
+        "p25": 3900.0,
+        "p75": 42568.61
+      },
+      "pre_arbitrage_kes": {
+        "count": 2805,
+        "max": 33475.0,
+        "median": 3250.0,
+        "min": 520.0,
+        "p25": 1950.0,
+        "p75": 4875.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 2805,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/design_creative": {
+      "outside_post_bounds": 2742,
+      "post_arbitrage_kes": {
+        "count": 9868,
+        "max": 343823.36,
+        "median": 16372.54,
+        "min": 208.63,
+        "p25": 3575.0,
+        "p75": 38639.2
+      },
+      "pre_arbitrage_kes": {
+        "count": 9868,
+        "max": 34125.0,
+        "median": 2925.0,
+        "min": 520.0,
+        "p25": 1820.0,
+        "p75": 4550.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 9868,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/devops_cloud": {
+      "outside_post_bounds": 315,
+      "post_arbitrage_kes": {
+        "count": 668,
+        "max": 336094.27,
+        "median": 31387.01,
+        "min": 520.0,
+        "p25": 7410.37,
+        "p75": 77903.39
+      },
+      "pre_arbitrage_kes": {
+        "count": 668,
+        "max": 32500.0,
+        "median": 5200.0,
+        "min": 520.0,
+        "p25": 2925.0,
+        "p75": 10400.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 668,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/digital_marketing": {
+      "outside_post_bounds": 154,
+      "post_arbitrage_kes": {
+        "count": 1058,
+        "max": 327450.82,
+        "median": 8746.18,
+        "min": 343.13,
+        "p25": 2600.0,
+        "p75": 22406.28
+      },
+      "pre_arbitrage_kes": {
+        "count": 1058,
+        "max": 32500.0,
+        "median": 1950.0,
+        "min": 520.0,
+        "p25": 1105.0,
+        "p75": 3542.5
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 1058,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/general_tech": {
+      "outside_post_bounds": 366,
+      "post_arbitrage_kes": {
+        "count": 2000,
+        "max": 333999.83,
+        "median": 7858.82,
+        "min": 520.0,
+        "p25": 2806.41,
+        "p75": 29470.57
+      },
+      "pre_arbitrage_kes": {
+        "count": 2000,
+        "max": 33150.0,
+        "median": 2665.0,
+        "min": 520.0,
+        "p25": 1625.0,
+        "p75": 4095.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 2000,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/mobile": {
+      "outside_post_bounds": 166,
+      "post_arbitrage_kes": {
+        "count": 680,
+        "max": 168964.62,
+        "median": 11418.59,
+        "min": 520.0,
+        "p25": 2925.0,
+        "p75": 34266.69
+      },
+      "pre_arbitrage_kes": {
+        "count": 680,
+        "max": 22750.0,
+        "median": 2925.0,
+        "min": 520.0,
+        "p25": 1950.0,
+        "p75": 4550.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 680,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/product_management": {
+      "outside_post_bounds": 14,
+      "post_arbitrage_kes": {
+        "count": 102,
+        "max": 168309.72,
+        "median": 10150.98,
+        "min": 585.0,
+        "p25": 2908.75,
+        "p75": 20138.22
+      },
+      "pre_arbitrage_kes": {
+        "count": 102,
+        "max": 16705.0,
+        "median": 2210.0,
+        "min": 520.0,
+        "p25": 1365.0,
+        "p75": 3250.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 102,
+      "source_timestamp_present": 0
+    },
+    "upwork_jobs/web_backend": {
+      "outside_post_bounds": 1398,
+      "post_arbitrage_kes": {
+        "count": 5366,
+        "max": 232680.94,
+        "median": 15062.74,
+        "min": 166.9,
+        "p25": 3250.0,
+        "p75": 36019.59
+      },
+      "pre_arbitrage_kes": {
+        "count": 5366,
+        "max": 26000.0,
+        "median": 2925.0,
+        "min": 520.0,
+        "p25": 1950.0,
+        "p75": 4225.0
+      },
+      "proposed_oot_eligible": 0,
+      "rows": 5366,
+      "source_timestamp_present": 0
+    }
+  },
+  "proposed_oot_policy": {
+    "estimate_caveat": "Conditional on rebuilding from these same raw rows and verifying row-level date preservation; not OOT metrics or a mentor-rate sample.",
+    "estimated_eligible_job_rows_after_source_timestamp_preserving_rebuild": 16498,
+    "iqr_handling": "Report IQR for training diagnostics only; no data-dependent outlier trimming or holdout-based exclusions.",
+    "retained_job_budget_rows_with_timestamp_and_post_bounds": 0,
+    "retained_rows_with_timestamp_and_post_bounds": 0,
+    "rules": "Same pre-arbitrage rule; require source published_date with timezone, and post-arbitrage KES/hour in [500,35000]. Exclude profiles lacking observation time. Choose cutoff without peeking at held-out outcomes; hold out all equal timestamps on one side. Fit all transforms and peer indices on train only.",
+    "target_population": "posted_upwork_job_budgets_only_not_verified_mentor_rates"
+  },
+  "source_industry_flow": {
+    "upwork_data_scientists/data_ai": {
+      "excluded_before_arbitrage": 1,
+      "priced_candidates": 120,
+      "processed_rows": 119,
+      "retained_before_arbitrage": 119,
+      "source_timestamps_on_retained": 0
+    },
+    "upwork_data_scientists/design_creative": {
+      "excluded_before_arbitrage": 0,
+      "priced_candidates": 4,
+      "processed_rows": 4,
+      "retained_before_arbitrage": 4,
+      "source_timestamps_on_retained": 0
+    },
+    "upwork_data_scientists/web_backend": {
+      "excluded_before_arbitrage": 1,
+      "priced_candidates": 8,
+      "processed_rows": 7,
+      "retained_before_arbitrage": 7,
+      "source_timestamps_on_retained": 0
+    },
+    "upwork_jobs/data_ai": {
+      "excluded_before_arbitrage": 32,
+      "priced_candidates": 2837,
+      "processed_rows": 2805,
+      "retained_before_arbitrage": 2805,
+      "source_timestamps_on_retained": 2805
+    },
+    "upwork_jobs/design_creative": {
+      "excluded_before_arbitrage": 212,
+      "priced_candidates": 10080,
+      "processed_rows": 9868,
+      "retained_before_arbitrage": 9868,
+      "source_timestamps_on_retained": 9868
+    },
+    "upwork_jobs/devops_cloud": {
+      "excluded_before_arbitrage": 3,
+      "priced_candidates": 671,
+      "processed_rows": 668,
+      "retained_before_arbitrage": 668,
+      "source_timestamps_on_retained": 668
+    },
+    "upwork_jobs/digital_marketing": {
+      "excluded_before_arbitrage": 51,
+      "priced_candidates": 1109,
+      "processed_rows": 1058,
+      "retained_before_arbitrage": 1058,
+      "source_timestamps_on_retained": 1058
+    },
+    "upwork_jobs/general_tech": {
+      "excluded_before_arbitrage": 53,
+      "priced_candidates": 2053,
+      "processed_rows": 2000,
+      "retained_before_arbitrage": 2000,
+      "source_timestamps_on_retained": 2000
+    },
+    "upwork_jobs/mobile": {
+      "excluded_before_arbitrage": 4,
+      "priced_candidates": 684,
+      "processed_rows": 680,
+      "retained_before_arbitrage": 680,
+      "source_timestamps_on_retained": 680
+    },
+    "upwork_jobs/product_management": {
+      "excluded_before_arbitrage": 2,
+      "priced_candidates": 104,
+      "processed_rows": 102,
+      "retained_before_arbitrage": 102,
+      "source_timestamps_on_retained": 102
+    },
+    "upwork_jobs/web_backend": {
+      "excluded_before_arbitrage": 52,
+      "priced_candidates": 5418,
+      "processed_rows": 5366,
+      "retained_before_arbitrage": 5366,
+      "source_timestamps_on_retained": 5366
+    }
+  },
+  "sources": {
+    "upwork_data_scientists": {
+      "label_kind": "self_reported_profile_hourly_rate_usd",
+      "priced_candidates": 132,
+      "raw_rows": 132,
+      "retained_distinct_observation_dates": 0,
+      "retained_earliest_utc": null,
+      "retained_latest_utc": null,
+      "source_sha256": "541f5ea54e258dede4325e11c5f927704d45a96ab372daece40cf331cba3cfb4",
+      "source_timestamp_column": null,
+      "unpriced_or_unparseable": 0,
+      "valid_raw_observation_dates": 0
+    },
+    "upwork_jobs": {
+      "label_kind": "posted_hourly_budget_midpoint_usd",
+      "priced_candidates": 22956,
+      "raw_rows": 53058,
+      "retained_distinct_observation_dates": 22041,
+      "retained_earliest_utc": "2023-12-02T19:07:53+00:00",
+      "retained_latest_utc": "2024-02-23T18:19:08+00:00",
+      "source_sha256": "e8b3a7cb1c763d7b20451d8008799b2064c0787e2bd183a52896c98a7933410a",
+      "source_timestamp_column": "published_date",
+      "unpriced_or_unparseable": 30102,
+      "valid_raw_observation_dates": 53058
+    }
+  },
+  "timestamp_coverage": {
+    "earliest_utc": null,
+    "latest_utc": null,
+    "processed_missing": 22677,
+    "processed_timestamp_column_present": false,
+    "processed_valid": 0
+  }
+}
