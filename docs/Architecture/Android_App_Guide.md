@@ -11,7 +11,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | Issue | Milestone | Scope | Status after this scaffold |
 | --- | --- | --- | --- |
 | #74 M12.1 | 12 | Compose MVVM scaffold, `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`, Idle/Loading/Success/Error states | Implemented in this PR; see below |
-| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Theme/primitives/previews/semantics landed in this PR; automated accessibility-check test and dynamic-color QA remain open follow-up |
+| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Centralized theme/typography, WCAG contrast checks, labeled controls, 2x font-scale coverage and Compose accessibility instrumentation tests; dynamic-color QA remains open |
 | #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
 | #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Implemented with opt-in live mode, refreshed bearer tokens and MockWebServer coverage |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
