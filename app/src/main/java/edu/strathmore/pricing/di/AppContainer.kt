@@ -16,10 +16,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Minimal manual dependency container (no Hilt/Koin) so the scaffold has zero extra DI-framework
- * risk for issue #74. [pricingRepository] currently always resolves to [FakePricingRepository]: the
- * real Retrofit + Firebase wiring is intentionally gated behind [BuildConfig.USE_LIVE_BACKEND],
- * which issue #76 (M13.1) flips on once the authenticated network path is implemented and tested.
+ * Minimal manual dependency container (no Hilt/Koin). [pricingRepository] selects the live protected
+ * API only when `useLiveBackend=true` is supplied at build time; offline builds use the fake repo.
  */
 class AppContainer(
     private val context: Context,
@@ -31,6 +29,8 @@ class AppContainer(
             .Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(20, TimeUnit.SECONDS)
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
