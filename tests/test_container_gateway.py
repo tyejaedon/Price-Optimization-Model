@@ -110,6 +110,8 @@ class ContainerGatewayTests(unittest.TestCase):
 
             response = client.post("/api/v1/optimize-price", json=PAYLOAD, headers=headers)
             self.assertEqual(response.status_code, 200, response.text)
+            self.assertIn("inference;dur=", response.headers["server-timing"])
+            self.assertIn("api;dur=", response.headers["server-timing"])
             self.assertEqual(len(calls), 1)
             self.assertEqual(repository.list_transactions()[0]["mentor_id"], "fixture-user")
 

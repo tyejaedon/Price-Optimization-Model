@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Literal, Optional, cast
@@ -357,8 +358,13 @@ def create_app(
     @app.middleware("http")
     async def record_api_latency(request: Request, call_next: Any) -> JSONResponse:
         operation = f"api.{request.method.lower()}.{request.url.path}"
+        started = time.perf_counter()
         with resolved_metrics.timer(operation):
             response = await call_next(request)
+        api_duration_ms = (time.perf_counter() - started) * 1000
+        timing = response.headers.get("Server-Timing")
+        api_metric = f"api;dur={api_duration_ms:.2f}"
+        response.headers["Server-Timing"] = f"{timing}, {api_metric}" if timing else api_metric
         return response
 
     @app.exception_handler(Exception)
@@ -469,8 +475,11 @@ def create_app(
         else:
             inference_query = cast(PricingQueryDTO, query)
         try:
+            inference_started = time.perf_counter()
             with resolved_metrics.timer("inference.optimize_price"):
                 payload = dependencies.inference(cast(PricingQueryDTO, inference_query))
+            inference_duration_ms = (time.perf_counter() - inference_started) * 1000
+            response.headers["Server-Timing"] = f"inference;dur={inference_duration_ms:.2f}"
             prediction = PredictionResultDTO.model_validate(payload)
             if canonical:
                 try:

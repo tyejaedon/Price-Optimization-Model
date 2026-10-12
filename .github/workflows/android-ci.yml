@@ -47,6 +47,9 @@ jobs:
       - name: Unit tests (ViewModel/state + repository)
         run: gradle :app:testDebugUnitTest --console=plain
 
+      - name: Compile Android instrumentation tests
+        run: gradle :app:compileDebugAndroidTestKotlin --console=plain
+
       - name: Upload failure reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -55,4 +58,3 @@ jobs:
           path: |
             app/build/reports/
           retention-days: 7
-
