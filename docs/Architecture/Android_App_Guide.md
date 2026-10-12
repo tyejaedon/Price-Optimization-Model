@@ -18,7 +18,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | #142 M13.1.2 | 13 | Results dashboard UX: corridor, M-Pesa breakdown, comparables, confidence disclosure, `AnimateRecommendation` motion | `PricingResultCard` implemented in this PR; instrumented Compose UI tests remain open follow-up |
 | #144 M12.1.4 | 12 | Shared Android Studio run/debug configuration for `app` | Implemented in this PR; `.idea/runConfigurations/` committed, see "IDE caveat" below |
 | #77 M13.2 | 13 | Backend Docker/CI | Already closed; unrelated to the Android module |
-| #85-#87 M14 | 14 | Browser demo harness, 3G RTT validation, SUS study | Unaffected by this PR |
+| #85-#87 M14 | 14 | Browser demo harness, 3G RTT validation, SUS study | #85 harness and #86 measurement tooling are in separate draft PRs; live RTT evidence and the #87 participant study remain outstanding. See [the RTT protocol](../M14.2_Authenticated_3G_RTT_Protocol.md). |
 
 ## IDE caveat: PyCharm vs. Android Studio
 
