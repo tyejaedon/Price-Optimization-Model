@@ -1,5 +1,6 @@
 package edu.strathmore.pricing.ui.theme
 
+import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -15,4 +16,23 @@ object PricingTypography {
     val Body = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp)
     val Label = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 18.sp)
     val Caption = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp)
+
+    val Material =
+        Typography(
+            displayLarge = Headline,
+            displayMedium = Headline,
+            displaySmall = Headline,
+            headlineLarge = Headline,
+            headlineMedium = Headline,
+            headlineSmall = Title,
+            titleLarge = Title,
+            titleMedium = Label,
+            titleSmall = Label,
+            bodyLarge = Body,
+            bodyMedium = Body,
+            bodySmall = Caption,
+            labelLarge = Label,
+            labelMedium = Label,
+            labelSmall = Caption,
+        )
 }
