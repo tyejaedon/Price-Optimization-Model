@@ -11,7 +11,7 @@ instead of ad hoc scope creep. It does not replace or move any Python module und
 | Issue | Milestone | Scope | Status after this scaffold |
 | --- | --- | --- | --- |
 | #74 M12.1 | 12 | Compose MVVM scaffold, `CapabilityInputForm`, `BilateralCorridorSelector`, `SaturationSlider`, Idle/Loading/Success/Error states | Implemented in this PR; see below |
-| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Theme/primitives/previews/semantics landed in this PR; automated accessibility-check test and dynamic-color QA remain open follow-up |
+| #140 M12.1.1 | 12 | Material 3 design system, accessibility, motion polish | Centralized theme/typography, WCAG contrast checks, labeled controls, 2x font-scale coverage and Compose accessibility instrumentation tests; dynamic-color QA remains open |
 | #75 M12.2 | 12 | Firebase sign-in, refreshed ID tokens and logout | Email/password sign-in is implemented; Firebase Auth owns session persistence and token refresh |
 | #76 M13.1 | 13 | Full Retrofit networking, token attachment, HTTP error taxonomy | Implemented with opt-in live mode, refreshed bearer tokens and MockWebServer coverage |
 | #141 M13.2.1 | 13 | Android CI: Gradle build, lint, ktlint, unit tests as a required check | `.github/workflows/android-ci.yml` added in this PR; verified green on this PR's branch |
@@ -80,7 +80,7 @@ a first Gradle import if Android Studio has no Gradle JDK configured yet. Fix:
 
 ```
 app/
-├── build.gradle.kts                 # Compose, Retrofit, Firebase Auth, ktlint
+├── build.gradle.kts                 # Compose, Retrofit, Firebase Auth (shape only), security-crypto, ktlint
 └── src/main/java/edu/strathmore/pricing/
     ├── PricingApplication.kt         # Owns the single AppContainer (manual DI)
     ├── MainActivity.kt               # Hosts PricingScreen under PricingTheme
@@ -94,48 +94,18 @@ app/
     └── data/
         ├── network/                  # PricingApiService (Retrofit), dto/ (mirrors src/api_contracts.py canonical DTOs)
         ├── repository/                # PricingRepositoryImpl (live), FakePricingRepository (offline/demo/tests)
-        └── auth/                     # IAuthTokenProvider, FirebaseAuthManager
+        └── auth/                     # IAuthTokenProvider, FirebaseAuthManager (shape only; real impl is #75)
 ```
-
-## Firebase client setup and token lifecycle (#75)
-
-Provide the Firebase client configuration at build time with Gradle properties
-`firebaseApiKey`, `firebaseApplicationId` and `firebaseProjectId` (or environment variables
-`FIREBASE_API_KEY`, `FIREBASE_APPLICATION_ID` and `FIREBASE_PROJECT_ID`). These identify the
-Firebase client project and are not service-account credentials. Do not put an Admin SDK key or
-service-account JSON in the Android app.
-
-The app does not copy Firebase ID or refresh tokens into its own preferences. It asks Firebase Auth
-for a forced ID-token refresh for each protected pricing request and relies on Firebase Auth's
-session lifecycle; sign-out clears that SDK-managed session. `EncryptedSharedPreferences` is
-deprecated in the selected AndroidX Security release line, so this app deliberately avoids adding
-a second credential cache instead of persisting tokens in plaintext or using the deprecated API.
-
-## Protected pricing API (#76)
-
-The client posts the canonical DTO to `POST /api/v1/optimize-price` and parses the response fields
-used by the pricing dashboard. Every request obtains a fresh Firebase ID token, sends it only in
-the `Authorization: Bearer` header, and runs on `Dispatchers.IO`. The OkHttp client uses bounded
-connect/read/write/call timeouts; errors map to sign-in required (401), mentor authorization (403),
-input correction (422), temporary service unavailability (503), network/timeout, or an explicit
-unexpected-server error. Cancellation is propagated. HTTP logs contain neither tokens nor bodies.
-
-Build with `-PuseLiveBackend=true` to select Retrofit instead of the fake repository. Override the
-endpoint with `-PpricingApiBaseUrl=https://<test-host>/` or `PRICING_API_BASE_URL`; the URL must end
-in `/`. The Android emulator's default `http://10.0.2.2:8000/` is permitted only in debug builds.
-Production builds must use HTTPS. The mentor profile document ID is entered separately because it
-is not assumed to equal the Firebase UID; the server performs the ownership check.
 
 ## Why a fake repository ships by default
 
 `AppContainer.pricingRepository` resolves to `FakePricingRepository` while
 `BuildConfig.USE_LIVE_BACKEND = false`. This lets the app build, run, and demo the full Idle →
-Loading → Success/Error flow and the results dashboard without Firebase or a reachable backend.
-For a local emulator-backed API, build with `-PuseLiveBackend=true`; the default URL is
-`http://10.0.2.2:8000/`. Set `-PpricingApiBaseUrl=https://<test-api>/` for a protected test service.
-The cleartext exception exists only in the debug manifest. Supply the Firebase client properties
-described above. The app asks for the mentor profile document ID separately from the Firebase
-account; the backend authorizes ownership and does not assume the IDs are equal.
+Loading → Success/Error flow and the results dashboard **without** a configured Firebase project or
+a reachable backend — required because #75 and #76 are separate, not-yet-landed issues. Flipping
+`USE_LIVE_BACKEND` to `true` is explicitly scoped to #76 once the authenticated Retrofit path has
+its own mock-server test coverage (401/403/422/503/timeout/cancellation per that issue's acceptance
+criteria).
 
 ## DTO parity contract
 
@@ -147,9 +117,9 @@ must be reflected here in the same PR, or the Kotlin client will silently drop o
 ## Verifying this scaffold
 
 Not every contributor environment has an Android SDK or local Gradle distribution pre-installed.
-This scaffold has been verified locally (Gradle 9.3.0, Java/Kotlin compile targets pinned to 17):
-`gradle :app:ktlintCheck`, `:app:assembleDebug`, `:app:lintDebug` and `:app:testDebugUnitTest`
-(19 offline tests: seven pricing ViewModel, three auth lifecycle and nine API integration cases) all pass, and the same four tasks are
+This scaffold has been verified locally (Gradle 9.3.0, JDK 22 daemon, compileOptions/kotlinOptions
+pinned to JVM target 17): `gradle :app:ktlintCheck`, `:app:assembleDebug`, `:app:lintDebug` and
+`:app:testDebugUnitTest` (6/6 `PricingViewModelTest` cases) all pass, and the same four tasks are
 enforced on every PR by `.github/workflows/android-ci.yml`. If your environment lacks Gradle/the
 Android SDK, verify with one of:
 

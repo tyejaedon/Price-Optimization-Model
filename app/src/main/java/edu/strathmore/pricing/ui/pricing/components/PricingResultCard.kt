@@ -15,14 +15,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import edu.strathmore.pricing.data.network.dto.PredictionResultDTO
 import edu.strathmore.pricing.ui.components.SectionCard
 import edu.strathmore.pricing.ui.theme.PricingSpacing
 import edu.strathmore.pricing.ui.theme.WarningAmber
+import edu.strathmore.pricing.ui.theme.WarningAmberDark
 
 /**
  * Pricing result presentation (issue #142). Keeps corridor, M-Pesa surcharge and the uncalibrated
@@ -36,6 +37,8 @@ fun PricingResultCard(
     modifier: Modifier = Modifier,
 ) {
     val reduceMotion = isReduceMotionEnabled()
+    val warningColor =
+        if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) WarningAmberDark else WarningAmber
     val animatedRate by animateFloatAsState(
         targetValue = result.finalQuotedRate,
         animationSpec = if (reduceMotion) tween(durationMillis = 0) else tween(durationMillis = 600),
@@ -73,6 +76,7 @@ fun PricingResultCard(
                 label = "Confidence (uncalibrated)",
                 value = "${(result.confidenceScore * 100).toInt()}%",
                 caption = "Not a probability that this quote is accurate.",
+                captionColor = warningColor,
             )
 
             Spacer(modifier = Modifier.height(PricingSpacing.Medium))
@@ -90,6 +94,7 @@ private fun LineItem(
     label: String,
     value: String,
     caption: String? = null,
+    captionColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Column {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -97,7 +102,7 @@ private fun LineItem(
             Text(text = value, style = MaterialTheme.typography.bodyMedium)
         }
         if (caption != null) {
-            Text(text = caption, style = MaterialTheme.typography.bodySmall, color = WarningAmber)
+            Text(text = caption, style = MaterialTheme.typography.bodySmall, color = captionColor)
         }
     }
 }
@@ -119,7 +124,7 @@ private fun ComparablesList(result: PredictionResultDTO) {
             style = MaterialTheme.typography.bodySmall,
         )
     }
-    LazyColumn(modifier = Modifier.height((result.comparables.size.coerceAtMost(4) * 56).dp)) {
+    LazyColumn(modifier = Modifier.height(PricingSpacing.ComparableRow * result.comparables.size.coerceAtMost(4))) {
         items(result.comparables) { peer ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(

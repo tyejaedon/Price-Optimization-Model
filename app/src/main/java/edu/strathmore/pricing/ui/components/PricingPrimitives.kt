@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import edu.strathmore.pricing.ui.theme.ErrorRed
 import edu.strathmore.pricing.ui.theme.MinTouchTarget
 import edu.strathmore.pricing.ui.theme.PricingSpacing
 
@@ -76,10 +75,10 @@ fun InlineErrorText(
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
             contentDescription = null,
-            tint = ErrorRed,
+            tint = MaterialTheme.colorScheme.error,
         )
         Box(modifier = Modifier.padding(start = PricingSpacing.ExtraSmall)) {
-            Text(text = message, color = ErrorRed, style = MaterialTheme.typography.bodyMedium)
+            Text(text = message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

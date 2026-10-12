@@ -27,7 +27,7 @@ private val DarkColors =
         tertiary = AccentLavender,
         background = SurfaceDark,
         surface = SurfaceDark,
-        error = ErrorRed,
+        error = ErrorRedDark,
     )
 
 /**
@@ -55,6 +55,7 @@ fun PricingTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = PricingTypography.Material,
         shapes = PricingShapes,
         content = content,
     )
