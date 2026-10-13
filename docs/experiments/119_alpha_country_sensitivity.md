@@ -2,7 +2,7 @@
 
 **Status: protocol and synthetic software checks complete; dated #93 local research not run (missing inputs).** Milestone 9, research only. [Issue #119](https://github.com/tyejaedon/Price-Optimization-Model/issues/119); [assumption register](assumptions.md). No production defaults, model schema, data, tariffs or serving artifacts change.
 
-## Predeclared protocol (before any #119 local candidate outcome)
+## Predeclared protocol (before any #93 cohort candidate outcome)
 
 - **Question and interpretation:** How does changing the *assumed* bilateral PPP/cost-index exponent affect factor, constructed job-budget target, peer quote, fee-free negotiation corridor and peer identity? The 0.50 default is a convention, **not** an estimated optimum. No independent paid mentor transaction or verified mentor–client country pairing exists; alpha-derived labels cannot identify a real-price optimum. **Do not compute/select by R², RMSE or label accuracy against alpha-derived targets.**
 - **One variable and controls:** Sweep alpha **0, 0.25, 0.50, 0.75, 1** in that order, using 0.50 as the reference. Keep KE as the *assumed* offline mentor anchor, USD/KES conversion 130, source-country-to-client proxy mapping and fallback rules, macro lookup, 50D unnormalized SVD (seed 42, 12k max TF-IDF terms, unigram+bigrams, min_df=1), 3D train-fitted MinMax metadata, equal text/metadata block weights, industry KD-Trees, k=5, quadratic IDW epsilon=1e-6, fallback minimum five, and corridor rule fixed. Same-country KE→KE is the zero-factor/zero-target-change control; its **predicted** quote need not be constant because other training peers' constructed labels change.
