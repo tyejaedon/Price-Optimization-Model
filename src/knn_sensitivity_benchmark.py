@@ -186,7 +186,8 @@ def run_benchmark(parquet_path: str, macro_path: str, validation_cutoff: str, te
 
     report["zero_distance_synthetic_probe"] = _zero_distance_probe(
         tuple(dict.fromkeys((*k_series, *epsilon_series))))
-    # Only validation queries are transformed or scored; test labels remain unopened by this run.
+    # Population eligibility uses the predeclared rate bounds across windows;
+    # candidates transform and score only validation requests, never the test.
     baseline_results: list[dict[str, Any]] | None = None
     for series, candidates in (("k", k_series), ("epsilon", epsilon_series)):
         for k, epsilon in candidates:
