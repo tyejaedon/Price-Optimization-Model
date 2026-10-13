@@ -101,3 +101,29 @@ Peer changes are substantial despite L1's small pooled error change: across **al
 With single-threaded BLAS on the stated machine, text-fit times were 8,680.55 / 8,344.95 / 8,168.48 ms; KD-Tree fits 206.21 / 194.65 / 200.83 ms; validation batch transform 2,350.89 / 2,213.61 / 2,271.01 ms (baseline/L1/unit). Across the same 25 evenly spaced **warmed** validation requests, text p95 was 5.89 / 5.30 / 5.56 ms and search p95 .94 / .64 / .76 ms; combined p95 is tabulated above. Peak values are Python `tracemalloc` allocations, **not** RSS; saved bytes were 9,926,957 / 9,926,956 / 9,926,956 respectively (include research-only macro/metadata/index copies). Timings are local research NLP+metadata+KD-Tree/IDW, not authenticated HTTP, mobile RTT or stable cross-machine speed claims.
 
 **Interpretation / decision:** L1 reduces validation MAE by 92.77 KES/h but lowers RMSE by only 1.69 KES/h and raises R² just .000214; its lower MAE is not uniform across industries, and it changes most neighbor ranks. Unit normalization worsens MAE by 717.34 KES/h, RMSE by 677.73 KES/h and R² by .090277. Under the prespecified *descriptive trade-off* rule, neither alternative warrants promotion on this snapshot; retain production sparse L2 and raw post-SVD. The large OOV fraction could motivate a **separately preregistered** vocabulary/min_df study, not an after-the-fact candidate here. One rebuilt, provenance-limited job-budget snapshot, small categories (e.g. product_management 18 validation records), WordNet-unavailable fallback, known prior final-window exposure and drift prevent a statistical/causal winner, paid mentor-price validation or blind-test claims. No artifact was promoted and no #81 pricing gate was assessed.
+
+## Pre-outcome NLTK resource amendment (2026-10-13)
+
+The parent has now made **downloaded NLTK English stopwords and WordNet** available under ignored `data/nltk_data`. The run above used `FALLBACK_STOPWORDS` and unchanged tokens when corpus downloads failed SSL; it is a **different preprocessing-resource condition** from the intended NLTK-enabled pipeline. Retain its complete exploratory outcomes and failures above, but do **not** compare the two conditions as a single-variable text-setting experiment. Rerun **all three** previously frozen candidates on exactly the same input digests, eligibility, cutoffs, seeds, k/epsilon, 53D schema and 25 spaced warm samples. This is a resource-consistency rerun, not choosing a candidate because of its earlier scores; no final-test scoring or promotion.
+
+- **Input fingerprints rechecked before rerun:** parent parquet SHA-256 `2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c`, parent macro JSON SHA-256 `127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8`. NLTK corpus ZIPs in parent ignored `data/nltk_data/corpora/`: `stopwords.zip` SHA-256 `48c0e52d8b52546e827f53761fb30300c0ab94f70660d28bd65ba0a86270946b`; `wordnet.zip` SHA-256 `cbda5ea6eef7f36a97a43d4a75f85e07fccbb4f23657d27b4ccbc93e2646ab59`. Extracted English stopword file SHA-256 `f6d005956f407dbc6ea32e5ff0c7e8e6f71488d3239b9023efdc7fc139d6375b`. The code now recognizes zipped WordNet without attempting a redundant network download; tests cover both zipped and unavailable corpora.
+- **Resource readiness pre-score:** with `NLTK_DATA` set to that absolute parent directory, `WordNetLemmatizer` is available, English stopwords count is 198 and `sanitize_text("Dogs running through cities")` yields `"dog running city"`. These resources are local inputs; nothing is copied into the tracked repository or model service.
+- **Frozen decision/readout:** same prespecified descriptive validation/peer/operational measures and no numerical winner/promotion threshold. New NLTK-enabled results must be labeled separately from the fallback run above. No #93 cross-snapshot comparison, no blind final test or paid mentor-price claim.
+
+From the issue worktree root, resolve the parent to an absolute path and write **only** to a fresh, ignored issue-worktree report directory:
+
+```bash
+PARENT="$(cd ../.. && pwd)"
+NLTK_DATA="$PARENT/data/nltk_data" OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  python -m src.text_sensitivity_benchmark \
+  --harmonized-parquet "$PARENT/data/processed/harmonized_marketplace_corpus.parquet" \
+  --macro-lookup "$PARENT/data/processed/macro_lookup_table.json" \
+  --validation-cutoff 2024-02-20T00:00:00+00:00 \
+  --test-cutoff 2024-02-22T00:00:00+00:00 \
+  --dataset-version parent-local-rebuilt-proxy-2026-10-13-nltk \
+  --expected-parquet-sha256 2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c \
+  --expected-macro-sha256 127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8 \
+  --output-dir reports/m9_text_sensitivity_120_rebuilt_nltk_2026-10-13 --samples 25
+```
+
+**NLTK-enabled results: not run at the time of this amendment.**

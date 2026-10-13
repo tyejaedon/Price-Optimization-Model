@@ -53,6 +53,19 @@ class NlpPipelineSanitizationTests(unittest.TestCase):
         finally:
             _lemmatizer.cache_clear()
 
+    def test_zipped_wordnet_does_not_attempt_download(self) -> None:
+        _lemmatizer.cache_clear()
+        try:
+            with patch("src.nlp_pipeline.nltk.data.find", side_effect=[LookupError, object()]) as find, \
+                 patch("src.nlp_pipeline.nltk.download") as download, \
+                 patch("src.nlp_pipeline.WordNetLemmatizer") as lemmatizer:
+                lemmatizer.return_value.lemmatize.return_value = "dog"
+                self.assertIsNotNone(_lemmatizer())
+                self.assertEqual(find.call_count, 2)
+                download.assert_not_called()
+        finally:
+            _lemmatizer.cache_clear()
+
     def test_cli_runner_emits_sanitized_text(self) -> None:
         cmd = [
             sys.executable,

@@ -94,7 +94,10 @@ def _lemmatizer() -> Optional[WordNetLemmatizer]:
     try:
         nltk.data.find("corpora/wordnet")
     except LookupError:
-        nltk.download("wordnet", quiet=True)
+        try:
+            nltk.data.find("corpora/wordnet.zip")
+        except LookupError:
+            nltk.download("wordnet", quiet=True)
     lemma = WordNetLemmatizer()
     try:
         lemma.lemmatize("availability")
