@@ -100,6 +100,19 @@ class KnnSensitivityTests(unittest.TestCase):
         trial["corridor_width"] = 120
         self.assertNotIn("peer_index", _peer_changes([baseline], [trial]))
 
+    def test_higher_k_can_change_fallback_routing(self):
+        vectors = np.zeros((16, 53))
+        vectors[:, 0] = np.arange(16, dtype=float)
+        index = DomainPartitionedKDTreeIndexer()
+        index.fit(vectors, ["data_ai"] * 6 + ["general_tech"] * 10,
+                  verified_rates=[100.0] * 16)
+        baseline = index.predict_base_rate(vectors[0], "data_ai", k=5)
+        larger_k = index.predict_base_rate(vectors[0], "data_ai", k=10)
+        self.assertFalse(baseline["fallback_triggered"])
+        self.assertTrue(larger_k["fallback_triggered"])
+        self.assertEqual(larger_k["routed_partition"], "general_tech")
+        self.assertEqual(larger_k["k_neighbors_used"], 10)
+
 
 if __name__ == "__main__":
     unittest.main()
