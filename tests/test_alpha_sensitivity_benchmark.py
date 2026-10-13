@@ -126,6 +126,19 @@ class AlphaSensitivityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid pre-arbitrage"):
             _scenario(case.assign(hourly_rate=np.nan), self.records, 0.25)
 
+    def test_test_window_prealpha_rates_are_not_read_by_scenarios(self):
+        baseline = self.run_research("unmodified")
+        frame = pd.read_parquet(self.parquet)
+        frame.loc[frame.observation_timestamp_utc.eq("2024-02-23T00:00:00+00:00"),
+                  "hourly_rate"] = 0
+        frame.to_parquet(self.parquet, index=False)
+        changed = self.run_research("test_rates_changed")
+        self.assertNotEqual(baseline["input_sha256"]["parquet"], changed["input_sha256"]["parquet"])
+        for original, later in zip(baseline["results"], changed["results"]):
+            self.assertEqual(original["validation_mean_scenario_target_kes"],
+                             later["validation_mean_scenario_target_kes"])
+            self.assertEqual(original["vs_alpha_0_50"], later["vs_alpha_0_50"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -166,14 +166,14 @@ def run_benchmark(parquet_path: str, macro_path: str, output_dir: str = "reports
     split, provenance = _split_population(load_harmonized_parquet(parquet_path), VALIDATION_CUTOFF, TEST_CUTOFF)
     if is_93 and provenance["split_rows"] != {"train": 10703, "validation": 2384, "test": 3390}:
         raise ValueError("Frozen #93 cohort row counts differ.")
-    all_rows = pd.concat((split.train, split.validation, split.test), ignore_index=True)
+    research_rows = pd.concat((split.train, split.validation), ignore_index=True)
     coverage = {name: _country_coverage(part, macro) for name, part in
                 (("train", split.train), ("validation", split.validation), ("test_not_scored", split.test))}
-    original = all_rows["harmonized_hourly_rate"].to_numpy(dtype=float)
-    baseline = _scenario(all_rows, macro, BILATERAL_ALPHA)
+    original = research_rows["harmonized_hourly_rate"].to_numpy(dtype=float)
+    baseline = _scenario(research_rows, macro, BILATERAL_ALPHA)
     if not np.allclose(original, baseline["target_rate"].to_numpy(dtype=float), rtol=0, atol=0.02):
         raise ValueError("Frozen #93 labels do not match alpha=0.50 factors; cannot rebase scenarios.")
-    if "arbitrage_alpha" in all_rows and not np.allclose(all_rows["arbitrage_alpha"].to_numpy(dtype=float), 0.5):
+    if "arbitrage_alpha" in research_rows and not np.allclose(research_rows["arbitrage_alpha"].to_numpy(dtype=float), 0.5):
         raise ValueError("Input was not harmonized with the frozen alpha=0.50.")
     train_n, validation_n = len(split.train), len(split.validation)
     report: dict[str, Any] = {
@@ -205,7 +205,7 @@ def run_benchmark(parquet_path: str, macro_path: str, output_dir: str = "reports
         row: dict[str, Any] = {"alpha": alpha, "status": "failed"}
         report["results"].append(row)
         try:
-            scenario = _scenario(all_rows, macro, alpha)
+            scenario = _scenario(research_rows, macro, alpha)
             train = scenario.iloc[:train_n].reset_index(drop=True)
             validation = scenario.iloc[train_n:train_n + validation_n].reset_index(drop=True)
             normalizer = ContinuousMetadataNormalizer(macro_path, alpha=alpha)
