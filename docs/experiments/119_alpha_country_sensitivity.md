@@ -42,6 +42,19 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_s
   --output-dir reports/m9_alpha_sensitivity_119_rebuilt_20261013 --samples 25
 ```
 
+### Preregistered environment correction before rerun (2026-10-13)
+
+The first rebuilt-snapshot run below used the NLP module's fallback stopwords and token normalization because NLTK's stopwords and wordnet downloads failed SSL verification. This still passed research reload parity, but is **not the intended NLTK-resource text representation**. The missing resources are now available in the parent checkout's ignored `data/nltk_data` (NLTK 3.10.3; stopwords English file SHA-256 `f6d005956f407dbc6ea32e5ff0c7e8e6f71488d3239b9023efdc7fc139d6375b`; wordnet ZIP SHA-256 `cbda5ea6eef7f36a97a43d4a75f85e07fccbb4f23657d27b4ccbc93e2646ab59`). The resource smoke check returned 198 stopwords and lemmatized “payments” to “payment”. **Before viewing the corrected run**, freeze the same rebuilt parquet/macro hashes, same 0.50 eligibility, country roles and cutoff cohort, five alpha candidates, text/metadata dimensions, seeds, k/IDW, 25 timed validation samples and no-target-accuracy/no-test policy. The *only* environment correction is supplying intended NLP corpora through `NLTK_DATA`. Save the rerun to its own ignored directory; retain the initial fallback report and disclose both runs, without choosing an alpha on either.
+
+```bash
+NLTK_DATA=/absolute/parent/worktree/data/nltk_data OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  python -m src.alpha_sensitivity_benchmark \
+  --harmonized-parquet /absolute/parent/worktree/data/processed/harmonized_marketplace_corpus.parquet \
+  --macro-lookup /absolute/parent/worktree/data/processed/macro_lookup_table.json \
+  --allow-other-snapshot --dataset-version local-rebuilt-proxy-2026-10-13-portable-fixtures \
+  --output-dir reports/m9_alpha_sensitivity_119_rebuilt_20261013_nltk --samples 25
+```
+
 ## Original #93 snapshot: unavailable, not run (2026-10-13)
 
 | Scenario | #93 validation factor/target/corridor/peers | Reload and local latency | Status |
@@ -54,7 +67,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_s
 
 The isolated worktree lacks **both original #93** hashed inputs. Available raw CSVs do not include the original WDI PPP source CSV; the newly rebuilt fixture-assisted macro/parquet **cannot** reproduce those historical SHA-256 values or #93's cohort. The synthetic fixtures exercise consistent label/factor recomputation, fallback/same-country controls, train-only fit, reload parity, hash and provenance guards; **their results are not #93 findings or validated mentor prices**. Only restore the two original matching, dated, ignored inputs from a trusted prior local snapshot to reproduce #93. A fresh independently sourced mentor-payment cohort and verified country roles are needed to decide real pricing; #91/#118 make that research non-blocking for M10–M14.
 
-## New reconstructed snapshot: aggregate exploratory findings (2026-10-13)
+## New reconstructed snapshot: initial NLP-fallback exploratory findings (2026-10-13)
 
 The two **new** hashes in the preregistered extension matched the local inputs at execution. `reports/m9_alpha_sensitivity_119_rebuilt_20261013/protocol_frozen.json` records the five candidates and 9,615/2,131/3,063 cohort **before model fitting**; ignored `benchmark.json` retains full aggregate results, country-pair counts, per-pair mean sensitivity, environment, and failures. All five candidates succeeded; none was selected for real-world pricing. **No R²/RMSE, independently measured paid mentor labels or final-test prediction was used.** Numbers below use only the same 2,131 validation requests on this *new* snapshot, compared with its own 0.50 baseline; absolute changes are averages, not estimates of error against real payments. Factor is unitless; rates, quotes and corridor bounds are KES/hour.
 
