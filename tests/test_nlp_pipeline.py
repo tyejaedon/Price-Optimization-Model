@@ -1,8 +1,9 @@
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
-from src.nlp_pipeline import sanitize_many, sanitize_text
+from src.nlp_pipeline import _lemmatizer, sanitize_many, sanitize_text
 
 
 class NlpPipelineSanitizationTests(unittest.TestCase):
@@ -41,6 +42,17 @@ class NlpPipelineSanitizationTests(unittest.TestCase):
         self.assertEqual(len(outputs), len(inputs))
         self.assertEqual(outputs[2], "")
 
+    def test_unavailable_wordnet_uses_original_token_without_repeated_lookup(self) -> None:
+        _lemmatizer.cache_clear()
+        try:
+            with patch("src.nlp_pipeline.nltk.data.find", side_effect=LookupError), \
+                 patch("src.nlp_pipeline.nltk.download", return_value=False) as download:
+                self.assertIn("software", sanitize_text("Software engineering software"))
+                self.assertIn("software", sanitize_text("Software analytics"))
+                download.assert_called_once_with("wordnet", quiet=True)
+        finally:
+            _lemmatizer.cache_clear()
+
     def test_cli_runner_emits_sanitized_text(self) -> None:
         cmd = [
             sys.executable,
@@ -57,4 +69,3 @@ class NlpPipelineSanitizationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

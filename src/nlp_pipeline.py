@@ -18,7 +18,7 @@ import os
 import re
 import time
 from functools import lru_cache
-from typing import Iterable, List, Sequence, Set, Tuple
+from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 try:
     import joblib
@@ -90,12 +90,17 @@ def _stopwords_set() -> Set[str]:
 
 
 @lru_cache(maxsize=1)
-def _lemmatizer() -> WordNetLemmatizer:
+def _lemmatizer() -> Optional[WordNetLemmatizer]:
     try:
         nltk.data.find("corpora/wordnet")
     except LookupError:
         nltk.download("wordnet", quiet=True)
-    return WordNetLemmatizer()
+    lemma = WordNetLemmatizer()
+    try:
+        lemma.lemmatize("availability")
+    except LookupError:
+        return None
+    return lemma
 
 
 def _clean_text(raw_text: str) -> str:
@@ -125,10 +130,7 @@ def sanitize_text(raw_text: str) -> str:
             continue
         if token in stop_words:
             continue
-        try:
-            normalized = lemma.lemmatize(token)
-        except LookupError:
-            normalized = token
+        normalized = lemma.lemmatize(token) if lemma is not None else token
         if normalized and len(normalized) > 2 and normalized not in stop_words:
             tokens.append(normalized)
 
