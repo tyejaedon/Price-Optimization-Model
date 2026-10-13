@@ -45,7 +45,7 @@ class AlphaSensitivityTests(unittest.TestCase):
 
     def run_research(self, name: str = "run"):
         return run_benchmark(str(self.parquet), str(self.macro), str(self.root / name),
-                             samples=2, allow_other_snapshot=True)
+                             samples=2, allow_other_snapshot=True, dataset_version="synthetic-test-not-93")
 
     def test_sweep_freezes_cohort_recalculates_targets_and_features(self):
         report = self.run_research()
@@ -87,6 +87,9 @@ class AlphaSensitivityTests(unittest.TestCase):
     def test_rejects_unmatched_hash_edited_roles_and_alpha_labels(self):
         with self.assertRaisesRegex(ValueError, "SHA-256"):
             run_benchmark(str(self.parquet), str(self.macro), str(self.root / "strict"))
+        with self.assertRaisesRegex(ValueError, "dataset_version"):
+            run_benchmark(str(self.parquet), str(self.macro), str(self.root / "unversioned"),
+                          allow_other_snapshot=True)
         original = pd.read_parquet(self.parquet)
         modified = original.copy()
         modified.loc[0, "harmonized_hourly_rate"] += 20

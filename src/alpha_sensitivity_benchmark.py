@@ -151,7 +151,8 @@ def _changes(base: pd.DataFrame, trial: pd.DataFrame, base_predictions: np.ndarr
 
 
 def run_benchmark(parquet_path: str, macro_path: str, output_dir: str = "reports/m9_alpha_sensitivity_119",
-                  samples: int = 25, *, allow_other_snapshot: bool = False) -> dict[str, Any]:
+                  samples: int = 25, *, allow_other_snapshot: bool = False,
+                  dataset_version: str = "") -> dict[str, Any]:
     """Use #93's exact frozen cohort; opt-in non-#93 snapshots are labelled as such."""
     if samples < 1:
         raise ValueError("samples must be positive.")
@@ -159,6 +160,8 @@ def run_benchmark(parquet_path: str, macro_path: str, output_dir: str = "reports
     is_93 = hashes == {"parquet": PARQUET_SHA93, "macro_lookup": MACRO_SHA93}
     if not is_93 and not allow_other_snapshot:
         raise ValueError("Input SHA-256 does not match the frozen #93 parquet and macro lookup.")
+    if not is_93 and not dataset_version.strip():
+        raise ValueError("Non-#93 snapshots require an explicit dataset_version and provenance record.")
     output = Path(output_dir)
     if output.exists() and any(output.iterdir()):
         raise ValueError("Use a new empty report directory for each run.")
@@ -179,6 +182,7 @@ def run_benchmark(parquet_path: str, macro_path: str, output_dir: str = "reports
     report: dict[str, Any] = {
         "issue": 119, "status": "research_only_no_promotion",
         "snapshot": "frozen_93_previously_opened" if is_93 else "other_snapshot_not_93",
+        "dataset_version": dataset_version if not is_93 else "local-proxy-job-budgets-2026-10-05",
         "input_sha256": hashes, "protocol": provenance, "country_coverage": coverage,
         "predeclared_alphas": list(ALPHAS), "baseline_alpha": 0.5,
         "fixed": {"text_dimensions": 50, "metadata_features": list(DEFAULT_FEATURE_NAMES),
@@ -250,11 +254,14 @@ def main() -> None:
     parser.add_argument("--macro-lookup", required=True)
     parser.add_argument("--output-dir", default="reports/m9_alpha_sensitivity_119")
     parser.add_argument("--samples", type=int, default=25)
+    parser.add_argument("--dataset-version", default="",
+                        help="Required for a non-#93 snapshot; document its construction separately.")
     parser.add_argument("--allow-other-snapshot", action="store_true",
                         help="Label non-#93 data explicitly (synthetic/testing); never present it as #93.")
     args = parser.parse_args()
     report = run_benchmark(args.harmonized_parquet, args.macro_lookup, args.output_dir,
-                           args.samples, allow_other_snapshot=args.allow_other_snapshot)
+                           args.samples, allow_other_snapshot=args.allow_other_snapshot,
+                           dataset_version=args.dataset_version)
     print(json.dumps({"snapshot": report["snapshot"], "input_sha256": report["input_sha256"],
                       "results": [{"alpha": r["alpha"], "status": r["status"],
                                    "failure": r.get("failure")} for r in report["results"]]}, indent=2))

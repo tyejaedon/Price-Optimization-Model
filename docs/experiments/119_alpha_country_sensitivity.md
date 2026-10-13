@@ -1,6 +1,6 @@
 # #119 — Bilateral-alpha and country-anchor sensitivity
 
-**Status: protocol and synthetic software checks complete; dated #93 local research not run (missing inputs).** Milestone 9, research only. [Issue #119](https://github.com/tyejaedon/Price-Optimization-Model/issues/119); [assumption register](assumptions.md). No production defaults, model schema, data, tariffs or serving artifacts change.
+**Status: #93 snapshot unavailable; a separately hashed 2026-10-13 rebuilt local proxy snapshot is under exploratory evaluation below.** Milestone 9, research only. [Issue #119](https://github.com/tyejaedon/Price-Optimization-Model/issues/119); [assumption register](assumptions.md). No production defaults, model schema, data, tariffs or serving artifacts change.
 
 ## Predeclared protocol (before any #93 cohort candidate outcome)
 
@@ -22,7 +22,25 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_s
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m pytest -q -p no:cacheprovider tests/test_alpha_sensitivity_benchmark.py
 ```
 
-The CLI rejects wrong SHA-256 values before touching output. `protocol_frozen.json` records hashes, cohort, candidates and fit policy **before** fitting; `benchmark.json` records each success/failure and aggregate-only outcomes. Research artifact directories are under ignored `reports/`, with **no deployable manifest**. `--allow-other-snapshot` exists for synthetic tests or separate exploratory inputs and prominently marks the report `other_snapshot_not_93`; **never** describe those runs as #93 reproduction. The command does not silently rebuild the old cohort from newer raw files.
+The CLI rejects wrong SHA-256 values before touching output. `protocol_frozen.json` records hashes, cohort, candidates and fit policy **before** fitting; `benchmark.json` records each success/failure and aggregate-only outcomes. Research artifact directories are under ignored `reports/`, with **no deployable manifest**. `--allow-other-snapshot` requires an explicit `--dataset-version` and prominently marks the report `other_snapshot_not_93`; **never** describe those runs as #93 reproduction. The command does not silently rebuild the old cohort from newer raw files.
+
+## Newly rebuilt local snapshot: preregistered extension before scenario scoring (2026-10-13)
+
+The original #93 hashed processed files remain unavailable. Separately, local raw job CSVs were combined with **tracked portable WDI and M-Pesa reference fixtures** to generate *new*, ignored processed inputs outside this issue worktree. This fixture-assisted macro reconstruction is **not the original #93 macro provenance**, and the raw inputs do not yield independently verified paid mentor prices. Only read these inputs; all research output goes under this issue worktree's ignored `reports/`.
+
+- New parquet SHA-256 `2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c`, macro SHA-256 `127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8`. Both differ from #93. Version: `local-rebuilt-proxy-2026-10-13-portable-fixtures`.
+- **Pre-score inspection only:** 22,677 rows (22,547 jobs, 130 undated profiles), all jobs timestamped. With #93's *previously documented* aware UTC cutoffs and 0.50-label eligibility/purge, 130 other-source rows and 7,719 post-factor out-of-bounds jobs were excluded; dedup removed 14/2/3 train/validation/test descriptions. Remaining **9,615 train / 2,131 validation / 3,063 test**, different from #93's 10,703/2,384/3,390. Train ended 2024-02-19 23:59:44 UTC; validation spans 2024-02-20 00:00:43 to 2024-02-21 02:12:50; test starts 2024-02-22 01:51:34. Country roles map to the frozen KE/source-country policy and recomputed 0.50 labels match input labels exactly on train + validation. Initial coverage: 133/89/99 distinct country pairs in train/validation/test; 320/87/149 same-country rows, 268/71/125 unknown-source→KE events and 80/20/26 missing-client-macro→KE events, respectively. **These are cohort/provenance checks, not model results.**
+- Use **the same predeclared five alphas and fixed 50D+3D train-only fitting** described above, the same previously documented UTC cutoffs, and the **0.50 eligible cohort frozen before any candidate scoring**. Report all five scenarios including failures; no selection, validation accuracy or test predictions. The rebuilt snapshot draws on overlapping job source material and the #93 test window was already viewed; **neither a new blind test nor independent transaction validation** is claimed. Compare only within this newly rebuilt snapshot, not numerically against #93 scores. Local warmed times depend on machine and are not production SLAs.
+
+Run only after confirming the two hashes above and using the parent checkout's **absolute** processed-input paths (not paths relative to this issue worktree):
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_sensitivity_benchmark \
+  --harmonized-parquet /absolute/parent/worktree/data/processed/harmonized_marketplace_corpus.parquet \
+  --macro-lookup /absolute/parent/worktree/data/processed/macro_lookup_table.json \
+  --allow-other-snapshot --dataset-version local-rebuilt-proxy-2026-10-13-portable-fixtures \
+  --output-dir reports/m9_alpha_sensitivity_119_rebuilt_20261013 --samples 25
+```
 
 ## Local evidence and limitations (2026-10-13)
 
@@ -34,4 +52,4 @@ The CLI rejects wrong SHA-256 values before touching output. `protocol_frozen.js
 | 0.75 | Not run | Not run on #93 | Blocked: original hashed inputs unavailable |
 | 1 | Not run | Not run on #93 | Blocked: original hashed inputs unavailable |
 
-The isolated worktree lacks **both** `data/processed/harmonized_marketplace_corpus.parquet` and `data/processed/macro_lookup_table.json`. Available raw CSVs do not include the required WDI PPP source CSV, and even reconstructing a current macro table would **not** prove the original #93 macro/parquet hashes or reproduce its dated cohort. The synthetic fixtures exercise consistent label/factor recomputation, fallback/same-country controls, train-only fit, reload parity, hash and provenance guards; **their results are not #93 findings or validated mentor prices**. Only restore the two matching, dated, ignored inputs from a trusted prior local snapshot to run the actual scenarios. A fresh independently sourced mentor-payment cohort and verified country roles are needed to decide real pricing; #91/#118 make that research non-blocking for M10–M14.
+The isolated worktree lacks **both original #93** hashed inputs. Available raw CSVs do not include the original WDI PPP source CSV; the newly rebuilt fixture-assisted macro/parquet **cannot** reproduce those historical SHA-256 values or #93's cohort. The synthetic fixtures exercise consistent label/factor recomputation, fallback/same-country controls, train-only fit, reload parity, hash and provenance guards; **their results are not #93 findings or validated mentor prices**. Only restore the two original matching, dated, ignored inputs from a trusted prior local snapshot to reproduce #93. A fresh independently sourced mentor-payment cohort and verified country roles are needed to decide real pricing; #91/#118 make that research non-blocking for M10–M14.
