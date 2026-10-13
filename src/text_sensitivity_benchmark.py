@@ -17,7 +17,7 @@ import sklearn
 from src.inference_safe_benchmark import _per_industry, _split_population
 from src.ingest_multisource import BILATERAL_ALPHA
 from src.macro_arbitrage import ContinuousMetadataNormalizer, DEFAULT_FEATURE_NAMES
-from src.nlp_pipeline import TextFeatureReducer, sanitize_many
+from src.nlp_pipeline import TextFeatureReducer, sanitize_many, sanitize_text
 from src.spatial_engine import DEFAULT_IDW_EPSILON, DEFAULT_MIN_PARTITION_SIZE, DomainPartitionedKDTreeIndexer
 from src.svd_dimension_benchmark import _explanations, _peer_stability, _profile, _vectors
 from src.train_pipeline import DEFAULT_HARMONIZED_PARQUET, DEFAULT_IDW_NEIGHBORS, _metric_summary, load_harmonized_parquet
@@ -98,10 +98,11 @@ def run_benchmark(parquet_path: str, macro_path: str, validation_cutoff: str, te
             "python": platform.python_version(), "platform": platform.platform(), "processor": platform.processor(),
             "numpy": np.__version__, "pandas": pd.__version__, "sklearn": sklearn.__version__,
         },
-        "measurement_scope": "train fit and validation-only warmed local text/index/IDW; tracemalloc peak Python allocations, not RSS or HTTP",
+        "measurement_scope": "NLTK corpora warmed before candidate timers; train fit and validation-only warmed local text/index/IDW; tracemalloc peak Python allocations, not RSS or HTTP",
         "results": [], "no_production_promotion": True,
     }
     (output / "protocol_frozen.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    sanitize_text("Dogs running through cities")
     peer_results: dict[str, tuple[np.ndarray, list[dict[str, Any]]]] = {}
     for candidate in CANDIDATES:
         row: dict[str, Any] = {"name": candidate.name, "settings": asdict(candidate), "status": "failed"}

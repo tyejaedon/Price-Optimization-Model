@@ -127,3 +127,9 @@ NLTK_DATA="$PARENT/data/nltk_data" OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_
 ```
 
 **NLTK-enabled results: not run at the time of this amendment.**
+
+## Pre-outcome timing correction for NLTK-enabled rerun
+
+The first NLTK-enabled run passed all three parity checks on the same frozen inputs and gave validation MAE/RMSE/R² of **5,269.85 / 7,036.57 / .552984** (baseline), **5,170.53 / 7,068.38 / .548934** (L1) and **5,985.10 / 7,729.14 / .460659** (unit). Its **first candidate** also lazily loaded the WordNet corpus *inside* the fit timer and Python allocation tracer (baseline fit 21.70 s / Python peak 230.64 MB vs L1 11.90 s / 145.67 MB), so that candidate-order resource setup confounds operational comparisons. Retain these observed validation scores as exploratory; do not select on them or compare their cold baseline timing to the warmed alternatives.
+
+Before the final all-candidate repetition, preload the same NLTK corpora **once before any candidate timer/tracer**, without fitting vocabulary, reading rates or inspecting validation outcomes. Keep every candidate, hash, seed, cutoff, NLTK input, BLAS thread setting, accuracy/peer metric and 25 spaced warm request sample unchanged. Write into a *new* ignored `reports/m9_text_sensitivity_120_rebuilt_nltk_warmed_2026-10-13` directory using the identical command above with only `--output-dir` changed. Record both runs and compare within the uniformly warmed run only; the cold-corpus resource setup was not an experimental candidate.
