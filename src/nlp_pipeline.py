@@ -18,7 +18,7 @@ import os
 import re
 import time
 from functools import lru_cache
-from typing import Iterable, List, Sequence, Set, Tuple
+from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
 try:
     import joblib
@@ -90,12 +90,20 @@ def _stopwords_set() -> Set[str]:
 
 
 @lru_cache(maxsize=1)
-def _lemmatizer() -> WordNetLemmatizer:
+def _lemmatizer() -> Optional[WordNetLemmatizer]:
     try:
         nltk.data.find("corpora/wordnet")
     except LookupError:
-        nltk.download("wordnet", quiet=True)
-    return WordNetLemmatizer()
+        try:
+            nltk.data.find("corpora/wordnet.zip")
+        except LookupError:
+            nltk.download("wordnet", quiet=True)
+    lemma = WordNetLemmatizer()
+    try:
+        lemma.lemmatize("availability")
+    except LookupError:
+        return None
+    return lemma
 
 
 def _clean_text(raw_text: str) -> str:
@@ -125,10 +133,7 @@ def sanitize_text(raw_text: str) -> str:
             continue
         if token in stop_words:
             continue
-        try:
-            normalized = lemma.lemmatize(token)
-        except LookupError:
-            normalized = token
+        normalized = lemma.lemmatize(token) if lemma is not None else token
         if normalized and len(normalized) > 2 and normalized not in stop_words:
             tokens.append(normalized)
 
@@ -159,19 +164,23 @@ class TextFeatureReducer:
         random_state: int = 42,
         min_df: int = 1,
         normalize_output: bool = False,
+        tfidf_norm: str = "l2",
     ) -> None:
+        if tfidf_norm not in ("l1", "l2"):
+            raise ValueError("tfidf_norm must be 'l1' or 'l2'.")
         self.n_components_requested = int(n_components)
         self.max_features = int(max_features)
         self.ngram_range = ngram_range
         self.random_state = random_state
         self.min_df = max(1, int(min_df))
         self.normalize_output = bool(normalize_output)
+        self.tfidf_norm = tfidf_norm
 
         self.vectorizer = TfidfVectorizer(
             max_features=self.max_features,
             ngram_range=self.ngram_range,
             min_df=self.min_df,
-            norm="l2",
+            norm=self.tfidf_norm,
             sublinear_tf=True,
         )
         self.reducer = TruncatedSVD(n_components=max(1, self.n_components_requested), random_state=self.random_state)
@@ -238,6 +247,7 @@ class TextFeatureReducer:
             "ngram_range": [self.ngram_range[0], self.ngram_range[1]],
             "min_df": self.min_df,
             "normalize_output": self.normalize_output,
+            "tfidf_norm": self.tfidf_norm,
             "explained_variance_sum": self.explained_variance_sum(),
         }
         with open(metadata_path, "w", encoding="utf-8") as f:
@@ -271,6 +281,7 @@ class TextFeatureReducer:
             ngram_range=(int(loaded_ngram[0]), int(loaded_ngram[1])),
             min_df=loaded_min_df,
             normalize_output=loaded_normalize_output,
+            tfidf_norm=str(getattr(vectorizer, "norm", "l2")),
         )
         instance.vectorizer = vectorizer
         instance.reducer = reducer
