@@ -44,3 +44,29 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.text_se
 | `post_svd_unit` | **Not run** | **Not run** | **Not run** | Not run; #93 validation is historical only |
 
 The isolated worktree has raw CSVs but **no** `data/processed/harmonized_marketplace_corpus.parquet` or `data/processed/macro_lookup_table.json`. In particular, the WDI CSV required for the macro lookup is missing, so the original dated harmonized snapshot cannot be independently reconstructed and hash-verified here. Raw upstream CSVs alone do not establish that every eligible row has the required UTC observation timestamp. No original processed data was copied into Git; no real-data #120 fit/score, industry errors, timings, memory or artifacts are claimed. Synthetic chronological fixtures exercise fitting, OOV diagnostics, three candidate isolation, held-out/test isolation, finite 53D vectors and reload parity; they **are software checks, not empirical price evidence**. Retain production sparse L2 and unnormalized post-SVD defaults pending a properly versioned real-data run and review.
+
+## Pre-outcome amendment: newly rebuilt local snapshot (2026-10-13)
+
+The original **#93-hash** run above remains not run. A new, **different** ignored local snapshot was supplied in the *parent* worktree after this record was written; its inputs are read-only to this benchmark, and outputs remain under this isolated issue worktree. The operator reports rebuilding from existing local raw marketplace/cost data plus tracked portable WDI and M-Pesa reference fixtures (`tests/fixtures/portable/raw/World_Development_Indicators/` and `tests/fixtures/portable/raw/Mpesa_Tarrifs/`). The generated macro JSON may contain tariff reference entries, but tariff fees are **not** optimized or used as text inputs here. This provenance is operator-reported; no independent build log or byte-for-byte reconstruction of #93 is asserted. This newly rebuilt snapshot's different macro/target values **cannot be compared to #93 scores as if only text settings changed**.
+
+- **Frozen *new* inputs:** parent ignored `data/processed/harmonized_marketplace_corpus.parquet`, SHA-256 `2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c` (13,423,173 bytes); parent ignored `data/processed/macro_lookup_table.json`, SHA-256 `127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8` (56,175 bytes). The runner checks both digests before writing a protocol or fitting. Recheck hashes after the run; if either changed, discard that run.
+- **Eligibility/timing checked without scoring:** 22,677 rows (22,547 `upwork_jobs` with non-null dated UTC observations spanning 2023-12-02 19:07:53 to 2024-02-23 18:19:08, and 130 undated profiles excluded); 7,719 invalid/out-of-bounds jobs excluded; 14/2/3 repeated descriptions purged; 9,615 train, 2,131 validation, 3,063 **unscored** later-window jobs. Predeclared #93 chronological UTC cutoffs remain **2024-02-20T00:00:00+00:00** and **2024-02-22T00:00:00+00:00**; validation spans 2024-02-20 00:00:43 to 2024-02-21 02:12:50 UTC. Deduplication by normalized description is not a verified source-event identity.
+- **Frozen comparison/method:** Exactly the three candidates, settings, metrics, seed, training-only fits, 25 evenly spaced warmed validation requests and descriptive no-automatic-promotion rule above. No cap/min_df expansion or sealed/blind-test claim. This is a **new local proxy-job-budget validation sensitivity**, not an independent paid mentor cohort or fresh final-test evaluation.
+- **Environment before scoring:** Apple M1, macOS 27 arm64, Python 3.11.4, numpy 2.4.6, pandas 3.0.6, scikit-learn 1.9.1, scipy 1.17.1; `OPENBLAS_NUM_THREADS=OMP_NUM_THREADS=MKL_NUM_THREADS=1`. The runner logs measured Python/system/library versions in its ignored report.
+
+From the issue worktree root, `PARENT` resolves to an **absolute** path for input arguments; the output remains local and ignored:
+
+```bash
+PARENT="$(cd ../.. && pwd)"
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.text_sensitivity_benchmark \
+  --harmonized-parquet "$PARENT/data/processed/harmonized_marketplace_corpus.parquet" \
+  --macro-lookup "$PARENT/data/processed/macro_lookup_table.json" \
+  --validation-cutoff 2024-02-20T00:00:00+00:00 \
+  --test-cutoff 2024-02-22T00:00:00+00:00 \
+  --dataset-version parent-local-rebuilt-proxy-2026-10-13 \
+  --expected-parquet-sha256 2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c \
+  --expected-macro-sha256 127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8 \
+  --output-dir reports/m9_text_sensitivity_120_rebuilt_2026-10-13 --samples 25
+```
+
+**New-snapshot results: not run yet at the time of this amendment.** Append the aggregate outcome, including failures, without rewriting the preregistration above.
