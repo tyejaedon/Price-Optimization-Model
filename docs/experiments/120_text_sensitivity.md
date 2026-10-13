@@ -1,6 +1,6 @@
 # #120 — fixed-53D text preprocessing sensitivity
 
-**Status: not run on real data (2026-10-13); synthetic software checks only.** [Issue #120](https://github.com/tyejaedon/Price-Optimization-Model/issues/120), Milestone 9. Research-only; no serving defaults, models or protected endpoint changed. This protocol and its candidates are recorded before any #120 real-data outcomes.
+**Status: #93-hash data not run; separately rebuilt local snapshot measured on validation (2026-10-13).** [Issue #120](https://github.com/tyejaedon/Price-Optimization-Model/issues/120), Milestone 9. Research-only; no serving defaults, models or protected endpoint changed. The protocol and new-snapshot amendment below were committed before any #120 real-data outcomes.
 
 ## Frozen question and comparator
 
@@ -72,3 +72,32 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.text_se
 ```
 
 **New-snapshot results: not run yet at the time of this amendment.** Append the aggregate outcome, including failures, without rewriting the preregistration above.
+
+## Rebuilt-snapshot results (2026-10-13; **exploratory posted job budgets only**)
+
+All three candidates succeeded on the **same 9,615 train / 2,131 validation** rows. The 3,063 later-window records were used solely to establish eligibility/time counts; **no final-window text coordinates or error scores were evaluated**. Both parent input hashes still matched the frozen values after the run. Sampled reloaded live request coordinates, top-5 peers and rounded quotes matched the original live path for 25/25 requests per candidate. Baseline batch-vs-live scored the same peers but one of 25 sampled quotes differed by **0.01 KES/h** at a rounding boundary; L1 and normalized variants had no sampled cent mismatch. All fitted training/validation hybrid vectors were finite 53D. These research-only serialized copies are in ignored `reports/m9_text_sensitivity_120_rebuilt_2026-10-13_rerun/`, **not** the deployed artifact directory.
+
+| Candidate (sole change vs baseline) | Val MAE / RMSE (KES/h) | Val R² / bias (KES/h) | Vocabulary / SVD variance | Val OOV n-grams / zero TF-IDF rows / zero SVD rows | Peer Jaccard / same-rank vs baseline | Warm local p50 / p95 (ms) | Python peak / saved bundle (MiB) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| L2 + raw post-SVD (baseline) | 5,258.80 / 7,038.27 | 0.552769 / -472.63 | 12,000 / 0.175336 | 32.6144% / 0 / 0 | 1.000000 / 1.000000 | 5.34 / 7.35 | 150.30 / 9.47 |
+| Sparse L1 only | 5,166.03 / 7,036.58 | 0.552983 / -520.81 | 12,000 / 0.180692 | 32.6144% / 0 / 0 | 0.267277 / 0.130643 | 4.66 / 6.37 | 150.02 / 9.47 |
+| Post-SVD unit only | 5,976.14 / 7,716.00 | 0.462492 / -92.24 | 12,000 / 0.175336 | 32.6144% / 0 / 0 | 0.504041 / 0.283060 | 5.01 / 6.69 | 150.02 / 9.47 |
+
+The **training** OOV n-gram fraction was 32.2944% for all three (the 12,000-term cap removes in-training n-grams). Neither training nor validation had zero sparse/dense rows. OOV counts use fitted-vocabulary membership over the vectorizer's analyzed uni/bi-grams; they are not a fraction of wholly unseen descriptions. Explained variance is descriptive, **not** price-prediction validity.
+
+| Industry | Train / validation rows | Baseline val MAE / RMSE / R² | L1 val MAE / RMSE / R² | Unit val MAE / RMSE / R² |
+| --- | ---: | ---: | ---: | ---: |
+| data_ai | 1,086 / 231 | 5,556.72 / 7,359.74 / .511247 | 5,056.25 / 6,776.01 / .585702 | 6,556.15 / 8,292.84 / .379459 |
+| design_creative | 4,152 / 939 | 5,247.05 / 6,993.86 / .558767 | 5,200.55 / 7,053.60 / .551196 | 5,904.48 / 7,587.86 / .480634 |
+| devops_cloud | 170 / 38 | 6,357.03 / 7,922.79 / .365469 | 6,046.07 / 7,496.06 / .431981 | 7,057.10 / 9,267.53 / .131790 |
+| digital_marketing | 569 / 108 | 5,496.83 / 7,597.31 / .386161 | 5,128.97 / 7,400.30 / .417583 | 6,030.13 / 7,999.44 / .319459 |
+| general_tech | 932 / 222 | 4,471.39 / 6,382.04 / .626746 | 4,593.22 / 6,846.30 / .570467 | 5,253.50 / 7,109.61 / .536791 |
+| mobile | 278 / 72 | 5,330.29 / 7,261.84 / .527187 | 5,198.03 / 6,815.27 / .583551 | 6,305.98 / 8,274.60 / .386110 |
+| product_management | 49 / 18 | 6,880.03 / 7,696.19 / .296632 | 6,290.16 / 7,710.33 / .294045 | 7,533.75 / 8,165.73 / .208191 |
+| web_backend | 2,379 / 503 | 5,289.11 / 6,992.91 / .567847 | 5,301.46 / 7,094.76 / .555166 | 5,966.26 / 7,644.81 / .483518 |
+
+Peer changes are substantial despite L1's small pooled error change: across **all 2,131** aligned validation requests, L1 vs baseline changed the mean base quote by 2,739.97 KES/h, mean absolute IDW weight by .145837 and shared-peer similarity by .141964; post-SVD unit changed them by 2,512.46 KES/h, .098698 and .142191. No fallback was triggered in any candidate. Aggregate comparisons contain no source record IDs or individual quotes.
+
+With single-threaded BLAS on the stated machine, text-fit times were 8,680.55 / 8,344.95 / 8,168.48 ms; KD-Tree fits 206.21 / 194.65 / 200.83 ms; validation batch transform 2,350.89 / 2,213.61 / 2,271.01 ms (baseline/L1/unit). Across the same 25 evenly spaced **warmed** validation requests, text p95 was 5.89 / 5.30 / 5.56 ms and search p95 .94 / .64 / .76 ms; combined p95 is tabulated above. Peak values are Python `tracemalloc` allocations, **not** RSS; saved bytes were 9,926,957 / 9,926,956 / 9,926,956 respectively (include research-only macro/metadata/index copies). Timings are local research NLP+metadata+KD-Tree/IDW, not authenticated HTTP, mobile RTT or stable cross-machine speed claims.
+
+**Interpretation / decision:** L1 reduces validation MAE by 92.77 KES/h but lowers RMSE by only 1.69 KES/h and raises R² just .000214; its lower MAE is not uniform across industries, and it changes most neighbor ranks. Unit normalization worsens MAE by 717.34 KES/h, RMSE by 677.73 KES/h and R² by .090277. Under the prespecified *descriptive trade-off* rule, neither alternative warrants promotion on this snapshot; retain production sparse L2 and raw post-SVD. The large OOV fraction could motivate a **separately preregistered** vocabulary/min_df study, not an after-the-fact candidate here. One rebuilt, provenance-limited job-budget snapshot, small categories (e.g. product_management 18 validation records), WordNet-unavailable fallback, known prior final-window exposure and drift prevent a statistical/causal winner, paid mentor-price validation or blind-test claims. No artifact was promoted and no #81 pricing gate was assessed.
