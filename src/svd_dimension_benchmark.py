@@ -123,6 +123,7 @@ def _profile(reducer: TextFeatureReducer, normalizer: ContinuousMetadataNormaliz
     restored_index = DomainPartitionedKDTreeIndexer.load_artifacts(str(artifact_dir))
     indices = np.linspace(0, len(validation) - 1, min(samples, len(validation)), dtype=int)
     text_times, search_times, total_times = [], [], []
+    batch_quote_differences = []
     for position in indices:
         row = validation.iloc[position]
 
@@ -144,8 +145,24 @@ def _profile(reducer: TextFeatureReducer, normalizer: ContinuousMetadataNormaliz
 
         replay()  # warm the fixed held-out request before timing
         vector, prediction, text_ms, search_ms, total_ms = replay()
-        expected = indexer.predict_base_rate(vectors[position], str(row["industry_partition"]),
+        # SVD batch/single BLAS roundoff can move a rounded quote by one cent;
+        # reload parity must compare the same live request path on both sides.
+        original_text = reducer.transform([str(row["raw_description"])])
+        original_meta = normalizer.transform_live_metadata(
+            str(row["mentor_country_iso2"]), str(row["client_country_iso2"]),
+            float(row["market_saturation_score"]), float(row["industry_relative_density"]),
+        )
+        original_live = np.concatenate((original_text, original_meta), axis=1).reshape(-1)
+        expected = indexer.predict_base_rate(original_live, str(row["industry_partition"]),
                                              k=DEFAULT_IDW_NEIGHBORS, epsilon=DEFAULT_IDW_EPSILON)
+        batch_expected = indexer.predict_base_rate(vectors[position], str(row["industry_partition"]),
+                                                   k=DEFAULT_IDW_NEIGHBORS, epsilon=DEFAULT_IDW_EPSILON)
+        batch_difference = abs(batch_expected["base_predicted_rate"] - expected["base_predicted_rate"])
+        if ([peer["peer_index"] for peer in batch_expected["nearest_neighbors"]]
+                != [peer["peer_index"] for peer in expected["nearest_neighbors"]]
+                or batch_difference > 0.011):
+            raise ValueError("Batch validation and original live request disagree on peers or quote.")
+        batch_quote_differences.append(batch_difference)
         if vector.shape != (reducer.n_components_requested + 3,) or not np.isfinite(vector).all():
             raise ValueError("Reloaded request coordinate has wrong shape or non-finite values.")
         if not np.allclose(vector, vectors[position], atol=1e-5, rtol=1e-7):
@@ -158,6 +175,7 @@ def _profile(reducer: TextFeatureReducer, normalizer: ContinuousMetadataNormaliz
 
     return {
         "request_reload_parity": True, "profile_samples": len(indices),
+        "batch_live_quote_cent_disagreement_count": sum(delta > 0 for delta in batch_quote_differences),
         "warm_text_p50_ms": round(float(np.median(text_times)), 6),
         "warm_text_p95_ms": round(float(np.percentile(text_times, 95)), 6),
         "warm_search_p50_ms": round(float(np.median(search_times)), 6),

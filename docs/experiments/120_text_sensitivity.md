@@ -54,6 +54,7 @@ The original **#93-hash** run above remains not run. A new, **different** ignore
 - **Frozen comparison/method:** Exactly the three candidates, settings, metrics, seed, training-only fits, 25 evenly spaced warmed validation requests and descriptive no-automatic-promotion rule above. No cap/min_df expansion or sealed/blind-test claim. This is a **new local proxy-job-budget validation sensitivity**, not an independent paid mentor cohort or fresh final-test evaluation.
 - **Environment before scoring:** Apple M1, macOS 27 arm64, Python 3.11.4, numpy 2.4.6, pandas 3.0.6, scikit-learn 1.9.1, scipy 1.17.1; `OPENBLAS_NUM_THREADS=OMP_NUM_THREADS=MKL_NUM_THREADS=1`. The runner logs measured Python/system/library versions in its ignored report.
 - **Pre-score interruption:** The first attempt wrote only `protocol_frozen.json`, then was stopped before any candidate result after the optional NLTK WordNet download failed SSL verification and per-token missing-corpus exceptions made preprocessing unreasonably slow. The missing-corpus fallback was made once-per-process, retaining its existing unchanged-token behavior; synthetic tests cover that case. No candidate scores were inspected, no settings/hashes/cutoffs were changed, and the incomplete local report directory is removed before retrying.
+- **Second-attempt failure:** Baseline fitting/scoring completed, but the prior #117 profiling helper rejected its reload parity: a ~`2.1e-8` batch-vs-single SVD coordinate difference crossed a two-decimal quote rounding boundary for **one of 25** sampled validation requests (difference 0.01 KES/h, **zero** differing peer ranks). L1 and post-SVD unit candidates passed the old check, but without a valid baseline the partial run is rejected; no candidate validation error scores were used for selection. The helper now checks *original live single request* against *reloaded live single request*, still requires the same peers/quote, separately checks batch-vs-live peers and flags one-cent batch/live quote differences. Frozen candidates, cutoffs, input hashes, seeds and metrics remain unchanged; rerun all from a new empty ignored output directory.
 
 From the issue worktree root, `PARENT` resolves to an **absolute** path for input arguments; the output remains local and ignored:
 
@@ -67,7 +68,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.text_se
   --dataset-version parent-local-rebuilt-proxy-2026-10-13 \
   --expected-parquet-sha256 2cfd6e1585580ecfb5b13f59ad0167eee7ea0bce8716edff91590f9c5a46d48c \
   --expected-macro-sha256 127856c7acfe6d67ca3d094860b501b38d90b9f1dae825ee76239a30a9a704b8 \
-  --output-dir reports/m9_text_sensitivity_120_rebuilt_2026-10-13 --samples 25
+  --output-dir reports/m9_text_sensitivity_120_rebuilt_2026-10-13_rerun --samples 25
 ```
 
 **New-snapshot results: not run yet at the time of this amendment.** Append the aggregate outcome, including failures, without rewriting the preregistration above.
