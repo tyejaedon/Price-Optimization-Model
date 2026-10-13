@@ -1,6 +1,6 @@
 # #119 — Bilateral-alpha and country-anchor sensitivity
 
-**Status: #93 snapshot unavailable; a separately hashed 2026-10-13 rebuilt local proxy snapshot is under exploratory evaluation below.** Milestone 9, research only. [Issue #119](https://github.com/tyejaedon/Price-Optimization-Model/issues/119); [assumption register](assumptions.md). No production defaults, model schema, data, tariffs or serving artifacts change.
+**Status: separately hashed 2026-10-13 rebuilt local proxy snapshot evaluated; original #93 snapshot unavailable.** Milestone 9, research only. [Issue #119](https://github.com/tyejaedon/Price-Optimization-Model/issues/119); [assumption register](assumptions.md). No production defaults, model schema, data, tariffs or serving artifacts change.
 
 ## Predeclared protocol (before any #93 cohort candidate outcome)
 
@@ -42,7 +42,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_s
   --output-dir reports/m9_alpha_sensitivity_119_rebuilt_20261013 --samples 25
 ```
 
-## Local evidence and limitations (2026-10-13)
+## Original #93 snapshot: unavailable, not run (2026-10-13)
 
 | Scenario | #93 validation factor/target/corridor/peers | Reload and local latency | Status |
 | --- | --- | --- | --- |
@@ -53,3 +53,21 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -m src.alpha_s
 | 1 | Not run | Not run on #93 | Blocked: original hashed inputs unavailable |
 
 The isolated worktree lacks **both original #93** hashed inputs. Available raw CSVs do not include the original WDI PPP source CSV; the newly rebuilt fixture-assisted macro/parquet **cannot** reproduce those historical SHA-256 values or #93's cohort. The synthetic fixtures exercise consistent label/factor recomputation, fallback/same-country controls, train-only fit, reload parity, hash and provenance guards; **their results are not #93 findings or validated mentor prices**. Only restore the two original matching, dated, ignored inputs from a trusted prior local snapshot to reproduce #93. A fresh independently sourced mentor-payment cohort and verified country roles are needed to decide real pricing; #91/#118 make that research non-blocking for M10–M14.
+
+## New reconstructed snapshot: aggregate exploratory findings (2026-10-13)
+
+The two **new** hashes in the preregistered extension matched the local inputs at execution. `reports/m9_alpha_sensitivity_119_rebuilt_20261013/protocol_frozen.json` records the five candidates and 9,615/2,131/3,063 cohort **before model fitting**; ignored `benchmark.json` retains full aggregate results, country-pair counts, per-pair mean sensitivity, environment, and failures. All five candidates succeeded; none was selected for real-world pricing. **No R²/RMSE, independently measured paid mentor labels or final-test prediction was used.** Numbers below use only the same 2,131 validation requests on this *new* snapshot, compared with its own 0.50 baseline; absolute changes are averages, not estimates of error against real payments. Factor is unitless; rates, quotes and corridor bounds are KES/hour.
+
+| Alpha | Mean factor | Mean absolute Δ factor | Mean absolute Δ constructed target | Mean absolute Δ base quote | Mean absolute Δ corridor min / max | Mean top-5 peer Jaccard | 0.50-eligible train / validation targets now outside bounds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | 1.829 | 5.462 | 11,612.04 | 11,146.81 | 8,431.31 / 15,882.65 | 0.632 | 39 / 13 |
+| 0.25 | 3.573 | 3.697 | 7,822.62 | 7,585.03 | 5,704.99 / 10,975.97 | 0.790 | 20 / 7 |
+| **0.50 reference** | 7.257 | 0 | 0 | 0 | 0 / 0 | 1.000 | 0 / 0 |
+| 0.75 | 15.115 | 7.865 | 16,477.60 | 16,106.10 | 11,638.86 / 24,579.52 | 0.836 | 4,186 / 963 |
+| 1 | 32.045 | 24.800 | 51,670.61 | 50,299.89 | 34,329.94 / 82,153.13 | 0.703 | 6,353 / 1,385 |
+
+**Country and corridor controls:** Validation includes **89 KE→source-country pairs**; 87 requests are KE→KE. The raw source value is *not a verified client location*. Validation has 71 unknown-source→KE substitutions and 20 missing-client-macro→KE substitutions; corresponding training counts are 268 and 80, and previously opened test counts (coverage only) are 125 and 26. The **87 KE→KE** factors and constructed targets stayed exactly unchanged in all five scenarios; their mean absolute **quote** nevertheless changed by **1,543.68 / 1,152.82 / 0 / 3,959.03 / 21,555.98** KES/hour at alpha 0 / .25 / .50 / .75 / 1, because the retrained neighbor index also contains cross-country peers whose targets changed. All 2,131 corridors were defined for each candidate; no industry-index fallback or fallback mismatch occurred. Same-rank top-five fractions were 0.442 / 0.600 / 1.000 / 0.677 / 0.537, respectively. The per-pair aggregates and full factor/target/corridor/peer-overlap changes remain in ignored `benchmark.json`; **no row-level outcomes or peer IDs are published**.
+
+**Engineering checks and uncertainty:** All five saved research-only text/scaler/index bundles passed **25 warmed request-coordinate, peer-explanation and cent-rounded quote reload-parity samples** per alpha. Their local NLP+scaler+KD-Tree/IDW p95s were **34.84 / 38.02 / 31.87 / 38.78 / 33.70 ms** in sweep order, with about **9.93 MB of serialized research artifacts per candidate** (decimal bytes, not process RSS). These are *single-order, 25-request* measurements, **not** protected HTTP latency or a reliable runtime ranking. Environment: macOS arm64, Python 3.11.4, NumPy 2.4.6, scikit-learn 1.9.1; `OPENBLAS_NUM_THREADS=OMP_NUM_THREADS=MKL_NUM_THREADS=1`. NLTK stopwords and wordnet were unavailable; download attempts failed SSL verification, so the shared NLP fallback preprocessing was used consistently for all candidates/reloads. Text vocabulary/SVD fitted on train once; each candidate's metadata scaler and KD-Trees fitted on train only.
+
+**Interpretation and decision:** Alpha 1 places **1,385 of 2,131 validation constructed labels** outside the original `[500,35000]` range even though the cohort was correctly frozen at 0.50; dropping these would confound scenarios. The magnitude and sign of factor/quote changes depend on KE anchoring, unverified country roles and fixture-assisted macro construction. Similarity/quote changes measure *scenario instability*, not predictive validity or a price optimum. Retain alpha=0.50 as the unchanged engineering default; **do not promote this rebuilt model or treat the observed mean changes as real paid mentor outcomes**. Independent, consented paid rates with verified bilateral country roles and a separate reviewed production change would be required to calibrate alpha.
