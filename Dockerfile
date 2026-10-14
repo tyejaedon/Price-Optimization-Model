@@ -17,4 +17,4 @@ COPY src/ ./src/
 
 USER pricing
 EXPOSE 8000
-CMD ["uvicorn", "src.deployment:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.api.deployment:app", "--host", "0.0.0.0", "--port", "8000"]
