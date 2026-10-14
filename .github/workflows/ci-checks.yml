@@ -114,12 +114,12 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          if compgen -G "tests/test_*.py" > /dev/null; then
+          if [ -d tests ] && find tests -name "test_*.py" | grep -q .; then
             python -m pytest tests -q
             exit $?
           fi
 
-          if compgen -G "Test/test_*.py" > /dev/null; then
+          if [ -d Test ] && find Test -name "test_*.py" | grep -q .; then
             python -m pytest Test -q
             exit $?
           fi
@@ -138,7 +138,7 @@ jobs:
           docker run --rm --entrypoint python pricing-api:ci -c '
           from pathlib import Path
           root = Path("/app")
-          assert (root / "src" / "deployment.py").is_file()
+          assert (root / "src" / "api" / "deployment.py").is_file() or (root / "src" / "deployment.py").is_file()
           assert not any(root.glob("**/*.json")), "JSON/credential files must not be baked into image"
           assert not (root / "data").exists() and not (root / "artifacts").exists()
           assert not (root / "tests").exists()
@@ -167,7 +167,7 @@ jobs:
       - name: Gate auth, contract, quote and audit using fakes
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m pytest tests/test_container_gateway.py tests/test_oot_gate.py -q -s
+        run: python -m pytest tests/api/test_container_gateway.py tests/training/test_oot_gate.py -q -s
 
   android-build:
     name: Android Build and Tests
@@ -197,4 +197,3 @@ jobs:
       - name: Build and run unit tests via Gradle (no committed wrapper jar required)
         if: steps.module.outputs.present == 'true'
         run: gradle :app:assembleDebug :app:testDebugUnitTest --console=plain
-

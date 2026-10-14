@@ -1,0 +1,396 @@
+import os
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+import pandas as pd
+import numpy as np
+
+from src.data.ingest_multisource import build_macro_lookup, compute_bilateral_arbitrage_factor, load_macro_lookup_table
+from src.training.experiment_reporting import run_experiment_report, run_feature_ablation_report, run_text_representation_report
+from src.training.train_pipeline import (
+    DEFAULT_TRAINING_SUMMARY_ARTIFACT,
+    SplitData,
+    _fit_feature_matrices,
+    _metric_summary,
+    build_stratified_splits,
+    evaluate_and_serialize_training,
+    inverse_target_log1p,
+    load_harmonized_parquet,
+    orchestrate_training,
+    transform_target_log1p,
+)
+from src.training.validation_diagnostics import run_validation_diagnostics
+from src.engine.macro_arbitrage import DEFAULT_FEATURE_NAMES, ContinuousMetadataNormalizer, fuse_coordinates
+from src.nlp.nlp_pipeline import TextFeatureReducer
+from src.api.serve import InferenceRuntime
+from src.api.api_contracts import PricingQueryDTO
+from src.core.artifact_contract import MANIFEST_NAME, file_sha256
+from src.engine.spatial_engine import DomainPartitionedKDTreeIndexer
+
+
+class TrainPipelineTests(unittest.TestCase):
+    @staticmethod
+    def _alpha_token(index: int) -> str:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        chars = []
+        value = index
+        base = len(alphabet)
+        while True:
+            chars.append(alphabet[value % base])
+            value //= base
+            if value == 0:
+                break
+        return "tok" + "".join(chars)
+
+    def _build_synthetic_harmonized_frame(self) -> pd.DataFrame:
+        rows = []
+        partitions = (
+            ("data_ai", 90, 4500.0),
+            ("web_backend", 54, 3800.0),
+            ("design_creative", 36, 3200.0),
+        )
+
+        row_id = 0
+        for partition, count, base_rate in partitions:
+            for i in range(count):
+                bucket = i % 6
+                bucket_token = self._alpha_token(bucket)
+                tok_a = self._alpha_token(row_id)
+                tok_b = self._alpha_token(row_id + 200)
+                tok_c = self._alpha_token(row_id + 400)
+                bilateral = 1.0 + (bucket * 0.06)
+                saturation = (count / 180.0) + (bucket * 0.002)
+                density = (count / 90.0) + (bucket * 0.015)
+                target_rate = base_rate + float(bucket) * 320.0
+                rows.append(
+                    {
+                        "raw_description": (
+                            f"{partition} mentoring python analytics skill{bucket_token} "
+                            f"cluster{bucket_token} {tok_a} {tok_b} {tok_c}"
+                        ),
+                        "industry_partition": partition,
+                        "bilateral_arbitrage_factor": bilateral,
+                        "market_saturation_score": saturation,
+                        "industry_relative_density": density,
+                        "harmonized_hourly_rate": target_rate,
+                        "hourly_rate": base_rate,
+                    }
+                )
+                row_id += 1
+
+        return pd.DataFrame(rows)
+
+    def _write_input_artifacts(self, tmp_dir: str) -> tuple[str, str]:
+        repo_root = Path(__file__).resolve().parents[2]
+        raw_fixture_dir = str(repo_root / "tests" / "fixtures" / "raw")
+        macro_lookup_path = os.path.join(tmp_dir, "macro_lookup_table.json")
+        parquet_path = os.path.join(tmp_dir, "harmonized_marketplace_corpus.parquet")
+
+        build_macro_lookup(raw_fixture_dir, macro_lookup_path)
+        frame = self._build_synthetic_harmonized_frame()
+        frame.to_parquet(parquet_path, index=False)
+        return macro_lookup_path, parquet_path
+
+    def test_build_stratified_splits_are_disjoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            _, parquet_path = self._write_input_artifacts(tmp_dir)
+            frame = load_harmonized_parquet(parquet_path)
+
+            splits = build_stratified_splits(frame, train_ratio=0.70, validation_ratio=0.15, test_ratio=0.15, random_state=42)
+
+            self.assertEqual(len(frame), len(splits.train) + len(splits.validation) + len(splits.test))
+            train_ids = set(splits.train["record_id"].tolist())
+            validation_ids = set(splits.validation["record_id"].tolist())
+            test_ids = set(splits.test["record_id"].tolist())
+            self.assertFalse(train_ids & validation_ids)
+            self.assertFalse(train_ids & test_ids)
+            self.assertFalse(validation_ids & test_ids)
+
+    def test_partition_distribution_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            _, parquet_path = self._write_input_artifacts(tmp_dir)
+            frame = load_harmonized_parquet(parquet_path)
+            splits = build_stratified_splits(frame, train_ratio=0.70, validation_ratio=0.15, test_ratio=0.15, random_state=42)
+
+            full_dist = frame["industry_partition"].value_counts(normalize=True).to_dict()
+            for split_frame in (splits.train, splits.validation, splits.test):
+                split_dist = split_frame["industry_partition"].value_counts(normalize=True).to_dict()
+                for partition_name, full_ratio in full_dist.items():
+                    self.assertIn(partition_name, split_dist)
+                    self.assertLess(abs(float(split_dist[partition_name]) - float(full_ratio)), 0.08)
+
+    def test_rate_labels_cannot_enter_training_features(self) -> None:
+        self.assertFalse(set(DEFAULT_FEATURE_NAMES) & {
+            "hourly_rate", "hourly_rate_usd", "harmonized_hourly_rate", "target_rate"
+        })
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro, parquet = self._write_input_artifacts(tmp_dir)
+            split = build_stratified_splits(load_harmonized_parquet(parquet))
+            altered = SplitData(*(part.assign(
+                hourly_rate=999999.0, hourly_rate_usd=999999.0,
+                harmonized_hourly_rate=999999.0, target_rate=999999.0,
+            ) for part in (split.train, split.validation, split.test)))
+            baseline = _fit_feature_matrices(split, macro, n_components=5, save_artifacts=False)
+            changed = _fit_feature_matrices(altered, macro, n_components=5, save_artifacts=False)
+            for name in ("x_train", "x_validation", "x_test"):
+                np.testing.assert_allclose(getattr(baseline, name), getattr(changed, name))
+            self.assertFalse(np.array_equal(baseline.y_train, changed.y_train))
+
+    def test_orchestration_runs_end_to_end_to_feature_matrices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+
+            payload = orchestrate_training(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                artifact_dir=artifact_dir,
+                save_artifacts=True,
+                random_state=42,
+            )
+
+            self.assertFalse(payload["has_split_overlap"])
+            self.assertEqual(payload["feature_shapes"]["x_train"][1], 53)
+            self.assertEqual(payload["feature_shapes"]["x_validation"][1], 53)
+            self.assertEqual(payload["feature_shapes"]["x_test"][1], 53)
+            self.assertEqual(payload["feature_shapes"]["x_train"][0], payload["feature_shapes"]["y_train"])
+            self.assertEqual(payload["feature_shapes"]["x_validation"][0], payload["feature_shapes"]["y_validation"])
+            self.assertEqual(payload["feature_shapes"]["x_test"][0], payload["feature_shapes"]["y_test"])
+
+            self.assertTrue(os.path.exists(os.path.join(artifact_dir, "tfidf_vectorizer.joblib")))
+            self.assertTrue(os.path.exists(os.path.join(artifact_dir, "svd_reducer.joblib")))
+            self.assertTrue(os.path.exists(os.path.join(artifact_dir, "metadata_scaler.joblib")))
+
+    def test_training_and_diagnostics_accept_expanded_country_features(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            macro_records = load_macro_lookup_table(macro_lookup_path)
+            frame = self._build_synthetic_harmonized_frame()
+            for country in ("FR", "NG"):
+                mask = frame.index % 2 == (0 if country == "FR" else 1)
+                frame.loc[mask, "client_country_iso2"] = country
+                frame.loc[mask, "bilateral_arbitrage_factor"] = compute_bilateral_arbitrage_factor(
+                    "KE", country, macro_records
+                )
+            frame.to_parquet(parquet_path, index=False)
+
+            training = orchestrate_training(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                artifact_dir=os.path.join(tmp_dir, "artifacts"),
+                n_components=5,
+                save_artifacts=False,
+            )
+            diagnostics = run_validation_diagnostics(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=os.path.join(tmp_dir, "diagnostics"),
+                seeds=(42,),
+                n_components=5,
+            )
+            self.assertFalse(training["has_split_overlap"])
+            self.assertEqual(training["feature_shapes"]["x_train"][1], 53)
+            self.assertEqual(diagnostics["input_rows"], len(frame))
+            self.assertEqual(diagnostics["feature_fit_scope"], "train_split_only")
+            self.assertTrue(os.path.exists(os.path.join(tmp_dir, "diagnostics", "validation_diagnostics.json")))
+
+    def test_evaluation_writes_metrics_and_training_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+
+            payload = evaluate_and_serialize_training(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                artifact_dir=artifact_dir,
+                quality_gate_r2=0.0,
+                enforce_quality_gate=True,
+            )
+
+            self.assertIn("model_metrics", payload)
+            self.assertIn("validation", payload["model_metrics"])
+            self.assertIn("test", payload["model_metrics"])
+            self.assertIn("baseline_metrics", payload)
+            self.assertIn("baseline_comparison", payload)
+            self.assertIn("quality_gate", payload)
+            self.assertIn("target_transformation_comparison", payload)
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["transformation"], "log1p")
+            self.assertEqual(payload["target_transformation_comparison"]["log1p"]["inverse_transformation"], "expm1")
+            self.assertFalse(payload["has_split_overlap"])
+
+            summary_path = os.path.join(artifact_dir, DEFAULT_TRAINING_SUMMARY_ARTIFACT)
+            self.assertTrue(os.path.exists(summary_path))
+            self.assertTrue(os.path.exists(os.path.join(artifact_dir, "industry_kdtrees.joblib")))
+
+    def test_export_reload_online_coordinates_and_neighbors_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+            frame = pd.read_parquet(parquet_path)
+            frame["bilateral_arbitrage_factor"] = compute_bilateral_arbitrage_factor(
+                "KE", "US", load_macro_lookup_table(macro_path),
+            )
+            frame["industry_relative_density"] = frame.groupby("industry_partition")["industry_relative_density"].transform("median")
+            frame.to_parquet(parquet_path, index=False)
+            train_row = build_stratified_splits(load_harmonized_parquet(parquet_path)).train.iloc[0]
+            evaluate_and_serialize_training(
+                parquet_path, macro_path, artifact_dir=artifact_dir,
+                quality_gate_r2=0.0, text_weight=1.5, metadata_weight=0.5,
+            )
+            with open(os.path.join(artifact_dir, "inference_config.json"), encoding="utf-8") as handle:
+                config = json.load(handle)
+            self.assertEqual(config["k_neighbors"], 5)
+            self.assertEqual(config["idw_epsilon"], 1e-6)
+            self.assertEqual(config["metadata_features"], [
+                "bilateral_arbitrage_factor", "market_saturation_score", "industry_relative_density",
+            ])
+            os.remove(macro_path)
+            tariff_path = str(Path(__file__).resolve().parents[1] / "fixtures" / "raw" / "Mpesa_Tarrifs" / "tarrifs_full_schedule.csv")
+            runtime = InferenceRuntime(artifact_dir, macro_path, tariff_path,
+                                       trusted_manifest_sha256=file_sha256(os.path.join(artifact_dir, MANIFEST_NAME)))
+            runtime.load()
+            self.assertTrue(runtime.models_loaded, runtime.load_error)
+            query = PricingQueryDTO(
+                raw_description=str(train_row["raw_description"]),
+                selected_industry=str(train_row["industry_partition"]), mentor_country="KE", client_country="US",
+                market_saturation_score=float(train_row["market_saturation_score"]), competitiveness_score=0.9,
+            )
+            online = runtime.predict(query)
+            reducer = TextFeatureReducer.load_artifacts(artifact_dir)
+            normalizer = ContinuousMetadataNormalizer.load_artifacts(
+                artifact_dir, macro_lookup_path=os.path.join(artifact_dir, "macro_lookup_table.json"),
+            )
+            text = reducer.transform([query.raw_description]).reshape(-1)
+            metadata = normalizer.transform_live_metadata(
+                "KE", "US", query.market_saturation_score, config["partition_density"][query.selected_industry],
+            )
+            np.testing.assert_allclose(
+                metadata,
+                normalizer.transform([train_row.to_dict()]),
+            )
+            expected_vector = fuse_coordinates(text * 1.5, metadata * 0.5)
+            self.assertEqual(expected_vector.shape, (53,))
+            self.assertTrue(np.isfinite(expected_vector).all())
+            indexer = DomainPartitionedKDTreeIndexer.load_artifacts(artifact_dir)
+            expected = indexer.predict_base_rate(expected_vector, query.selected_industry, k=5, epsilon=1e-6)
+            self.assertEqual(online.base_predicted_rate, expected["base_predicted_rate"])
+            self.assertEqual([peer.peer_index for peer in online.nearest_neighbors],
+                             [peer["peer_index"] for peer in expected["nearest_neighbors"]])
+            self.assertEqual(runtime.predict(query).model_dump(), online.model_dump())
+            self.assertEqual(runtime.predict(query.model_copy(update={"competitiveness_score": 0.1})).base_predicted_rate,
+                             online.base_predicted_rate)
+
+    def test_log_target_round_trip_and_robust_metrics_are_finite(self) -> None:
+        target = pd.Series([166.9, 2500.0, 60000.0, 343823.36], dtype=float).to_numpy()
+        transformed = transform_target_log1p(target)
+        restored = inverse_target_log1p(transformed)
+
+        pd.testing.assert_series_equal(pd.Series(restored), pd.Series(target), check_exact=False, rtol=1e-12, atol=1e-12)
+        metrics = _metric_summary(target, restored)
+        self.assertEqual(set(metrics), {"rmse", "mae", "median_absolute_error", "smape_percent", "r2"})
+        self.assertTrue(all(pd.notna(value) and value >= 0.0 for value in metrics.values() if value != metrics["r2"]))
+        self.assertTrue(pd.notna(metrics["r2"]))
+
+    def test_log_target_rejects_negative_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            transform_target_log1p(pd.Series([1.0, -0.5]).to_numpy(dtype=float))
+
+    def test_feature_ablation_report_is_leakage_safe_and_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "feature_ablations")
+            payload = run_feature_ablation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_neighbors=2,
+                groups=("macro_enrichment", "partition_statistics"),
+            )
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "metadata_enrichment_metadata.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_results.csv")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "feature_ablation_report.md")))
+            self.assertEqual(payload["k_neighbors"], 2)
+            self.assertEqual(payload["selected_groups"], ["macro_enrichment", "partition_statistics"])
+            self.assertIn("best_validation_ablation", payload)
+    def test_text_representation_report_tracks_dimensions_latency_and_reload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "text_representation")
+            payload = run_text_representation_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                n_components_values=(25, 50),
+                ngram_ranges=((1, 2),),
+                max_features_values=(1000,),
+                min_df_values=(1,),
+                normalization_values=(False, True),
+                k_neighbors=2,
+            )
+            results = pd.read_csv(os.path.join(report_dir, "text_representation_results.csv"))
+            self.assertEqual(len(results), 4)
+            self.assertTrue(results["reload_stable"].all())
+            self.assertTrue((results["fit_latency_ms"] >= 0.0).all())
+            self.assertTrue((results["validation_transform_latency_ms"] >= 0.0).all())
+            self.assertEqual(payload["production_compatibility_dimensions"], 53)
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.json")))
+            self.assertTrue(os.path.exists(os.path.join(report_dir, "text_representation_report.md")))
+    def test_quality_gate_is_enforced_programmatically(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            artifact_dir = os.path.join(tmp_dir, "artifacts")
+
+            with self.assertRaisesRegex(RuntimeError, "Quality gate failed"):
+                evaluate_and_serialize_training(
+                    harmonized_parquet_path=parquet_path,
+                    macro_lookup_path=macro_lookup_path,
+                    artifact_dir=artifact_dir,
+                    quality_gate_r2=1.01,
+                    enforce_quality_gate=True,
+                )
+
+    def test_experiment_report_writes_tuning_tables_and_diagrams(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            macro_lookup_path, parquet_path = self._write_input_artifacts(tmp_dir)
+            report_dir = os.path.join(tmp_dir, "model_evaluation")
+
+            payload = run_experiment_report(
+                harmonized_parquet_path=parquet_path,
+                macro_lookup_path=macro_lookup_path,
+                output_dir=report_dir,
+                k_values=(1, 3),
+            )
+
+            expected_files = {
+                "hyperparameter_results.csv",
+                "independent_variable_summary.csv",
+                "dependent_variable_summary.csv",
+                "target_transformation_results.csv",
+                "hybrid_distance_results.csv",
+                "experiment_report.md",
+                "experiment_report.json",
+                "hyperparameter_trends.png",
+                "model_progress.png",
+                "variable_effects.png",
+                "target_transformation_comparison.png",
+            }
+            self.assertTrue(expected_files.issubset(set(os.listdir(report_dir))))
+            self.assertEqual(payload["config"]["independent_variable_dimensions"], 53)
+            self.assertEqual(payload["config"]["dependent_variable"], "target_rate")
+            self.assertIn("best_log_configuration", payload)
+            self.assertIn("best_hybrid_configuration", payload)
+            self.assertEqual(payload["target_transformation"]["log"], "log1p")
+            self.assertEqual(payload["target_transformation"]["inverse"], "expm1")
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hyperparameter_results.csv"))), 2)
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "target_transformation_results.csv"))), 2)
+            self.assertEqual(len(pd.read_csv(os.path.join(report_dir, "hybrid_distance_results.csv"))), 2)
+            report_text = Path(report_dir, "experiment_report.md").read_text(encoding="utf-8")
+            self.assertIn("Hyperparameter results", report_text)
+            self.assertIn("Raw versus log1p target comparison", report_text)
+            self.assertIn("Hybrid-distance tuning results", report_text)
+
+
+if __name__ == "__main__":
+    unittest.main()

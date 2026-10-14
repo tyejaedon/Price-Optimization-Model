@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Download the Kaggle Upwork jobs dataset into the ignored raw-data path "
-            "expected by src.ingest_multisource."
+            "expected by src.data.ingest_multisource."
         )
     )
     parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
