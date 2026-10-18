@@ -47,6 +47,32 @@ class FakeDocument:
         self.collection.documents[self.id] = {**deepcopy(previous), **deepcopy(payload)}
 
 
+class FakeQuery:
+    def __init__(self, collection, filters):
+        self.collection = collection
+        self.filters = filters
+        self.limit_count = collection.limit_count
+
+    def where(self, field, op, value):
+        return FakeQuery(self.collection, list(self.filters) + [(field, op, value)])
+
+    def limit(self, count):
+        self.limit_count = count
+        return self
+
+    def stream(self):
+        docs = []
+        for key, record in self.collection.documents.items():
+            match = True
+            for field, op, value in self.filters:
+                if op == "==" and record.get(field) != value:
+                    match = False
+                    break
+            if match:
+                docs.append(SimpleNamespace(id=key, to_dict=lambda r=record: deepcopy(r)))
+        return docs[:self.limit_count]
+
+
 class FakeCollection:
     def __init__(self):
         self.documents = {}
@@ -58,6 +84,9 @@ class FakeCollection:
     def limit(self, count):
         self.limit_count = count
         return self
+
+    def where(self, field, op, value):
+        return FakeQuery(self, [(field, op, value)])
 
     def stream(self):
         return [SimpleNamespace(id=key, to_dict=lambda record=value: deepcopy(record))
