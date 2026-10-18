@@ -105,6 +105,11 @@ class Repository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_listings_for_mentor(self, mentor_id: str) -> List[Dict[str, Any]]:
+        """List root service listings belonging to a mentor (trusted service only)."""
+        raise NotImplementedError
+
+    @abstractmethod
     def list_transactions(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Read persisted quote audits with a limit clamped to 1..1000, not payments."""
         raise NotImplementedError
@@ -181,6 +186,14 @@ class InMemoryRepository(Repository):
             raise RepositoryError("listing mentor_id cannot change")
         self._listings[listing_id] = stored
         return deepcopy(stored)
+
+    def list_listings_for_mentor(self, mentor_id: str) -> List[Dict[str, Any]]:
+        """Return copies of listings belonging to the given mentor."""
+        _document_id(mentor_id, "mentor_id")
+        return deepcopy([
+            listing for listing in self._listings.values()
+            if listing.get("mentor_id") == mentor_id
+        ])
 
     def list_transactions(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Return copies of the latest appended audits in their insertion order."""
@@ -300,6 +313,17 @@ class FirestoreRepository(Repository):
             raise RepositoryError("listing mentor_id cannot change")
         self._timed(lambda: document.set(stored))
         return deepcopy(stored)
+
+    def list_listings_for_mentor(self, mentor_id: str) -> List[Dict[str, Any]]:
+        """List root service listings belonging to a mentor."""
+        _document_id(mentor_id, "mentor_id")
+        def _fetch() -> List[Dict[str, Any]]:
+            query = self._client.collection("service_listings").where("mentor_id", "==", mentor_id)
+            return [
+                _listing(doc.id, {**(doc.to_dict() or {}), "listing_id": doc.id})
+                for doc in query.stream()
+            ]
+        return self._timed(_fetch)
 
     def list_transactions(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Read up to the clamped audit limit; no chronological ordering is requested."""

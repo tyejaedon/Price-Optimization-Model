@@ -22,6 +22,7 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
 
 from src.core.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
@@ -452,6 +453,7 @@ def create_app(
         canonical = isinstance(query, CanonicalPricingQueryDTO)
         if not canonical:
             response.headers["Deprecation"] = "true"
+        selected_listing_id: Optional[str] = None
         # A body mentorId is never an authentication credential. The verified
         # Firebase UID must own the stored mentor, even when its IDs differ.
         if uid is not None:
@@ -465,20 +467,154 @@ def create_app(
                 raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
             if mentor is None or mentor.get("account_status") != "active":
                 raise HTTPException(status_code=403, detail="mentor authorization required")
-            if query.mentor_country != mentor.get("country_code"):
-                raise HTTPException(status_code=422, detail="mentorCountry must match verified mentor country")
-        # On the deployed runtime this follows mentor authorization and precedes
-        # all inference. The route never treats a body mentorId as a credential.
+
+            # 1. Resolve and validate mentor country
+            if query.mentor_country is not None:
+                if query.mentor_country != mentor.get("country_code"):
+                    raise HTTPException(status_code=422, detail="mentorCountry must match verified mentor country")
+                resolved_mentor_country = query.mentor_country
+            else:
+                stored_country = mentor.get("country_code")
+                if not isinstance(stored_country, str) or re.fullmatch(r"[A-Za-z]{2}", stored_country) is None:
+                    raise HTTPException(status_code=422, detail="missing or invalid verified mentor country code")
+                resolved_mentor_country = stored_country.upper()
+
+            # 2. Resolve and validate cost of living override
+            if query.cost_of_living_index is not None:
+                resolved_cost_of_living = query.cost_of_living_index
+            else:
+                stored_col = mentor.get("cost_of_living_index")
+                if stored_col is not None:
+                    if (not isinstance(stored_col, (int, float))
+                            or not math.isfinite(stored_col)
+                            or not (0.01 <= float(stored_col) <= 1000.0)):
+                        raise HTTPException(status_code=422, detail="invalid cost_of_living_index on mentor profile")
+                    resolved_cost_of_living = float(stored_col)
+                else:
+                    resolved_cost_of_living = None
+
+            # 3. Resolve description, listing and industry
+            req_listing_id = getattr(query, "listing_id", None)
+            req_industry = query.industry if canonical else query.selected_industry
+            req_raw_text = query.raw_text if canonical else query.raw_description
+
+            resolved_raw_text: Optional[str] = req_raw_text
+            resolved_industry: Optional[str] = req_industry
+            resolved_competitiveness: float = query.competitiveness_score
+            resolved_floor: Optional[float] = query.base_rate_floor
+
+            if req_listing_id is not None:
+                try:
+                    listing = dependencies.repository.get_listing(req_listing_id)
+                except (RepositoryError, ValidationError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+                except Exception as exc:
+                    raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+                if listing is None:
+                    raise HTTPException(status_code=422, detail=f"listing '{req_listing_id}' not found")
+                if listing.get("mentor_id") != query.mentor_id:
+                    raise HTTPException(status_code=403, detail="listing does not belong to authorized mentor")
+                if not listing.get("is_active", True):
+                    raise HTTPException(status_code=422, detail="listing is inactive")
+                listing_ind = listing.get("industry_id")
+                if resolved_industry is not None:
+                    if (listing_ind != resolved_industry
+                            and map_industry_partition(listing_ind) != map_industry_partition(resolved_industry)):
+                        raise HTTPException(status_code=422, detail="listing industry does not match requested industry")
+                else:
+                    resolved_industry = listing_ind
+
+                if resolved_raw_text is None:
+                    listing_text = listing.get("raw_description")
+                    if not isinstance(listing_text, str) or not (20 <= len(listing_text) <= 2000):
+                        raise HTTPException(status_code=422, detail="hydrated rawText from listing must be between 20 and 2000 characters")
+                    resolved_raw_text = listing_text
+                selected_listing_id = req_listing_id
+
+                if ("competitiveness_score" not in query.model_fields_set and "competitivenessScore" not in query.model_fields_set
+                        and listing.get("market_competitiveness") is not None):
+                    resolved_competitiveness = float(listing["market_competitiveness"])
+                if ("base_rate_floor" not in query.model_fields_set and "baseRateFloor" not in query.model_fields_set
+                        and listing.get("base_rate_floor") is not None):
+                    resolved_floor = float(listing["base_rate_floor"])
+            elif resolved_raw_text is None or resolved_industry is None:
+                try:
+                    listings = dependencies.repository.list_listings_for_mentor(query.mentor_id)
+                except (RepositoryError, ValidationError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+                except Exception as exc:
+                    raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+
+                active_listings = [l for l in listings if l.get("is_active") is True]
+                if resolved_industry is not None:
+                    matching = [l for l in active_listings
+                                if l.get("industry_id") == resolved_industry
+                                or map_industry_partition(l.get("industry_id")) == map_industry_partition(resolved_industry)]
+                else:
+                    matching = active_listings
+
+                if matching:
+                    # Deterministic selection: sort by listing_id ascending
+                    selected = sorted(matching, key=lambda l: str(l.get("listing_id")))[0]
+                    selected_listing_id = selected.get("listing_id")
+                    if resolved_industry is None:
+                        resolved_industry = selected.get("industry_id")
+                    if resolved_raw_text is None:
+                        listing_text = selected.get("raw_description")
+                        if not isinstance(listing_text, str) or not (20 <= len(listing_text) <= 2000):
+                            raise HTTPException(status_code=422, detail="hydrated rawText from listing must be between 20 and 2000 characters")
+                        resolved_raw_text = listing_text
+                    if ("competitiveness_score" not in query.model_fields_set and "competitivenessScore" not in query.model_fields_set
+                            and selected.get("market_competitiveness") is not None):
+                        resolved_competitiveness = float(selected["market_competitiveness"])
+                    if ("base_rate_floor" not in query.model_fields_set and "baseRateFloor" not in query.model_fields_set
+                            and selected.get("base_rate_floor") is not None):
+                        resolved_floor = float(selected["base_rate_floor"])
+                elif resolved_raw_text is None:
+                    mentor_text = mentor.get("raw_description") or mentor.get("raw_text")
+                    if isinstance(mentor_text, str) and (20 <= len(mentor_text) <= 2000):
+                        resolved_raw_text = mentor_text
+                    elif mentor_text is not None:
+                        raise HTTPException(status_code=422, detail="hydrated rawText from mentor profile must be between 20 and 2000 characters")
+                    else:
+                        raise HTTPException(status_code=422, detail="rawText is required and could not be hydrated from mentor profile or active listings")
+
+            if resolved_industry is None:
+                raise HTTPException(status_code=422, detail="industry is required and could not be hydrated")
+            if resolved_raw_text is None:
+                raise HTTPException(status_code=422, detail="rawText is required and could not be hydrated")
+
+            if not (20 <= len(resolved_raw_text) <= 2000):
+                raise HTTPException(status_code=422, detail="rawText must be between 20 and 2000 characters")
+
+            inference_query = PricingQueryDTO(
+                mentor_id=query.mentor_id,
+                listing_id=selected_listing_id,
+                raw_description=resolved_raw_text,
+                selected_industry=resolved_industry,
+                mentor_country=resolved_mentor_country,
+                client_country=query.client_country,
+                competitiveness_score=resolved_competitiveness,
+                market_saturation_score=resolved_competitiveness,
+                base_rate_floor=resolved_floor,
+                cost_of_living_index=resolved_cost_of_living,
+            )
+        else:
+            if isinstance(query, CanonicalPricingQueryDTO):
+                try:
+                    inference_query = query.to_inference_query()
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+            else:
+                if query.raw_description is None:
+                    raise HTTPException(status_code=422, detail="raw_description is required")
+                if query.selected_industry is None:
+                    raise HTTPException(status_code=422, detail="selected_industry is required")
+                if query.mentor_country is None:
+                    raise HTTPException(status_code=422, detail="mentor_country is required")
+                inference_query = cast(PricingQueryDTO, query)
         if runtime_inference and not runtime.models_loaded:
             raise HTTPException(status_code=503, detail=runtime.load_error or "model artifacts are not loaded")
-        inference_query: PricingQueryDTO
-        if isinstance(query, CanonicalPricingQueryDTO):
-            try:
-                inference_query = query.to_inference_query()
-            except ValueError as exc:
-                raise HTTPException(status_code=422, detail=str(exc)) from exc
-        else:
-            inference_query = cast(PricingQueryDTO, query)
         try:
             with resolved_metrics.timer("inference.optimize_price"):
                 payload = dependencies.inference(cast(PricingQueryDTO, inference_query))
@@ -502,6 +638,8 @@ def create_app(
                 "final_quoted_rate": prediction.final_quoted_rate,
                 "executed_at": executed_at,
             }
+            if selected_listing_id is not None:
+                audit_payload["listing_id"] = selected_listing_id
             if runtime_inference and runtime.tariff_evaluator is not None:
                 audit_payload["tariff_schedule_sha256"] = runtime.tariff_evaluator.schedule_sha256
             if uid is not None:

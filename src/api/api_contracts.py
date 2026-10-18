@@ -42,9 +42,10 @@ class PricingQueryDTO(StrictModel):
     # The deployed gateway requires this to equal the verified Firebase UID.
     # Keep it optional here for existing local callers until the #83 wire migration.
     mentor_id: Optional[str] = Field(default=None, alias="mentorId", min_length=1, max_length=128)
-    raw_description: str = Field(min_length=3, max_length=10_000)
-    selected_industry: str = Field(min_length=1, max_length=100)
-    mentor_country: str = Field(min_length=2, max_length=2)
+    listing_id: Optional[str] = Field(default=None, alias="listingId", min_length=1, max_length=200)
+    raw_description: Optional[str] = Field(default=None, min_length=3, max_length=10_000)
+    selected_industry: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    mentor_country: Optional[str] = Field(default=None, min_length=2, max_length=2)
     client_country: str = Field(min_length=2, max_length=2)
     competitiveness_score: float = Field(
         default=0.5, ge=0.0, le=1.0,
@@ -56,9 +57,11 @@ class PricingQueryDTO(StrictModel):
 
     @field_validator("mentor_country", "client_country")
     @classmethod
-    def normalize_country(cls, value: str) -> str:
+    def normalize_country(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         normalized = value.upper()
-        if not normalized.isalpha():
+        if not normalized.isalpha() or len(normalized) != 2:
             raise ValueError("country codes must contain letters only")
         return normalized
 
@@ -133,10 +136,14 @@ class CanonicalPricingQueryDTO(StrictModel):
     """
 
     mentor_id: str = Field(alias="mentorId", min_length=1, max_length=128)
+    listing_id: Optional[str] = Field(default=None, alias="listingId", min_length=1, max_length=200,
+                                     description="Optional root service listing ID for targeted hydration.")
     raw_text: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000,
-                                    description="Required until authorized profile hydration ships in #84.")
-    industry: str = Field(min_length=1, max_length=100)
-    mentor_country: str = Field(alias="mentorCountry", min_length=2, max_length=2)
+                                    description="Optional capability description; hydrated from Firestore if None.")
+    industry: Optional[str] = Field(default=None, min_length=1, max_length=100,
+                                    description="Industry partition key; hydrated from listing if None.")
+    mentor_country: Optional[str] = Field(default=None, alias="mentorCountry", min_length=2, max_length=2,
+                                          description="ISO 3166-1 alpha-2 origin code; hydrated from mentor if None.")
     client_country: str = Field(alias="clientCountry", min_length=2, max_length=2)
     competitiveness_score: float = Field(default=0.5, alias="competitivenessScore", ge=0.0, le=1.0,
                                          allow_inf_nan=False, description="Fitted market saturation feature.")
@@ -147,7 +154,9 @@ class CanonicalPricingQueryDTO(StrictModel):
 
     @field_validator("mentor_country", "client_country")
     @classmethod
-    def normalize_iso2(cls, value: str) -> str:
+    def normalize_iso2(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         if re.fullmatch(r"[A-Za-z]{2}", value) is None:
             raise ValueError("country codes must be two ASCII letters")
         return value.upper()
@@ -155,9 +164,14 @@ class CanonicalPricingQueryDTO(StrictModel):
     def to_inference_query(self) -> PricingQueryDTO:
         if self.raw_text is None:
             raise ValueError("rawText is required until verified mentor profile hydration is available")
+        if self.industry is None:
+            raise ValueError("industry is required until verified mentor profile hydration is available")
+        if self.mentor_country is None:
+            raise ValueError("mentorCountry is required until verified mentor profile hydration is available")
         return PricingQueryDTO(
-            mentor_id=self.mentor_id, raw_description=self.raw_text, selected_industry=self.industry,
+            mentor_id=self.mentor_id, listing_id=self.listing_id, raw_description=self.raw_text, selected_industry=self.industry,
             mentor_country=self.mentor_country, client_country=self.client_country,
+            competitiveness_score=self.competitiveness_score,
             market_saturation_score=self.competitiveness_score, base_rate_floor=self.base_rate_floor,
             cost_of_living_index=self.cost_of_living_index,
         )
@@ -262,6 +276,8 @@ class GridSearchConfigDTO(StrictModel):
 
 
 class ProfileDTO(StrictModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
+
     profile_id: str = Field(min_length=1, max_length=200)
     auth_uid: Optional[str] = Field(default=None, min_length=1, max_length=128,
                                     description="Firebase Auth UID authorized to price this mentor.")
@@ -269,6 +285,9 @@ class ProfileDTO(StrictModel):
     email: str = Field(min_length=3, max_length=320)
     country_code: str = Field(min_length=2, max_length=2)
     account_status: str = Field(default="active", max_length=50)
+    cost_of_living_index: Optional[float] = Field(default=None, alias="costOfLivingIndex", ge=0.01, le=1000.0, allow_inf_nan=False)
+    purchasing_power_parity: Optional[float] = Field(default=None, alias="purchasingPowerParity", ge=0.0, allow_inf_nan=False)
+    raw_description: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("country_code")
@@ -282,6 +301,8 @@ class ProfileDTO(StrictModel):
 class ServiceListingDTO(StrictModel):
     """Root /service_listings/{listing_id}; vectors use the published 50D reducer."""
 
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
+
     listing_id: str = Field(min_length=1, max_length=200)
     mentor_id: str = Field(min_length=1, max_length=200)
     industry_id: str
@@ -291,6 +312,8 @@ class ServiceListingDTO(StrictModel):
     verified_rate: float = Field(gt=0.0, allow_inf_nan=False,
                                  description="Verified peer rate in KES/hour; never infer from a proxy budget.")
     is_active: bool = True
+    market_competitiveness: Optional[float] = Field(default=None, alias="marketCompetitiveness", ge=0.0, le=1.0, allow_inf_nan=False)
+    base_rate_floor: Optional[float] = Field(default=None, alias="baseRateFloor", ge=0.0, allow_inf_nan=False)
 
     @field_validator("industry_id")
     @classmethod
