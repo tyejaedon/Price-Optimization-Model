@@ -55,6 +55,8 @@ Each template collects:
 | Milestone 12: Native Android Shell & Firebase Authentication         | Compose UI and Firebase sign-in                                          |
 | Milestone 13: Mobile Integration & Backend Deployment                | Retrofit integration, Docker and CI                                      |
 | Milestone 14: Mobile Usability & End-to-End Validation               | Protected demo, 3G RTT and SUS                                           |
+| Milestone 15: System Documentation, AI/ML Implementation & Evaluation | System implementation, ML lifecycle, baseline testing & error analysis   |
+| Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps | Ensemble benchmarking, KNN/kernel tuning, SVD vs Transformers, cold-start, ANN & drift monitoring |
 
 ---
 
@@ -85,6 +87,7 @@ Apply `project:feature-track` to all feature-track issues and PR-related issues.
 | `performance` | Runtime latency and efficiency checks |
 | `benchmarking` | Profiling and comparative performance runs |
 | `pipeline` | Multi-step orchestration and artifact flow |
+| `documentation` | System architecture, environment specs, ML lifecycle, and evaluation reports |
 
 ---
 

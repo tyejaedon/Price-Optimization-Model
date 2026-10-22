@@ -29,6 +29,15 @@ Milestone 7: Production ASGI API Service (FastAPI)
       |
       v
 Milestone 8: Automated Verification, Latency Profiling & MLOps
+      |
+      v
+Milestones 9-14: Canonical Pivot, Auth, Mobile & Usability
+      |
+      v
+Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation
+      |
+      v
+Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps
 ```
 
 ---
@@ -580,6 +589,8 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
 | 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
+| 7 | Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation | #147 System Implementation & Environment; #148 AI/ML Data & Model Implementation; #149 Testing & Baseline Evaluation; #150 Results Presentation & Error Analysis; #151 Discussion, Risks & Limitations | Formalize production-grade engineering documentation, empirical evaluation baselines, error analysis, and environment reproducibility. |
+| 8 | Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps | M16.1 Ensemble Benchmarks; M16.2 Systematic KNN Tuning; M16.3 Distance Weighting Kernels; M16.4 SVD vs Transformers; M16.5 Cold-Start Fallbacks; M16.6 Vector Search Scaling; M16.7 Automated Retraining & Drift | Operationalize supervisor guidance: benchmark tree ensembles/linear models against KNN, optimize distance metrics and IDW kernels, benchmark MiniLM sentence embeddings against SVD, architect multi-tier cold-start fallbacks, evaluate FAISS CPU vector scaling, and design Firestore drift-driven retraining. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
 roadmap follows `docs/Architecture/Android_App_Guide.md`, which maps every Android source file back
@@ -593,3 +604,377 @@ networking) land; flipping that flag is explicitly scoped to #76, not this scaff
 Existing `industry_partition` training labels map to target `industry`/Firestore `industry_id`; existing numeric rates are KES/hour. The optional `costOfLivingIndex` must not be silently mapped to `market_saturation_score`. `mentorId` is authorized against the verified Firebase UID, not presumed equivalent. #67, #69, #71, #83 and #84 own these translations; see the canonical blueprint's migration table for details.
 
 **M10.5 implementation (#83):** `src/api_contracts.py` provides separate canonical camelCase DTOs alongside the deprecated legacy snake_case DTOs. Both use the existing versioned route with matching response shapes and a `Deprecation` header for successful legacy requests. Canonical competitiveness maps to the fitted saturation feature; optional mentor CoL overrides only bilateral parity. Existing proxy artifacts do not contain listing IDs, so their canonical comparables remain empty rather than fabricated; confidence remains explicitly uncalibrated. #71 enables verified root listing provenance in new exports; #84 owns authorized text hydration.
+
+
+---
+
+## Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation
+
+**Goal:** Establish end-to-end, publication-grade system documentation covering the implementation environment, AI/ML lifecycle architecture, baseline evaluations, subgroup error analysis, and production reproducibility constraints.
+
+**Deliverables:**
+- docs/M15_System_Documentation.md
+- Baseline benchmarking and comparative evaluation tables
+- Subgroup and class-wise regression metric reports
+- Residual and consequential error analyses (over/under-pricing dynamics)
+- Environment and container reproducibility specifications
+
+---
+
+### Issue M15.1 — System Implementation & Environment Specification
+**Labels:** documentation, ackend, devops, project:feature-track
+
+**Scope & Sub-Issues:**
+- **M15.1.1 — Implementation Environment:** Document the separation between development (local workstation, Windows 11, PyCharm, Android Studio, virtual envs, offline stubs), test (pytest, Gradle testDebugUnitTest, GitHub Actions Ubuntu runners), and staging/private deployment environments. Explicitly confirm no public deployment exists.
+- **M15.1.2 — Hardware and Deployment Environment:** Detail the exact host specifications (AMD64 12 logical cores, single-thread BLAS/OMP/MKL bindings), CI runners (2-core Ubuntu VMs), and client targets (Android minSdk 26, targetSdk 34).
+- **M15.1.3 — Software, Services, and Configuration:** Specify runtime dependencies (Python 3.11/3.13, Gradle 8.9, JDK 17, FastAPI, Uvicorn, NLTK corpuses) and external cloud services (Firebase Authentication token verification, Cloud Firestore named database priceoptimizationmodel).
+- **M15.1.4 — Deployment and Reproducibility:** Document containerization via Dockerfile (python:3.11-slim), non-root pricing user execution, read-only external mounts (/opt/pricing/artifacts, /opt/pricing/tariff.csv), and independent SHA-256 manifest pinning (PRICING_ARTIFACT_MANIFEST_SHA256).
+
+**Tasks:**
+- [ ] Define environment isolation boundaries between local dev, automated CI, and containerized staging
+- [ ] Document tested hardware configurations and resource bounds (1 CPU thread lock, < 1MB allocation growth)
+- [ ] List required external cloud services, credentials provisioning (ADC), and fail-closed configurations
+- [ ] Provide step-by-step container build and run commands with read-only volume mounts and SHA-256 validation
+
+**Acceptance Criteria:**
+- [ ] Explicitly discloses that no public access deployment exists (local prototype / private deployment only)
+- [ ] Minimum hardware and software configurations are justified against real benchmark data
+- [ ] Zero secret leakage: all credential and manifest configurations use external environment variables
+
+---
+
+### Issue M15.2 — Data and Model Implementation for AI/ML Projects
+**Labels:** documentation, machine-learning, data-engineering, project:feature-track
+
+**Scope & Sub-Issues:**
+- **M15.2.1 — Dataset Provenance & Sourcing:** Document the lineage of raw data sources (World Bank WDI PPP factors, cost-of-living indices, Kaggle/Upwork freelance job corpuses) and explicitly document their exploratory proxy status (not verified mentor earnings).
+- **M15.2.2 — Data Preparation & Harmonization:** Document text cleaning (WordNet lemmatization, stopword filtering), currency normalization to KES, target filtering (500–35,000 KES/hr), and train-only saturation/density computation to prevent data leakage.
+- **M15.2.3 — Experiment Design & Hypothesis Tracking:** Formalize the experimental design registry (docs/experiments/), tracking one-variable ablations, parameter grids (SVD dimensions 25–100, TF-IDF n-grams, KNN k in {1, 3, 5}), and rejection criteria.
+- **M15.2.4 — Model Training & Coordinate Fusion:** Detail the training pipeline orchestration (orchestrate_training), log1p target transformation (	ransform_target_log1p), continuous metadata normalization (StandardScaler), and 53D coordinate fusion (50D SVD text + 3D metadata).
+- **M15.2.5 — Model Packaging & Manifest Integrity:** Document joblib artifact serialization, rtifact_manifest.json generation with cryptographic SHA-256 hashes, and explicit tagging of exploratory_not_empirically_approved.
+- **M15.2.6 — Inference Engine & Operational Monitoring:** Detail lifespan preloading, IDW spatial regression querying (DomainPartitionedKDTreeIndexer), fallback partition routing, health endpoints (/health, /ready), and asynchronous pricing audit logging.
+
+**Tasks:**
+- [ ] Document dataset origins, licensing, and proxy limitations in data governance records
+- [ ] Trace data transformation steps from raw text and currencies to harmonized Parquet format
+- [ ] Record one-variable ablation parameters and evaluation metrics in experiment logs
+- [ ] Document coordinate fusion math, SVD dimensionality reduction, and KD-Tree partitioning
+- [ ] Document artifact manifest schema, cryptographic verification, and tamper detection
+- [ ] Detail inference execution path, IDW distance weighting, and M-Pesa tariff fee evaluation
+
+**Acceptance Criteria:**
+- [ ] Ingestion and preprocessing pipelines prove zero data leakage between train and holdout splits
+- [ ] Artifact manifests record dataset and file SHA-256 digests and explicit exploratory status
+- [ ] Inference runtime verifies manifests before deserialization and fails closed on hash mismatches
+
+---
+
+### Issue M15.3 — Testing and Baseline Evaluation Framework
+**Labels:** documentation, 	esting, evaluation, qa, project:feature-track
+
+**Scope & Sub-Issues:**
+- **M15.3.1 — Meaningful Baseline Comparison:** Benchmark the 53D KD-Tree IDW model against standard reference baselines: industry median dummy estimator, partition mean rate, unweighted KNN regression, and linear regression.
+- **M15.3.2 — Task-Appropriate Metrics & Subgroup/Partition Results:** Evaluate models using RMSE, MAE, Median Absolute Error (MedAE), SMAPE (%), and R^2, segmented by industry partitions (data_ai, web_backend, design_creative, mobile).
+- **M15.3.3 — Error & Residual Analysis:** Document error distribution curves, identify heteroscedasticity, and analyze consequential errors (under-pricing risking mentor margin erosion vs over-pricing causing client drop-off).
+- **M15.3.4 — Variation Across Runs, Seeds, and Folds:** Quantify model stability across repeated runs with varying random seeds (e.g., 42, 123, 999) and stratified cross-validation folds.
+- **M15.3.5 — Final Held-Out Test Performance & OOT Gating:** Evaluate models on held-out test splits, contrasting random stratified holdouts with chronological Out-of-Time (OOT) holdout windows, and document programmatic enforcement of the R^2 >= 0.75 quality gate.
+
+**Tasks:**
+- [ ] Implement and evaluate baseline estimators against the primary KD-Tree IDW pipeline
+- [ ] Compute comprehensive metric summaries (RMSE, MAE, MedAE, SMAPE, R^2) overall and per industry partition
+- [ ] Conduct residual analysis and classify asymmetric pricing error risks
+- [ ] Run multi-seed stability benchmarks to document metric variance across runs
+- [ ] Document holdout performance on untouched test splits and chronological OOT evaluation results
+
+**Acceptance Criteria:**
+- [ ] All reported evaluation metrics derive from verified test pipeline runs
+- [ ] Baseline comparisons demonstrate statistically significant predictive improvement over naive baselines
+- [ ] Asymmetric error risks (under-pricing vs over-pricing) are explicitly analyzed from an economic perspective
+
+---
+
+### Issue M15.4 — Results Presentation and Interpretation
+**Labels:** documentation, evaluation, enchmarking, project:feature-track
+
+**Scope & Sub-Issues:**
+- **M15.4.1 — Results Presentation & Visualizations:** Generate and document structured comparative tables, hyperparameter trend plots, target transformation comparisons (raw vs log1p), and residual histograms.
+- **M15.4.2 — Feature Attribution & Coordinate Fusion Interpretation:** Analyze how semantic SVD components and continuous metadata dimensions (bilateral arbitrage, saturation, density) contribute to spatial distance and final pricing.
+- **M15.4.3 — Latency vs Accuracy Trade-off Analysis:** Document the trade-offs between model complexity (e.g. SVD component size, KD-Tree leaf size, neighbor count k) and runtime inference latency (P50/P95/P99).
+
+**Tasks:**
+- [ ] Compile tabular summaries of hyperparameter tuning and ablation results
+- [ ] Document visual artifacts illustrating model error distributions and variable effects
+- [ ] Analyze feature vector interactions between text semantics and macroeconomic parity factors
+- [ ] Correlate accuracy improvements against operational latency benchmarks
+
+**Acceptance Criteria:**
+- [ ] Visual charts and tables present clear, reproducible metrics with units (KES/hr, ms)
+- [ ] Coordinate fusion mechanics are mathematically interpreted and validated against test cases
+- [ ] Latency profiling verifies adherence to the P95 < 250 ms operational threshold
+
+---
+
+### Issue M15.5 — Evaluation Results, Discussion, and Limitations
+**Labels:** documentation, qa, project:feature-track
+
+**Scope & Sub-Issues:**
+- **M15.5.1 — Comprehensive Discussion of Findings:** Synthesize findings regarding spatial peer matching, IDW weighting stability, and price corridor boundaries across domestic and cross-border scenarios.
+- **M15.5.2 — Technical & Data Limitations:** Detail explicit technical limitations: use of proxy job postings instead of real mentor receipts, uncalibrated confidence intervals, cold-start sparsity in low-volume industries, and lack of real-time market feedback.
+- **M15.5.3 — Economic, Ethical, and Regulatory Risk Assessment:** Assess systemic risks including currency exchange fluctuations, Safaricom M-Pesa tariff updates, fee absorption edge cases, and ethical safeguards against discriminatory or predatory pricing.
+
+**Tasks:**
+- [ ] Formulate a detailed engineering discussion of model strengths and failure modes
+- [ ] Document all data provenance disclaimers and proxy caveats
+- [ ] Conduct a risk assessment covering financial margin protection, regulatory compliance, and economic shocks
+
+**Acceptance Criteria:**
+- [ ] Explicitly separates verified engineering findings from proxy data assumptions
+- [ ] Documents clear recommendations and migration criteria for future live mentor transaction data
+- [ ] Outlines operational recovery protocols for tariff schedule and macroeconomic factor changes
+
+
+---
+
+## Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps
+
+**Goal:** Execute systematic research and engineering extensions addressing supervisory recommendations: quantify predictive accuracy vs. peer interpretability trade-offs across tree ensembles (XGBoost, Random Forest) and regularized linear models (Ridge); tune KNN hyperparameters and alternative distance metrics (Cosine, Manhattan) dynamically; optimize distance weighting decay kernels (Gaussian RBF, Exponential, Power IDW); benchmark the TF-IDF + Truncated SVD pipeline against pre-trained dense sentence transformers (`all-MiniLM-L6-v2`); architect multi-tier cold-start fallbacks for sparse partitions and niche skill stacks; evaluate Approximate Nearest Neighbor (ANN) vector search scalability (FAISS CPU, Annoy); and design an automated, drift-aware continuous retraining workflow leveraging Firestore transaction logs.
+
+**Deliverables:**
+- `reports/experiments/m16_ensemble_benchmarks.md`: Empirical evaluation of Ridge, Random Forest, and XGBoost vs. KD-Tree IDW, featuring accuracy-vs-interpretability frontier analysis.
+- `reports/experiments/m16_knn_idw_tuning.md`: Multi-metric grid search sweep across $k \in [1, 50]$, distance metrics ($L_1$, $L_2$, Cosine), and weighting kernels (Power IDW, Exponential, Gaussian RBF).
+- `reports/experiments/m16_svd_vs_transformers.md`: Latent SVD vs. `all-MiniLM-L6-v2` benchmark covering retrieval precision, regression accuracy, memory footprint, and single-thread CPU P95 inference latency.
+- `src/spatial_engine.py` (Extended): Multi-tier cold-start fallback cascade (Partition -> Taxonomy -> Global Semantic -> Macro Prior) and configurable distance metric / weighting kernel adapter.
+- `src/ann_indexer.py` & `reports/m16_vector_search_scaling.md`: Scalability analysis and FAISS CPU / Annoy ANN indexing prototype for $10^4$ to $10^6$ listings.
+- `src/drift_monitor.py` & `docs/M16_Continuous_Retraining_Workflow.md`: Statistical drift detector (PSI, Wasserstein, Kolmogorov-Smirnov) and automated retraining runbook consuming Firestore `/historical_transactions`.
+
+---
+
+### Issue M16.1 — Benchmark Against Ensemble & Linear Models (XGBoost, Random Forest, Ridge)
+**Labels:** `machine-learning`, `benchmarking`, `algorithms`, `interpretability`, `project:feature-track`
+
+**Goal:** Compare the production KNN regression engine against gradient boosted trees (XGBoost), tree ensembles (Random Forest), and regularized linear models (Ridge Regression) on identical 53-dimensional coordinates to rigorously quantify the trade-off between predictive accuracy and model interpretability.
+
+**Scope & Sub-Issues:**
+- **M16.1.1 — Standardized Baseline Harness:** Build a reproducible benchmarking harness training Ridge Regression (L2 penalty), Random Forest Regressor, and XGBoost Regressor on the exact 53-D fused feature matrices ($50\text{D SVD} + 3\text{D continuous metadata}$) and target rates ($\text{raw}$ and $\log(1 + y)$) used by the primary spatial engine.
+- **M16.1.2 — Empirical Metric Evaluation:** Evaluate models on the frozen chronological Out-of-Time (OOT) holdout split, measuring RMSE, MAE, Median Absolute Error (MedAE), sMAPE (%), and $R^2$ across the overall test cohort and per industry partition (`data_ai`, `web_backend`, `design_creative`, `mobile`).
+- **M16.1.3 — Accuracy vs. Interpretability Trade-Off:** Quantify the predictive improvement (or gap) of tree ensembles over KNN. Formally contrast global/local feature attributions (Tree SHAP values, Ridge standardized coefficients) against KNN's explicit peer-based instance explanations (`comparables` payload with peer rates, similarities, and distance metrics).
+- **M16.1.4 — Inference Latency & Resource Footprint:** Benchmark single-threaded CPU inference latency (P50, P95, P99) and resident memory footprint under deployment constraints (`OPENBLAS_NUM_THREADS=1`, `OMP_NUM_THREADS=1`) to determine production serving feasibility.
+
+**Tasks:**
+- [ ] Implement training and evaluation harness in `src/ensemble_benchmark.py`
+- [ ] Execute hyperparameter search for Ridge (`alpha`), Random Forest (`n_estimators`, `max_depth`, `min_samples_leaf`), and XGBoost (`n_estimators`, `learning_rate`, `max_depth`, `subsample`)
+- [ ] Compute comparative regression metrics on frozen chronological validation and test splits
+- [ ] Compute per-partition breakdowns and residual heteroscedasticity diagnostics
+- [ ] Compute Tree SHAP feature importances and compare against top-$k$ nearest peer contributions
+- [ ] Profile single-thread P50/P95 inference latencies and serialized artifact disk sizes
+- [ ] Publish findings in `reports/experiments/m16_ensemble_benchmarks.md`
+
+**Acceptance Criteria:**
+- [ ] All models evaluate on identical train, validation, and test splits with zero data leakage
+- [ ] Metric report includes RMSE, MAE, MedAE, sMAPE, $R^2$, P95 latency (ms), and model size (MB)
+- [ ] Clear quantitative documentation of whether accuracy gains from tree ensembles justify sacrificing direct comparable peer explainability
+- [ ] Reproducible under fixed random seeds (`42`, `123`, `999`) with deterministic environment variables
+
+**Dependency Notes:**
+- Extends `M6.2`, `M9.3`, and `M15.3`.
+
+---
+
+### Issue M16.2 — Systematic KNN Hyperparameter Tuning & Distance Metric Evaluation
+**Labels:** `machine-learning`, `hyperparameter-tuning`, `spatial-indexing`, `algorithms`, `project:feature-track`
+
+**Goal:** Conduct an exhaustive, systematic hyperparameter grid search across neighbor count $k$ and alternative distance metrics (Cosine, Manhattan) against standard Euclidean distance to identify optimal spatial peer retrieval configurations.
+
+**Scope & Sub-Issues:**
+- **M16.2.1 — Dynamic k Range Sweep:** Sweep $k \in \{1, 3, 5, 7, 10, 15, 20, 25, 30, 50\}$ dynamically across industry partitions, evaluating predictive accuracy and sensitivity to local label noise.
+- **M16.2.2 — Alternative Distance Metrics:** Formulate and evaluate alternative metric geometries in 53D space:
+  - *Euclidean ($L_2$ norm)*: Default baseline measuring geometric distance.
+  - *Manhattan ($L_1$ norm)*: Mitigates distance concentration effects and outlier feature pulling in high dimensions.
+  - *Cosine Distance*: Evaluates angular similarity of semantic vectors, isolating directional orientation from magnitude.
+- **M16.2.3 — Peer Stability & Corridor Sensitivity:** Measure retrieved peer set stability (Jaccard similarity and rank correlation against the baseline $k=5$ Euclidean configuration) and analyze impact on negotiation corridor bounds ($[\text{minQuotedRate}, \text{maxQuotedRate}]$).
+- **M16.2.4 — Query Latency Profiling:** Profile KD-Tree / BallTree retrieval latency across each metric and neighbor count under single-threaded CPU constraints to safeguard the P95 $< 250\text{ ms}$ gateway envelope.
+
+**Tasks:**
+- [ ] Parameterize distance metric selection in `spatial_engine.py` (supporting Euclidean, Manhattan, and Cosine via BallTree or pre-normalized embeddings)
+- [ ] Execute automated cross-validation grid search over $k \in [1, 50]$ and distance metrics
+- [ ] Measure validation and OOT test metrics (MAE, RMSE, $R^2$, sMAPE) for all candidates
+- [ ] Compute peer-match Jaccard similarity and base-quote shift relative to the production $k=5$ Euclidean baseline
+- [ ] Measure query latency distributions (P50, P95, P99)
+- [ ] Document optimal configurations and parameter sensitivities in `reports/experiments/m16_knn_idw_tuning.md`
+
+**Acceptance Criteria:**
+- [ ] Grid search explores all specified $k$ values and distance metrics across all industry partitions
+- [ ] Identifies whether Manhattan or Cosine distance mitigates high-dimensional concentration in 53D space
+- [ ] Validates that candidate configurations preserve the P95 $< 250\text{ ms}$ response budget
+- [ ] Backward compatibility verified: candidate configurations preserve canonical DTO contracts
+
+**Dependency Notes:**
+- Extends `M4.1`, `M4.2`, `M6.4`, and `assumptions.md`.
+
+---
+
+### Issue M16.3 — Optimize Distance Weighting Kernels (Gaussian RBF, Exponential & IDW Variants)
+**Labels:** `machine-learning`, `spatial-indexing`, `algorithms`, `evaluation`, `project:feature-track`
+
+**Goal:** Formulate, test, and benchmark alternative peer distance weighting decay functions (Gaussian RBF, Exponential, and Power-p IDW) alongside quadratic penalization to refine how peer proximity governs pricing quotes and corridor widths.
+
+**Scope & Sub-Issues:**
+- **M16.3.1 — Weighting Kernel Formulations:** Implement and evaluate candidate distance weighting decay functions:
+  - *Linear IDW*: $w_i = \frac{1}{d_i + \epsilon}$ ($p=1$)
+  - *Quadratic IDW (Baseline)*: $w_i = \frac{1}{d_i^2 + \epsilon}$ ($p=2$)
+  - *Cubic / Higher-Power IDW*: $w_i = \frac{1}{d_i^p + \epsilon}$ ($p \in \{3, 4\}$)
+  - *Exponential Decay*: $w_i = \exp(-\gamma \cdot d_i)$
+  - *Gaussian Radial Basis Function (RBF)*: $w_i = \exp\left(-\frac{d_i^2}{2\sigma^2}\right)$, with adaptive bandwidth $\sigma = \text{median}(d_1, \dots, d_k)$ or fixed scale.
+- **M16.3.2 — Density-Dependent Weight Dynamics:** Analyze weight distribution entropy across dense partitions (`design_creative`, `web_backend`) versus sparse partitions (`product_management`, `devops_cloud`) to prevent single-neighbor dominance.
+- **M16.3.3 — Negotiation Corridor Impact:** Evaluate the effect of kernel choice on weighted peer standard deviation ($\sigma_{\text{peer}}$), determining whether exponential or Gaussian decay provides more realistic and robust negotiation intervals.
+
+**Tasks:**
+- [ ] Implement modular weighting kernel functions in `src/spatial_engine.py`
+- [ ] Evaluate regression metrics (MAE, RMSE, $R^2$) and prediction bias across all kernel variants on validation data
+- [ ] Test numerical stability under edge conditions ($d_i \to 0$ exact matches, $d_i \gg 1$ distant outliers)
+- [ ] Analyze corridor width stability ($\text{maxQuotedRate} - \text{minQuotedRate}$) across candidate kernels
+- [ ] Document kernel comparison results in `reports/experiments/m16_knn_idw_tuning.md`
+
+**Acceptance Criteria:**
+- [ ] Mathematical definitions and parameter bounds ($\epsilon, \gamma, \sigma, p$) clearly documented
+- [ ] Zero division-by-zero or numerical underflow/overflow errors across extreme distance inputs
+- [ ] Quantifies trade-offs between localized sensitivity (quadratic/cubic) and peer smoothing (linear/Gaussian)
+- [ ] Preserves fee-free negotiation corridor invariants and non-negative output guarantees
+
+**Dependency Notes:**
+- Builds on `M4.2`, `M8.2`, and `M16.2`.
+
+---
+
+### Issue M16.4 — Semantic NLP Pipeline Comparison: TF-IDF + SVD vs Pre-Trained Sentence Transformers
+**Labels:** `nlp`, `deep-learning`, `benchmarking`, `performance`, `project:feature-track`
+
+**Goal:** Benchmark the production TF-IDF + Truncated SVD pipeline against pre-trained sentence transformer embeddings (`sentence-transformers/all-MiniLM-L6-v2`) to empirically evaluate semantic retrieval quality against low-latency inference constraints.
+
+**Scope & Sub-Issues:**
+- **M16.4.1 — Transformer Embedding Pipeline:** Build an experimental feature extraction pipeline embedding raw mentor and job descriptions using `all-MiniLM-L6-v2` (384-dimensional dense vectors) via PyTorch / ONNX CPU runtime.
+- **M16.4.2 — Semantic Retrieval Quality:** Benchmark qualitative and semantic peer retrieval: measure semantic cosine alignment between query texts and retrieved peer listings, evaluating polysemy handling and domain terminology overlap.
+- **M16.4.3 — Downstream Rate Regression Accuracy:** Evaluate downstream pricing performance (MAE, RMSE, $R^2$) using: (a) raw 384D transformer embeddings + 3D metadata, (b) PCA/SVD-reduced 50D transformer embeddings + 3D metadata, and (c) production 50D TF-IDF + SVD + 3D metadata.
+- **M16.4.4 — Latency, Memory & Hardware Profiling:** Profile CPU transformation latency (P50/P95/P99), cold-start initialization time, memory peak (`tracemalloc` and process RSS), and artifact disk footprint on standard deployment hardware (AMD64 and ARM64 single-thread).
+
+**Tasks:**
+- [ ] Implement transformer feature extractor in `src/transformer_benchmark.py`
+- [ ] Extract 384D embeddings across the harmonized marketplace corpus
+- [ ] Train domain-partitioned spatial indexes on transformer-fused coordinates
+- [ ] Evaluate holdout regression metrics on identical validation and OOT test windows
+- [ ] Profile memory usage and inference latency per document on single-threaded CPU
+- [ ] Document latency vs. semantic accuracy trade-offs in `reports/experiments/m16_svd_vs_transformers.md`
+
+**Acceptance Criteria:**
+- [ ] Rigorous empirical comparison between TF-IDF + SVD (50D) and `all-MiniLM-L6-v2` (384D / reduced 50D)
+- [ ] Hardware and memory profiling executed under single-thread CPU bindings (`OPENBLAS_NUM_THREADS=1`)
+- [ ] Provides documented justification: whether SVD remains the justified choice for low-latency edge/container serving, or defines the exact OOT accuracy gain provided by transformers
+- [ ] Confirms artifact sizes, dependencies, and ONNX runtime viability for future migration
+
+**Dependency Notes:**
+- Extends `M2.2`, `M6.6`, `assumptions.md`, and `117_svd_dimensions.md`.
+
+---
+
+### Issue M16.5 — Algorithmic "Cold-Start" Fallback Architecture for Sparse Partitions & Niche Skills
+**Labels:** `architecture`, `spatial-indexing`, `backend`, `robustness`, `project:feature-track`
+
+**Goal:** Architect and implement a robust multi-tier cold-start fallback cascade that guarantees reliable rate recommendations and transparent uncertainty signaling when a mentor or specialized skill stack has fewer than $k$ historical listings in its partition.
+
+**Scope & Sub-Issues:**
+- **M16.5.1 — Multi-Tier Algorithmic Fallback Cascade:**
+  - *Tier 1 (Partition Match)*: Primary domain KD-Tree query when $N_{\text{partition}} \ge \max(k, \text{min\_size})$.
+  - *Tier 2 (Taxonomy Hierarchy Rollup)*: Query nearest parent or sibling domain in a structured industry taxonomy tree (e.g., `mobile_flutter` -> `mobile` -> `general_tech`).
+  - *Tier 3 (Global Semantic Nearest-Neighbor Retrieval)*: Query a unified global KD-Tree across all listings using the 50D text representation, penalizing cross-industry distance with an explicit domain divergence weight $\lambda_{\text{industry}}$.
+  - *Tier 4 (Macroeconomic Empirical Prior)*: When total nearest peers $< k$ globally, compute a Bayesian prior rate from mentor country macroeconomic baseline ($PPP \times \text{baseline}$), with widened uncertainty corridor and zero listing comparables.
+- **M16.5.2 — Transparent Contract Diagnostics:** Extend API response metadata to explicitly disclose fallback execution (`fallbackTier: "exact" | "taxonomy" | "global_semantic" | "macro_prior"`, `coldStart: true`, `confidenceScore: 0.0`).
+- **M16.5.3 — Dynamic Corridor Adjustment:** Dynamically expand the negotiation corridor width ($\sigma_{\text{peer}}$) when fallback tiers are activated, reflecting elevated epistemic uncertainty.
+
+**Tasks:**
+- [ ] Construct hierarchical industry taxonomy mapping in `config/industry_taxonomy.json`
+- [ ] Implement global unified spatial index and domain divergence penalty in `src/spatial_engine.py`
+- [ ] Implement macroeconomic prior fallback for total cold-start scenarios
+- [ ] Update Pydantic DTOs and API contracts with fallback diagnostics
+- [ ] Write comprehensive unit and integration tests covering all 4 fallback tiers
+
+**Acceptance Criteria:**
+- [ ] System never crashes or returns unhandled exceptions when querying partitions with $0 \le N < k$ listings
+- [ ] Fallback tiers execute deterministically in strict priority order (Tier 1 -> Tier 2 -> Tier 3 -> Tier 4)
+- [ ] Fallback status is transparently surfaced in API responses without breaking backward compatibility
+- [ ] Corridor bounds dynamically widen under cold-start conditions to signal uncertainty
+
+**Dependency Notes:**
+- Builds on `M4.1`, `M4.2`, `M7.1`, and `M10.5`.
+
+---
+
+### Issue M16.6 — Vector Search Scalability Planning & Approximate Nearest Neighbor (ANN) Indexing
+**Labels:** `performance`, `spatial-indexing`, `scalability`, `architecture`, `project:feature-track`
+
+**Goal:** Evaluate Approximate Nearest Neighbor (ANN) vector search libraries (FAISS on CPU and Annoy) to establish an architectural scaling blueprint when historical transaction volume exceeds the computational capacity of exact KD-Trees.
+
+**Scope & Sub-Issues:**
+- **M16.6.1 — ANN Architecture Selection & Prototyping:**
+  - Evaluate **FAISS (Facebook AI Similarity Search)** on CPU: Test `IndexFlatL2` (exact baseline), `IndexIVFFlat` (inverted file clusters), and `IndexHNSWFlat` (hierarchical navigable small world graphs).
+  - Evaluate **Annoy (Spotify)**: Test multi-tree random projection indexing with memory-mapped (`mmap`) cross-process sharing.
+- **M16.6.2 — Scalability & Recall Benchmarking:** Simulate corpus growth across orders of magnitude: $N \in \{10^4, 5 \times 10^4, 10^5, 5 \times 10^5, 10^6\}$ synthetic 53D vectors. Benchmark:
+  - Index build time and memory usage during construction
+  - Index file size on disk and memory-mapped RAM footprint
+  - Query latency (P50, P95, P99) under single-thread CPU execution (`OMP_NUM_THREADS=1`)
+  - Recall@k accuracy relative to exact KD-Tree ground truth ($k=5$)
+- **M16.6.3 — Production Migration Thresholds:** Establish quantitative thresholds (e.g. $N > 50,000$ or P95 search latency $> 15\text{ ms}$) that trigger automated migration from KD-Tree to FAISS CPU indexing.
+
+**Tasks:**
+- [ ] Implement standalone benchmarking harness `src/ann_benchmark.py` supporting KD-Tree, FAISS CPU, and Annoy
+- [ ] Generate synthetic 53D vectors scaled from $10^4$ to $10^6$ entries
+- [ ] Measure Recall@k, index size, build time, and query latencies
+- [ ] Document threading constraints (`OMP_NUM_THREADS=1`) for Docker container deployment
+- [ ] Publish architectural scalability blueprint in `reports/m16_vector_search_scaling.md`
+
+**Acceptance Criteria:**
+- [ ] Benchmark evaluates KD-Tree vs FAISS CPU vs Annoy across $N=10^4$ to $10^6$ vectors
+- [ ] Recall@5 remains $\ge 98\%$ for chosen ANN configurations
+- [ ] Query latency P95 remains $< 5\text{ ms}$ at $N=1,000,000$ vectors on single-thread CPU
+- [ ] Concrete migration criteria, dependency specifications, and container integration plans defined
+
+**Dependency Notes:**
+- Extends `M4.1`, `M8.2`, and `M15.1`.
+
+---
+
+### Issue M16.7 — Continuous Retraining Pipeline, Market Drift Monitoring & Economic Adaptation
+**Labels:** `mlops`, `data-engineering`, `observability`, `automation`, `project:feature-track`
+
+**Goal:** Design an automated, scheduled retraining workflow leveraging verified Firestore transactions (`historical_transactions`) to continuously detect concept/covariate drift, adapt to macroeconomic inflation, and execute zero-downtime atomic model updates.
+
+**Scope & Sub-Issues:**
+- **M16.7.1 — Firestore Data Ingestion & Windowing:**
+  - Query `/historical_transactions` filtering for verified, paid transaction records within sliding time windows (e.g., 90-day active window + historical reference).
+  - Harmonize transaction amounts against prevailing macroeconomic lookup tables (`PA.NUS.PPP`, cost-of-living indices).
+- **M16.7.2 — Statistical Drift Detection Engine:**
+  - *Covariate Shift ($P(X)$)*: Monitor text embedding distributions and continuous metadata using Population Stability Index (PSI) and Wasserstein Distance.
+  - *Concept Drift ($P(Y|X)$)*: Monitor residual distributions and pricing target changes using the Kolmogorov-Smirnov (KS) two-sample test and tracking rolling mean rate drift.
+- **M16.7.3 — Automated Retraining Cadence & Triggering:**
+  - Define scheduled cadence (e.g., monthly cron schedule via Cloud Scheduler / GitHub Actions workflow).
+  - Define automated event-driven triggers: trigger automated retraining when PSI $> 0.25$ or KS test $p$-value $< 0.01$ indicates significant market divergence.
+- **M16.7.4 — Shadow Evaluation & Zero-Downtime Atomic Promotion:**
+  - Execute training in an isolated staging environment producing candidate artifacts.
+  - Evaluate candidate against latest out-of-time (OOT) transaction holdout window; enforce quality and regression guardrails.
+  - Compute cryptographic SHA-256 digest of `artifact_manifest.json`.
+  - Atomically promote new artifact set by updating the active manifest reference in runtime configuration without API downtime.
+
+**Tasks:**
+- [ ] Implement drift monitoring module `src/drift_monitor.py` calculating PSI, Wasserstein distance, and KS statistics
+- [ ] Implement transaction ingestion extractor querying Firestore `historical_transactions`
+- [ ] Define automated retraining orchestration workflow (`.github/workflows/scheduled_retrain.yml` specification)
+- [ ] Implement shadow validation gate comparing candidate vs active model on recent transactions
+- [ ] Document atomic promotion protocol and rollback procedures in `docs/M16_Continuous_Retraining_Workflow.md`
+
+**Acceptance Criteria:**
+- [ ] Drift detection algorithms (PSI, KS test) mathematically specified with explicit warning/alert thresholds
+- [ ] Retraining pipeline operates end-to-end from Firestore query to evaluated artifact candidate
+- [ ] Zero-downtime atomic promotion protocol guarantees fail-closed rollback if manifest verification fails
+- [ ] Complete operational runbook documented covering monitoring alerts, manual overrides, and audit trails
+
+**Dependency Notes:**
+- Builds on `M8.7`, `M11.2`, `M15.1`, and `M15.2`.
