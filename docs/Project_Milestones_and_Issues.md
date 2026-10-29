@@ -580,6 +580,8 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
 | 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
+| 7 | Milestone 15: System Documentation, AI/ML Implementation & Evaluation | #175 (M15.1), #183 (M15.2), #184 (M15.3), #185 (M15.4), #186 (M15.5), #187 (M15.6) | Benchmark empirical accuracy and curate publication-grade diagrams with Narrative-Diagram-Interpretation evidence into Chapter 5. |
+| 8 | Milestone 16: External Advisory Research Exploration | #160 (Ensemble Benchmark), #161 (KNN Tuning), #162 (IDW Kernels), #163 (Sentence Transformers), #164 (ANN Scaling), #165 (Drift Automation) | Research-only external advisor suggestions; non-blocking for core degree milestones. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
 roadmap follows `docs/Architecture/Android_App_Guide.md`, which maps every Android source file back
@@ -596,3 +598,60 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **M11.4 mentor profile hydration (#84):** Authenticated pricing requests hydrate missing capability descriptions (`rawText` / `raw_description`), `mentorCountry`, `costOfLivingIndex`, and `industry` from verified `/mentors/{mentor_id}` profiles and root `/service_listings/{listing_id}` documents. Deterministic listing selection sorts matching active listings by immutable `listing_id` ascending. Explicit request overrides take precedence over Firestore attributes. Inactive, missing, or mismatched documents fail explicitly with HTTP 403 or 422, strictly preventing identity crossover, and never schedule a quote audit. See [M11.4 profile hydration](M11.4_Profile_Hydration.md).
 
+
+
+
+---
+
+## Milestone 15: System Documentation, AI/ML Implementation & Evaluation
+
+**Goal:** Benchmark empirical accuracy against in-scope platform mentors, curate an authoritative portfolio of publication-grade diagrams and evaluation charts, and maximize system interpretability in Chapter 5 (*System Implementation, Testing and Evaluation*), adhering strictly to the Strathmore University dissertation guidelines (*komondi@strathmore.edu*) and the **Narrative–Diagram–Interpretation** triad.
+
+**Deliverables:**
+- `docs/Chapter_5.md`: Enriched with 9 embedded Mermaid diagrams and formal Narrative-Interpretation prose.
+- `docs/Chapter_5_Experimental_Diagrams.md`: Dedicated visual diagram reference and interpretability compendium.
+- `docs/figures/`: Publication-ready vector SVG and 300 DPI raster PNG assets for Microsoft Word thesis submission.
+- `scripts/generate_chapter5_figures.py`: Programmatic, reproducible figure generation toolchain.
+- `.agents/skills/`: Persistent academic writing, experimental diagram curation, and milestone governance skills.
+
+### Issue M15.1 — Benchmark pricing quotes against 52 in-scope platform mentors' listed and realised rates (#175)
+**Labels:** `documentation`, `project:feature-track`, `machine-learning`, `evaluation`, `benchmarking`
+- [ ] Ingest platform mentor dataset and export `platform_mentor_corpus.parquet`.
+- [ ] Benchmark model quotes against listed hourly rates ($R^2$, MAE, RMSE, sMAPE).
+- [ ] Benchmark model quotes against realised hourly rates from completed sessions.
+- [ ] Publish evaluation report in `docs/experiments/platform_mentor_evaluation_report.md`.
+
+### Issue M15.2 — Curate the Multi-Source Coordinate Fusion and Data Pipeline Diagrams (#183)
+**Labels:** `documentation`, `data-engineering`, `project:feature-track`, `pipeline`
+- [x] Trace heterogeneous corpora ingestion (Upwork, Firestore, World Bank, Numbeo) into $q \in \mathbb{R}^{53}$.
+- [x] Embed Figure 5.2 Mermaid flowchart and vector SVG reference into Section 5.2.
+- [x] Compose academic narrative linking extraction to requirements FR-01, FR-02, and FR-03.
+- [x] Provide critical interpretation detailing orthogonal subspace projection and damped bilateral purchasing power parity.
+
+### Issue M15.3 — Formulate the Latent SVD Dimensionality and Architecture Benchmark Trade-off Graphs (#184)
+**Labels:** `machine-learning`, `documentation`, `evaluation`, `project:feature-track`
+- [x] Visualise candidate SVD dimensions ($n \in \{10, 25, 50, 75, 100, 150\}$) against Holdout $R^2$, memory footprint, and $P_{95}$ latency.
+- [x] Embed Figure 5.3 (Scree & Pareto frontier) and Figure 5.4 (Model architecture benchmarks) into Section 5.3.3.
+- [x] Document the Pareto-optimal elbow at $n=50$ ($R^2=0.821$, latency $5.25\text{ ms}$, RAM $18.4\text{ MB}$).
+- [x] Articulate the trade-off between black-box tree ensembles ($R^2=0.844$) and exact instance-level peer explainability.
+
+### Issue M15.4 — Generate the Target Transformation Residual Dynamics and Asymmetric Risk Visualizations (#185)
+**Labels:** `machine-learning`, `documentation`, `project:feature-track`, `margin-protection`
+- [x] Model residual error distributions under raw target training versus natural logarithmic transformation $y' = \ln(1+y)$.
+- [x] Embed Figure 5.5 (Dual-density distribution and economic risk boundaries) into Section 5.3.2.
+- [x] Analyze the asymmetric economic hazard: Underpricing Margin Collapse vs. Overpricing Client Alienation.
+- [x] Prove that log1p target stabilization compresses right-tail kurtosis to $3.12$, preventing runaway over-pricing outliers.
+
+### Issue M15.5 — Structure the Domain Subgroup Performance and Cold-Start Fallback Cascade Figures (#186)
+**Labels:** `machine-learning`, `backend`, `documentation`, `project:feature-track`, `spatial`
+- [x] Chart holdout determination coefficients ($R^2$) and rate quartiles across the four industry domains (`data_ai`, `web_backend`, `mobile`, `design_creative`).
+- [x] Embed Figure 5.6 (Subgroup partition performance) into Section 5.3.4.
+- [x] Detail the 4-tier cold-start fallback cascade: Partition $N \ge 5 \to$ Taxonomy Rollup $\to$ Penalized Global Pool ($\lambda=1.25$) $\to$ Macro Prior.
+- [x] Embed Figure 5.7 (Algorithmic cold-start decision logic) into Section 5.2.
+
+### Issue M15.6 — Document the Pricing Corridor Geometry, Latency Profiling, and MLOps Drift Governance Loops (#187)
+**Labels:** `documentation`, `project:feature-track`, `fintech`, `margin-protection`, `api`
+- [x] Diagram the two-stage financial synthesis: base rate bracketing $[r_{\min}, r_{\max}]$ and discrete 15-tier Safaricom M-Pesa surcharge $\tau(\hat{r})$.
+- [x] Embed Figure 5.8 (Pricing corridor geometry) into Section 5.2.
+- [x] Profile in-memory single-threaded inference latencies across pipeline stages ($P_{50}=5.25\text{ ms}$, $P_{95}=7.37\text{ ms}$, $P_{99}=7.87\text{ ms}$) in Figure 5.9.
+- [x] Structure the closed-loop MLOps drift monitor in Figure 5.10 (Firestore telemetry, PSI, Wasserstein, KS-test triggers).
