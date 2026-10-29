@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: price-optimization-model
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt && python -m nltk.downloader -q stopwords wordnet && python -m src.data.seed_platform_mentors
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: PRICING_ARTIFACT_DIR
+        value: artifacts/exports/issue-70-2026-10-05
+      - key: PRICING_ARTIFACT_MANIFEST_SHA256
+        value: d16876fbf055650d0dd41a69332eef8d66ca38a6d728b1828a30fba133f3e87f
+      - key: PRICING_TARIFF_CSV
+        value: config/tariffs/mpesa_p2p_users_2026-08-04.csv
+      - key: PLATFORM_PRICE_KEY
+        generateValue: true
+      - key: MLOPS_ADMIN_TOKEN
+        generateValue: true
+      - key: PLATFORM_API_EMAIL
+        value: client@career-mentor-os.co.ke
+      - key: PLATFORM_API_PASSWORD
+        sync: false
+

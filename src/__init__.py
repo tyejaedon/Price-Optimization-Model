@@ -1,4 +1,4 @@
-﻿"""Price Optimization Model.
+"""Price Optimization Model.
 
 Subpackages:
   - src.core: Shared configurations, contracts, and observability.
@@ -21,6 +21,7 @@ _LEGACY_MAP = {
     "observability": "src.core.observability",
     "ingest_multisource": "src.data.ingest_multisource",
     "ingest_platform": "src.data.ingest_platform",
+    "seed_platform_mentors": "src.data.seed_platform_mentors",
     "metadata_enrichment": "src.data.metadata_enrichment",
     "label_provenance_audit": "src.data.label_provenance_audit",
     "nlp_pipeline": "src.nlp.nlp_pipeline",

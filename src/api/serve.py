@@ -60,6 +60,16 @@ from src.engine.tariff_evaluator import DEFAULT_MPESA_TARIFF_CSV, MpesaTariffEva
 InferenceCallable = Callable[[PricingQueryDTO], Dict[str, Any] | PredictionResultDTO]
 logger = logging.getLogger(__name__)
 
+DEFAULT_ARTIFACT_DIR = (
+    os.getenv("PRICING_ARTIFACT_DIR")
+    or (
+        os.path.join("artifacts", "exports", "issue-70-2026-10-05")
+        if not os.path.exists(os.path.join("artifacts", "artifact_manifest.json"))
+        and os.path.exists(os.path.join("artifacts", "exports", "issue-70-2026-10-05", "artifact_manifest.json"))
+        else "artifacts"
+    )
+)
+
 
 def _append_pricing_audit(repository: Repository, metrics: MetricsRegistry, payload: Dict[str, Any]) -> None:
     """Try a create-only write twice; never let a background exception disappear."""
@@ -298,12 +308,13 @@ def _admin_guard(
 
 
 def create_app(
-    artifact_dir: str = "artifacts",
+    artifact_dir: str = DEFAULT_ARTIFACT_DIR,
     macro_lookup_path: str = DEFAULT_MACRO_LOOKUP,
     tariff_csv_path: str = DEFAULT_MPESA_TARIFF_CSV,
     firestore_enabled: bool = False,
     *,
     repository: Optional[Repository] = None,
+    seed_platform_profiles: bool = True,
     mlops: Optional[MLOpsService] = None,
     metrics: Optional[MetricsRegistry] = None,
     inference: Optional[InferenceCallable] = None,
@@ -327,13 +338,21 @@ def create_app(
     other explicitly injected callers.
     """
     runtime = InferenceRuntime(artifact_dir, macro_lookup_path, tariff_csv_path, firestore_enabled,
-                               trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"),
-                               trusted_tariff_sha256)
+                                trusted_manifest_sha256 or os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256"),
+                                trusted_tariff_sha256)
     runtime_inference = inference is None
     resolved_inference: InferenceCallable = inference if inference is not None else runtime.predict
     resolved_metrics = metrics or MetricsRegistry()
+    resolved_repo = repository or InMemoryRepository()
+    if repository is None and seed_platform_profiles:
+        try:
+            from src.data.seed_platform_mentors import seed_repository
+            seed_repository(resolved_repo)
+        except Exception as exc:
+            logger.warning("Could not seed platform mentors: %s", exc)
+
     dependencies = ServiceDependencies(
-        repository=repository or InMemoryRepository(),
+        repository=resolved_repo,
         mlops=mlops or MLOpsService(),
         metrics=resolved_metrics,
         inference=resolved_inference,
@@ -359,6 +378,22 @@ def create_app(
         )
     # Career Mentor OS platform contract (#99). Closed unless PLATFORM_PRICE_KEY is set.
     register_platform_price(app, dependencies)
+
+    @app.get("/", tags=["system"])
+    async def root_index() -> Dict[str, Any]:
+        """Root API landing endpoint for browsers and uptime monitors."""
+        return {
+            "service": "Price Optimization Model API",
+            "version": "1.0.0",
+            "status": "online",
+            "endpoints": {
+                "platform_pricing": "POST /price",
+                "health": "GET /health",
+                "ready": "GET /ready",
+                "optimize_price": "POST /api/v1/optimize-price",
+                "documentation": "GET /docs",
+            },
+        }
 
     def require_admin(
         admin_token: Optional[str] = Header(default=None, alias="X-Admin-Token"),

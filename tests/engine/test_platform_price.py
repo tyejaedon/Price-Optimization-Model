@@ -47,7 +47,7 @@ INLINE = {
 
 class PlatformPriceTests(unittest.TestCase):
     def _client(self, repository: InMemoryRepository = None) -> TestClient:
-        app = create_app(inference=fake_inference, repository=repository or InMemoryRepository())
+        app = create_app(inference=fake_inference, repository=repository)
         return TestClient(app)
 
     def test_disabled_by_default_returns_503(self) -> None:
@@ -124,6 +124,115 @@ class PlatformPriceTests(unittest.TestCase):
                 )
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["final_quoted_rate"], 4757.0)
+
+    def test_seeded_platform_mentor_resolves_and_quotes(self) -> None:
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client() as client:
+                # Query an in-scope platform mentor by platform_mentor_user_id
+                response = client.post(
+                    "/price",
+                    json={"mentorId": "c61a767b-f0a2-4367-a278-7aa41cda8edc"},
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(set(body), {"min", "max", "comparables", "reason"})
+        self.assertGreater(body["min"], 0.0)
+        self.assertGreater(body["max"], 0.0)
+        self.assertGreater(len(body["comparables"]), 0)
+        self.assertIn("KES", body["reason"])
+
+    def test_seeded_vocational_mentor_returns_outside_scope(self) -> None:
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client() as client:
+                # Query a vocational mentor (Nelson Juma, Electrical & Electronics)
+                response = client.post(
+                    "/price",
+                    json={"mentorId": "b1e66e3b-d3c9-45bf-b788-0c2d9beb0d65"},
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(set(body), {"min", "max", "comparables", "reason"})
+        self.assertEqual(body["min"], 0.0)
+        self.assertEqual(body["max"], 0.0)
+        self.assertEqual(body["comparables"], [])
+        self.assertIn("Outside scope", body["reason"])
+
+    def test_unsupported_partition_returns_outside_scope(self) -> None:
+        def failing_inference(query):
+            raise ValueError("No trained density for partition 'Culinary & Hospitality'.")
+
+        app = create_app(inference=failing_inference, repository=InMemoryRepository(), seed_platform_profiles=False)
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with TestClient(app) as client:
+                response = client.post(
+                    "/price",
+                    json={
+                        "mentorId": "any-id",
+                        "raw_description": "Experienced culinary chef mentoring cooking staff.",
+                        "selected_industry": "Culinary & Hospitality",
+                        "mentor_country": "KE",
+                    },
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["min"], 0.0)
+        self.assertEqual(body["max"], 0.0)
+        self.assertIn("Outside scope", body["reason"])
+
+    def test_root_index_endpoint_returns_online_status(self) -> None:
+        with self._client() as client:
+            response = client.get("/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "online")
+        self.assertIn("POST /price", data["endpoints"]["platform_pricing"])
+
+    def test_mentor_id_whitespace_and_profile_id_lookup(self) -> None:
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client() as client:
+                # Query with leading/trailing whitespace
+                resp_whitespace = client.post(
+                    "/price",
+                    json={"mentorId": "  c61a767b-f0a2-4367-a278-7aa41cda8edc  "},
+                    headers={"X-Platform-Key": KEY},
+                )
+                self.assertEqual(resp_whitespace.status_code, 200, resp_whitespace.text)
+                self.assertGreater(resp_whitespace.json()["min"], 0.0)
+
+                # Query using platform_mentor_profile_id alias (cc2800f6...)
+                resp_profile_id = client.post(
+                    "/price",
+                    json={"mentorId": "cc2800f6-2bda-4075-b61d-201bfab2762b"},
+                    headers={"X-Platform-Key": KEY},
+                )
+                self.assertEqual(resp_profile_id.status_code, 200, resp_profile_id.text)
+                self.assertGreater(resp_profile_id.json()["min"], 0.0)
+
+    def test_inline_vocational_category_intercepted_as_outside_scope(self) -> None:
+        # Even if inference would return a valid quote, an explicit vocational category must return outside scope
+        app = create_app(inference=fake_inference, repository=InMemoryRepository(), seed_platform_profiles=False)
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with TestClient(app) as client:
+                response = client.post(
+                    "/price",
+                    json={
+                        "mentorId": "unseeded-chef-999",
+                        "raw_description": "Master executive chef teaching culinary arts and restaurant management.",
+                        "selected_industry": "Culinary & Hospitality",
+                        "mentor_country": "KE",
+                    },
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["min"], 0.0)
+        self.assertEqual(body["max"], 0.0)
+        self.assertEqual(body["comparables"], [])
+        self.assertIn("Outside scope", body["reason"])
+        self.assertIn("Culinary & Hospitality", body["reason"])
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ body:
     attributes:
       label: Target milestone
       options:
+        - "Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track)"
         - "Milestone 8: Automated Verification, Latency Profiling & MLOps"
         - "Milestone 6: Master Pipeline Training, Validation & Auditing"
       description: Select the milestone this issue belongs to.

@@ -37,7 +37,7 @@ Milestones 9-14: Canonical Pivot, Auth, Mobile & Usability
 Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation
       |
       v
-Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps
+Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track)
 ```
 
 ---
@@ -585,12 +585,12 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | --- | --- | --- | --- |
 | 1 | Milestone 9: Canonical Blueprint & OOT Model Alignment | #66 blueprint; #67 offline/online 53D alignment; #91 provenance audit; #81 empirical OOT (deferred); #92 diagnostics (closed); #93 optional research benchmark; #94 supervised estimator research (deferred); #78 README (closed) | Reuse M1-M8 NLP, parity, KD-Tree, tariff and training foundations; empirical quality gating is not a delivery prerequisite. |
 | 2 | Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | #69 Firebase verification; #70 artifact preload/benchmark; #82 corridor; #83 DTO/route migration; #95 artifact/inference parity; #68 (closed/superseded) | Requires canonical contract and compatible model artifacts, **not** a passed empirical R2 gate; retain `POST /api/v1/optimize-price`, legacy compatibility and explicit unready responses. |
-| 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration; #113 named database selection | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
+| 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration; #113 named database selection; #172 M11.7 platform mentor profile seeding | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
-| 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
+| 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX; M13.4 Render hosted service deployment | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
-| 7 | Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation | #147 System Implementation & Environment; #148 AI/ML Data & Model Implementation; #149 Testing & Baseline Evaluation; #150 Results Presentation & Error Analysis; #151 Discussion, Risks & Limitations | Formalize production-grade engineering documentation, empirical evaluation baselines, error analysis, and environment reproducibility. |
-| 8 | Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps | M16.1 Ensemble Benchmarks; M16.2 Systematic KNN Tuning; M16.3 Distance Weighting Kernels; M16.4 SVD vs Transformers; M16.5 Cold-Start Fallbacks; M16.6 Vector Search Scaling; M16.7 Automated Retraining & Drift | Operationalize supervisor guidance: benchmark tree ensembles/linear models against KNN, optimize distance metrics and IDW kernels, benchmark MiniLM sentence embeddings against SVD, architect multi-tier cold-start fallbacks, evaluate FAISS CPU vector scaling, and design Firestore drift-driven retraining. |
+| 7 | Milestone 15: System Documentation, AI/ML Implementation & Empirical Evaluation | #147 System Implementation & Environment; #148 AI/ML Data & Model Implementation; #149 Testing & Baseline Evaluation; #150 Results Presentation & Error Analysis; #151 Discussion, Risks & Limitations; M15.3 Platform Mentor Corpus Empirical Evaluation | Formalize production-grade engineering documentation, empirical evaluation baselines, error analysis, and environment reproducibility. |
+| 8 | Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track) | M16.1 Ensemble Benchmarks; M16.2 Systematic KNN Tuning; M16.3 Distance Weighting Kernels; M16.4 SVD vs Transformers; M16.5 Cold-Start Fallbacks; M16.6 Vector Search Scaling; M16.7 Automated Retraining & Drift | Operationalize external supervisor guidance as an optional research track: benchmark tree ensembles/linear models against KNN, optimize distance metrics and IDW kernels, benchmark MiniLM sentence embeddings against SVD, architect multi-tier cold-start fallbacks, evaluate FAISS CPU vector scaling, and design Firestore drift-driven retraining. Non-blocking for primary graduation requirements. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
 roadmap follows `docs/Architecture/Android_App_Guide.md`, which maps every Android source file back
@@ -605,6 +605,77 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **M10.5 implementation (#83):** `src/api_contracts.py` provides separate canonical camelCase DTOs alongside the deprecated legacy snake_case DTOs. Both use the existing versioned route with matching response shapes and a `Deprecation` header for successful legacy requests. Canonical competitiveness maps to the fitted saturation feature; optional mentor CoL overrides only bilateral parity. Existing proxy artifacts do not contain listing IDs, so their canonical comparables remain empty rather than fabricated; confidence remains explicitly uncalibrated. #71 enables verified root listing provenance in new exports; #84 owns authorized text hydration.
 
+---
+
+### Issue M11.7 (#172) — Seed Repository Mentor Profiles from platform_mentor_corpus for POST /price Resolution
+**Labels:** `data-engineering`, `persistence`, `api`, `project:feature-track`
+
+**Goal:** Seed the pricing repository with mentor profiles derived from `platform_mentor_corpus` (`data/processed/platform_mentor_corpus.csv`) and `mentors.csv` (`data/raw/career_mentor_os/mentors.csv`) so that inbound platform adapter requests to `POST /price` with `{"mentorId": "..."}` resolve without returning HTTP 422.
+
+**Supervisor Guidance Addressed:**
+1. `/price resolves mentorId against your own profiles and ours are never loaded in, so the first real call will 422 — seed your repository from platform_mentor_corpus (platform_mentor_user_id is the id we send).`
+2. `170 of our 222 mentors are vocational and the platform will still call /price for them — decide what you return, an explicit "outside scope" beats a nonsense quote.`
+
+**Scope & Implementation Details:**
+- **In-Scope Technical Profiles (N=92):** Keyed by `platform_mentor_user_id` (with fallback lookup by `platform_mentor_profile_id`), containing `raw_description`, `selected_industry` (mapped partition: `data_ai`, `digital_marketing`, `product_management`, `general_tech`), `country_code: "KE"`, and `is_in_scope: True`.
+- **Out-of-Scope Vocational Profiles (N=330):** Vocational categories (welding, culinary, electrical, construction, cosmetology, etc.) are seeded with `is_in_scope: False` and an explicit `out_of_scope_reason`.
+- **Outside Scope Handling on POST /price:** Returns HTTP 200 with schema-conforming `PlatformPriceResponse(min=0.0, max=0.0, comparables=[], reason="Outside scope: ...")`. Prevents domain contamination in KD-Tree peer retrieval while avoiding adapter-breaking 500 errors.
+- **Automated Seeding Pipeline:** `src/data/seed_platform_mentors.py` generates `data/processed/platform_mentor_profiles.json` and seeds both `InMemoryRepository` (auto-seeded at FastAPI startup when empty) and cloud `FirestoreRepository`.
+
+**Acceptance Criteria:**
+- [x] `POST /price` with in-scope `platform_mentor_user_id` resolves profile and returns valid dynamic price corridor and peers
+- [x] `POST /price` with vocational `mentorId` returns HTTP 200 with `min=0.0, max=0.0, comparables=[]` and explicit outside scope reason
+- [x] In-memory repository automatically hydrates profiles on startup from cached JSON without external network latency
+- [x] Unit test suite exercises resolution, vocational filtering, and profile persistence
+
+---
+
+### Issue M13.4 — Deploy Hosted Pricing Service on Render with PLATFORM_PRICE_KEY Authentication
+**Labels:** `devops`, `cloud-deployment`, `fastapi`, `security`, `project:feature-track`
+
+**Goal:** Configure and deploy a public ASGI hosted pricing service on Render Free Tier, enabling the Career Mentor OS platform adapter to query `POST /price` using `X-Platform-Key` header authentication.
+
+**Supervisor Guidance Addressed:**
+`We need a hosted URL, ngrok to your laptop won't survive a demo — Render free tier is fine, set PLATFORM_PRICE_KEY there and send me URL + key, our side now sends X-Platform-Key.`
+
+**Scope & Implementation Details:**
+- **Render Blueprint (`render.yaml`):** Automated Infrastructure-as-Code manifest for free-tier web service execution, Python 3.11.10 runtime, and Uvicorn ASGI server (`src.api.main:app`).
+- **Security & Key Authentication:** Route gated by `PLATFORM_PRICE_KEY`. Requests without valid `X-Platform-Key` fail closed with HTTP 401. If key is unset, returns HTTP 503.
+- **Artifact & Tariff Integrity:** Enforces cryptographic manifest SHA-256 digest (`d16876fbf055650d0dd41a69332eef8d66ca38a6d728b1828a30fba133f3e87f`) and Safaricom 15-band P2P tariff schedule.
+- **Root Index Route (`GET /`):** Browser-accessible status dashboard preventing "Cannot GET" errors when the hosted URL is visited directly in web browsers.
+- **Handoff Runbook:** Comprehensive documentation in `docs/M13.4_Render_Hosted_Pricing_Service.md`.
+
+**Acceptance Criteria:**
+- [x] `render.yaml` specifies build, start, healthcheck, and environment configuration
+- [x] `POST /price` enforces `X-Platform-Key` authentication matching `PLATFORM_PRICE_KEY`
+- [x] Root landing route `GET /` returns online status and endpoint catalog
+- [x] Uvicorn entrypoint `src.api.main:app` successfully verified via smoke test
+
+---
+
+### Issue M15.3 — Empirical Evaluation of Pricing Model Quotes Against Platform Mentor Corpus
+**Labels:** `machine-learning`, `benchmarks`, `empirical-evaluation`, `project:feature-track`
+
+**Goal:** Empirically evaluate the trained pricing engine quotes against the platform mentor corpus (`career_mentor_os_sandbox`), comparing predicted quotes against both listed asking rates and realised completed booking rates.
+
+**Supervisor Guidance Addressed:**
+`R² 0.48 against your own 0.75 gate is fine if you say so plainly; the number the examiner will want is your quotes against the 52 in-scope mentors' listed and realised rates in that corpus — nobody has run it yet.`
+
+**Key Findings & Empirical Metrics:**
+- **First-Batch Cohort (N=53 in-scope mentors from first 222 mentors):**
+  - Listed Rates ($N=53$): Mean Listed KES 5,004.53/hr vs Mean Model Quote KES 3,527.98/hr. Mean Bias: KES -1,476.55/hr. MAE: KES 2,125.77/hr. MedAE: KES 1,721.18/hr. RMSE: KES 2,657.90/hr. Pearson $r=0.1229$. Corridor Coverage: 49.1%.
+  - Realised Rates ($N=46$ with completed sessions): Mean Realised KES 5,078.60/hr vs Mean Model Quote KES 3,389.22/hr. Mean Bias: KES -1,689.38/hr. MAE: KES 2,501.74/hr. RMSE: KES 3,146.79/hr.
+- **Full In-Scope Corpus (N=92 technical mentors):**
+  - Listed Rates ($N=92$): Mean Listed KES 4,782.50/hr vs Mean Model Quote KES 3,365.73/hr. Mean Bias: KES -1,416.77/hr. MAE: KES 2,132.80/hr. MedAE: KES 1,721.18/hr. RMSE: KES 2,682.38/hr. Corridor Coverage: 46.7%.
+  - Realised Rates ($N=85$): Mean Realised KES 4,804.30/hr vs Mean Model Quote KES 3,277.28/hr. MAE: KES 2,336.84/hr.
+- **Partition Dynamics:** Product management demonstrates exceptional calibration (Mean Listed KES 5,380.5 vs Quote KES 5,280.7, MAE KES 1,705.5), whereas global freelance marketplace proxies systematically under-price local Kenyan data/AI and digital marketing boutique consulting rates by ~KES 1,400–2,000/hr.
+- Standalone benchmark reproducible via `python -m src.benchmarks.evaluate_platform_mentors` and published in `reports/m15_platform_mentor_evaluation.md`.
+
+**Acceptance Criteria:**
+- [x] Standalone reproducible evaluation benchmark module `src/benchmarks/evaluate_platform_mentors.py`
+- [x] Dual-cohort reporting: Initial cohort ($N=53$) and full in-scope dataset ($N=92$)
+- [x] Granular metric calculation across both listed rates and realised booking earnings
+- [x] Published publication-grade Markdown report in `reports/m15_platform_mentor_evaluation.md`
 
 ---
 
@@ -735,7 +806,13 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 ---
 
-## Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps
+## Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track)
+
+> [!NOTE]
+> **Advisory Governance & Prioritization Context:**
+> The objectives and issues defined in Milestone 16 operationalize high-level advisory feedback provided by an external supervisor review. Per academic project governance, internal supervisor and class coordinator directives take priority, as they possess full contextual visibility over the degree milestones and architectural delivery constraints.
+>
+> Therefore, **Milestone 16 is classified as an Optional Research & Future-Proofing Track (`scope:optional`, `track:advisory-research`)**. These issues are non-blocking for platform integration (Milestones 9–14), platform mentor profile seeding (#172), hosted service deployment (M13.4), or thesis core documentation and baseline evaluation (Milestone 15). They provide modular, publication-ready research blueprints that can be executed incrementally as post-baseline extensions.
 
 **Goal:** Execute systematic research and engineering extensions addressing supervisory recommendations: quantify predictive accuracy vs. peer interpretability trade-offs across tree ensembles (XGBoost, Random Forest) and regularized linear models (Ridge); tune KNN hyperparameters and alternative distance metrics (Cosine, Manhattan) dynamically; optimize distance weighting decay kernels (Gaussian RBF, Exponential, Power IDW); benchmark the TF-IDF + Truncated SVD pipeline against pre-trained dense sentence transformers (`all-MiniLM-L6-v2`); architect multi-tier cold-start fallbacks for sparse partitions and niche skill stacks; evaluate Approximate Nearest Neighbor (ANN) vector search scalability (FAISS CPU, Annoy); and design an automated, drift-aware continuous retraining workflow leveraging Firestore transaction logs.
 
@@ -749,8 +826,11 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 ---
 
-### Issue M16.1 — Benchmark Against Ensemble & Linear Models (XGBoost, Random Forest, Ridge)
-**Labels:** `machine-learning`, `benchmarking`, `algorithms`, `interpretability`, `project:feature-track`
+### Issue M16.1 (Optional) — Benchmark Against Ensemble & Linear Models (XGBoost, Random Forest, Ridge)
+**Labels:** `machine-learning`, `benchmarking`, `algorithms`, `interpretability`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Benchmark Against Ensemble Models: Compare knn regression against tree ensembles (XGBoost, Random Forest) and linear models (Ridge Regression) to quantify the trade-off between predictive accuracy and model interpretability."*
 
 **Goal:** Compare the production KNN regression engine against gradient boosted trees (XGBoost), tree ensembles (Random Forest), and regularized linear models (Ridge Regression) on identical 53-dimensional coordinates to rigorously quantify the trade-off between predictive accuracy and model interpretability.
 
@@ -776,12 +856,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Reproducible under fixed random seeds (`42`, `123`, `999`) with deterministic environment variables
 
 **Dependency Notes:**
-- Extends `M6.2`, `M9.3`, and `M15.3`.
+- Extends `M6.2`, `M9.3`, and `M15.3`. Optional research track.
 
 ---
 
-### Issue M16.2 — Systematic KNN Hyperparameter Tuning & Distance Metric Evaluation
-**Labels:** `machine-learning`, `hyperparameter-tuning`, `spatial-indexing`, `algorithms`, `project:feature-track`
+### Issue M16.2 (Optional) — Systematic KNN Hyperparameter Tuning & Distance Metric Evaluation
+**Labels:** `machine-learning`, `hyperparameter-tuning`, `spatial-indexing`, `algorithms`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Systematic knn Hyperparameter Tuning: Tune k dynamically across ranges and evaluate alternative distance metrics (Cosine, Manhattan) against standard Euclidean distance."*
 
 **Goal:** Conduct an exhaustive, systematic hyperparameter grid search across neighbor count $k$ and alternative distance metrics (Cosine, Manhattan) against standard Euclidean distance to identify optimal spatial peer retrieval configurations.
 
@@ -809,12 +892,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Backward compatibility verified: candidate configurations preserve canonical DTO contracts
 
 **Dependency Notes:**
-- Extends `M4.1`, `M4.2`, `M6.4`, and `assumptions.md`.
+- Extends `M4.1`, `M4.2`, `M6.4`, and `assumptions.md`. Optional research track.
 
 ---
 
-### Issue M16.3 — Optimize Distance Weighting Kernels (Gaussian RBF, Exponential & IDW Variants)
-**Labels:** `machine-learning`, `spatial-indexing`, `algorithms`, `evaluation`, `project:feature-track`
+### Issue M16.3 (Optional) — Optimize Distance Weighting Kernels (Gaussian RBF, Exponential & IDW Variants)
+**Labels:** `machine-learning`, `spatial-indexing`, `algorithms`, `evaluation`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Optimize Distance Weighting Kernels: Test alternative Inverse Distance Weighting (IDW) decay functions (e.g., Gaussian RBF or Exponential) alongside quadratic penalization to refine how peer distances impact price predictions."*
 
 **Goal:** Formulate, test, and benchmark alternative peer distance weighting decay functions (Gaussian RBF, Exponential, and Power-p IDW) alongside quadratic penalization to refine how peer proximity governs pricing quotes and corridor widths.
 
@@ -842,12 +928,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Preserves fee-free negotiation corridor invariants and non-negative output guarantees
 
 **Dependency Notes:**
-- Builds on `M4.2`, `M8.2`, and `M16.2`.
+- Builds on `M4.2`, `M8.2`, and `M16.2`. Optional research track.
 
 ---
 
-### Issue M16.4 — Semantic NLP Pipeline Comparison: TF-IDF + SVD vs Pre-Trained Sentence Transformers
-**Labels:** `nlp`, `deep-learning`, `benchmarking`, `performance`, `project:feature-track`
+### Issue M16.4 (Optional) — Semantic NLP Pipeline Comparison: TF-IDF + SVD vs Pre-Trained Sentence Transformers
+**Labels:** `nlp`, `deep-learning`, `benchmarking`, `performance`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Compare SVD vs. Sentence Transformers: Benchmark the TF-IDF + Truncated SVD pipeline against pre-trained sentence embeddings (e.g., all-MiniLM-L6-v2) to justify using bag-of-words SVD for low-latency inference."*
 
 **Goal:** Benchmark the production TF-IDF + Truncated SVD pipeline against pre-trained sentence transformer embeddings (`sentence-transformers/all-MiniLM-L6-v2`) to empirically evaluate semantic retrieval quality against low-latency inference constraints.
 
@@ -872,12 +961,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Confirms artifact sizes, dependencies, and ONNX runtime viability for future migration
 
 **Dependency Notes:**
-- Extends `M2.2`, `M6.6`, `assumptions.md`, and `117_svd_dimensions.md`.
+- Extends `M2.2`, `M6.6`, `assumptions.md`, and `117_svd_dimensions.md`. Optional research track.
 
 ---
 
-### Issue M16.5 — Algorithmic "Cold-Start" Fallback Architecture for Sparse Partitions & Niche Skills
-**Labels:** `architecture`, `spatial-indexing`, `backend`, `robustness`, `project:feature-track`
+### Issue M16.5 (Optional) — Algorithmic "Cold-Start" Fallback Architecture for Sparse Partitions & Niche Skills
+**Labels:** `architecture`, `spatial-indexing`, `backend`, `robustness`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Define "Cold-Start" Fallbacks: Specify an algorithmic fallback when a mentor or specialized skill stack has fewer than k historical listings in its industry KD-Tree partition."*
 
 **Goal:** Architect and implement a robust multi-tier cold-start fallback cascade that guarantees reliable rate recommendations and transparent uncertainty signaling when a mentor or specialized skill stack has fewer than $k$ historical listings in its partition.
 
@@ -904,12 +996,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Corridor bounds dynamically widen under cold-start conditions to signal uncertainty
 
 **Dependency Notes:**
-- Builds on `M4.1`, `M4.2`, `M7.1`, and `M10.5`.
+- Builds on `M4.1`, `M4.2`, `M7.1`, and `M10.5`. Optional research & robustness track.
 
 ---
 
-### Issue M16.6 — Vector Search Scalability Planning & Approximate Nearest Neighbor (ANN) Indexing
-**Labels:** `performance`, `spatial-indexing`, `scalability`, `architecture`, `project:feature-track`
+### Issue M16.6 (Optional) — Vector Search Scalability Planning & Approximate Nearest Neighbor (ANN) Indexing
+**Labels:** `performance`, `spatial-indexing`, `scalability`, `architecture`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Plan for Vector Search Scaling: Consider Approximate Nearest Neighbor (ANN) search libraries (FAISS (use this if testing locally) on CPU) or Annoy) if historical transaction volume grows beyond the capacity of basic KD-Trees."*
 
 **Goal:** Evaluate Approximate Nearest Neighbor (ANN) vector search libraries (FAISS on CPU and Annoy) to establish an architectural scaling blueprint when historical transaction volume exceeds the computational capacity of exact KD-Trees.
 
@@ -938,12 +1033,15 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Concrete migration criteria, dependency specifications, and container integration plans defined
 
 **Dependency Notes:**
-- Extends `M4.1`, `M8.2`, and `M15.1`.
+- Extends `M4.1`, `M8.2`, and `M15.1`. Optional research track.
 
 ---
 
-### Issue M16.7 — Continuous Retraining Pipeline, Market Drift Monitoring & Economic Adaptation
-**Labels:** `mlops`, `data-engineering`, `observability`, `automation`, `project:feature-track`
+### Issue M16.7 (Optional) — Continuous Retraining Pipeline, Market Drift Monitoring & Economic Adaptation
+**Labels:** `mlops`, `data-engineering`, `observability`, `automation`, `scope:optional`, `track:advisory-research`, `project:feature-track`
+
+**External Reviewer Guidance Addressed:**
+> *"Automate Retraining & Drift Monitoring: Outline a scheduled retraining workflow using logged Firestore transactions (historical_transactions) to adapt to inflation and market drift over time."*
 
 **Goal:** Design an automated, scheduled retraining workflow leveraging verified Firestore transactions (`historical_transactions`) to continuously detect concept/covariate drift, adapt to macroeconomic inflation, and execute zero-downtime atomic model updates.
 
@@ -977,4 +1075,4 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 - [ ] Complete operational runbook documented covering monitoring alerts, manual overrides, and audit trails
 
 **Dependency Notes:**
-- Builds on `M8.7`, `M11.2`, `M15.1`, and `M15.2`.
+- Builds on `M8.7`, `M11.2`, `M15.1`, and `M15.2`. Optional MLOps research track.

@@ -1,0 +1,45 @@
+{
+  "description": "Hierarchical domain taxonomy for multi-tier cold-start spatial fallback routing in the Price Optimization Model.",
+  "taxonomy": {
+    "data_ai": {
+      "parent": "general_tech",
+      "siblings": ["web_backend", "devops_cloud"],
+      "description": "Data science, machine learning, AI engineering, data analytics"
+    },
+    "web_backend": {
+      "parent": "general_tech",
+      "siblings": ["devops_cloud", "mobile"],
+      "description": "Backend API engineering, distributed systems, microservices"
+    },
+    "mobile": {
+      "parent": "general_tech",
+      "siblings": ["web_backend"],
+      "description": "Native Android, iOS, Flutter, cross-platform mobile development"
+    },
+    "devops_cloud": {
+      "parent": "general_tech",
+      "siblings": ["web_backend"],
+      "description": "Cloud infrastructure, Kubernetes, CI/CD, site reliability engineering"
+    },
+    "design_creative": {
+      "parent": "general_tech",
+      "siblings": ["digital_marketing"],
+      "description": "UI/UX design, brand identity, visual and graphic communication"
+    },
+    "product_management": {
+      "parent": "general_tech",
+      "siblings": ["web_backend", "design_creative"],
+      "description": "Agile product discovery, roadmap strategy, technical specification"
+    },
+    "digital_marketing": {
+      "parent": "general_tech",
+      "siblings": ["design_creative"],
+      "description": "Growth marketing, SEO, conversion rate optimization, content marketing"
+    },
+    "general_tech": {
+      "parent": null,
+      "siblings": [],
+      "description": "Baseline technical consulting umbrella domain"
+    }
+  }
+}

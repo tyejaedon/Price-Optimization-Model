@@ -81,6 +81,13 @@ class Repository(ABC):
         """Delete a mentor only; this does not cascade to listings or quote audits."""
         raise NotImplementedError
 
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Read a mentor profile by document ID without token verification."""
+        for profile in self.list_profiles():
+            if str(profile.get("profile_id", "")) == profile_id:
+                return profile
+        return None
+
     @abstractmethod
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Match stored ``auth_uid`` to a caller-verified UID, or reject the read.
@@ -156,6 +163,26 @@ class InMemoryRepository(Repository):
     def delete_profile(self, profile_id: str) -> bool:
         """Remove a local mentor and report whether it existed; do not cascade."""
         return self._profiles.pop(profile_id, None) is not None
+
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Return a copy of the stored mentor profile by ID, or None if absent."""
+        profile = self._profiles.get(profile_id)
+        if profile is not None:
+            return deepcopy(profile)
+        clean_id = profile_id.strip()
+        if clean_id != profile_id:
+            profile = self._profiles.get(clean_id)
+            if profile is not None:
+                return deepcopy(profile)
+        for p in self._profiles.values():
+            meta = p.get("metadata") or {}
+            if (
+                str(p.get("profile_id", "")).strip() == clean_id
+                or str(meta.get("platform_mentor_user_id", "")).strip() == clean_id
+                or str(meta.get("platform_mentor_profile_id", "")).strip() == clean_id
+            ):
+                return deepcopy(p)
+        return None
 
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Return a copy only for the stored owner UID; missing mentors yield None."""
@@ -267,6 +294,35 @@ class FirestoreRepository(Repository):
         """Delete a mentor without cascading; return True even if it was absent."""
         self._timed(lambda: self._client.collection("mentors").document(profile_id).delete())
         return True
+
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Read a mentor profile document from Firestore by ID, or None if absent."""
+        clean_id = profile_id.strip()
+        _document_id(clean_id, "mentor_id")
+        snapshot = self._timed(lambda: self._client.collection("mentors").document(clean_id).get())
+        if snapshot.exists:
+            return {"profile_id": clean_id, **(snapshot.to_dict() or {})}
+        docs = self._timed(
+            lambda: list(
+                self._client.collection("mentors")
+                .where("metadata.platform_mentor_profile_id", "==", clean_id)
+                .limit(1)
+                .stream()
+            )
+        )
+        if docs:
+            return {"profile_id": docs[0].id, **(docs[0].to_dict() or {})}
+        docs_user = self._timed(
+            lambda: list(
+                self._client.collection("mentors")
+                .where("metadata.platform_mentor_user_id", "==", clean_id)
+                .limit(1)
+                .stream()
+            )
+        )
+        if docs_user:
+            return {"profile_id": docs_user[0].id, **(docs_user[0].to_dict() or {})}
+        return None
 
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Read one mentor and enforce stored UID ownership; propagate backend failures."""

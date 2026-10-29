@@ -18,7 +18,7 @@ import os
 import re
 import time
 from functools import lru_cache
-from typing import Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Iterable, List, Optional, Protocol, Sequence, Set, Tuple, runtime_checkable
 
 try:
     import joblib
@@ -145,6 +145,26 @@ def sanitize_many(texts: Iterable[str]) -> List[str]:
     return [sanitize_text(text) for text in texts]
 
 
+
+@runtime_checkable
+class BaseTextEmbedder(Protocol):
+    """Interface protocol for modular text representation and embedding extractors.
+    
+    Enables pluggable benchmarking between sparse TF-IDF/SVD representations
+    and dense neural sentence embeddings.
+    """
+
+    @property
+    def dimension(self) -> int:
+        ...
+
+    def fit_transform(self, texts: Sequence[str]) -> np.ndarray:
+        ...
+
+    def transform(self, texts: Sequence[str]) -> np.ndarray:
+        ...
+
+
 class TextFeatureReducer:
     """Fit and reuse the marketplace-description TF-IDF/SVD representation.
 
@@ -185,6 +205,11 @@ class TextFeatureReducer:
         )
         self.reducer = TruncatedSVD(n_components=max(1, self.n_components_requested), random_state=self.random_state)
         self.fitted = False
+
+    @property
+    def dimension(self) -> int:
+        """Effective or requested latent vector dimensionality."""
+        return self.n_components_requested
 
     def _effective_components(self, n_features: int) -> int:
         if n_features <= 1:
@@ -287,6 +312,72 @@ class TextFeatureReducer:
         instance.reducer = reducer
         instance.fitted = True
         return instance
+
+
+
+
+class SentenceTransformerEmbedder:
+    """Dense contextual text embeddings using pretrained transformer models.
+
+    Supports pretrained sentence transformers (e.g. 'all-MiniLM-L6-v2', 384D)
+    as an alternative to sparse TF-IDF + TruncatedSVD for semantic representation
+    and latency/accuracy trade-off benchmarking.
+    """
+
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        dimension: int = 384,
+        normalize_embeddings: bool = True,
+        mock_mode: bool = False,
+    ) -> None:
+        self.model_name = model_name
+        self._dimension = int(dimension)
+        self.normalize_embeddings = bool(normalize_embeddings)
+        self.mock_mode = bool(mock_mode)
+        self._model: Any = None
+        self.fitted = True
+
+        if not self.mock_mode:
+            try:
+                from sentence_transformers import SentenceTransformer  # type: ignore
+                self._model = SentenceTransformer(self.model_name)
+            except (ImportError, Exception):
+                self.mock_mode = True
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension
+
+    def fit_transform(self, texts: Sequence[str]) -> np.ndarray:
+        return self.transform(texts)
+
+    def transform(self, texts: Sequence[str]) -> np.ndarray:
+        if not texts:
+            return np.empty((0, self._dimension), dtype=float)
+
+        if not self.mock_mode and self._model is not None:
+            embeddings = self._model.encode(
+                list(texts),
+                normalize_embeddings=self.normalize_embeddings,
+                show_progress_bar=False,
+            )
+            return np.asarray(embeddings, dtype=float)
+
+        # Deterministic pseudo-embedding for testing/benchmarking without requiring PyTorch
+        matrix = np.zeros((len(texts), self._dimension), dtype=float)
+        for i, text in enumerate(texts):
+            h = 0
+            for word in text.split():
+                h = (h * 31 + hash(word)) % (2**31 - 1)
+            rng = np.random.RandomState(abs(h) % (2**31 - 1))
+            vec = rng.randn(self._dimension)
+            if self.normalize_embeddings:
+                norm = float(np.linalg.norm(vec))
+                if norm > 1e-12:
+                    vec = vec / norm
+            matrix[i] = vec
+        return matrix
 
 
 def _profile_transform_latency_ms(reducer: TextFeatureReducer, sample_text: str, iterations: int = 50) -> float:

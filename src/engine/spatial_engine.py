@@ -1,8 +1,9 @@
-"""Partitioned peer search and inverse-distance base-rate estimation.
+r"""Partitioned peer search and inverse-distance base-rate estimation.
 
-Training inputs are the fused 53-dimensional hybrid feature vectors (50 text
-components plus three normalized metadata components) produced by the feature
-pipeline. KD-Trees are built independently for industry partitions so nearest
+Training inputs are the fused hybrid feature vectors (default 53 dimensions:
+50 text components plus three normalized metadata components) produced by the feature
+pipeline, with support for arbitrary latent dimensions $q \in \mathbb{R}^{n+3}$.
+KD-Trees / BallTrees are built independently for industry partitions so nearest
 peers are normally drawn from the requested domain. Optional row-aligned
 targets named ``verified_rates`` are in KES/hour; listing IDs and job titles retain peer
 provenance in prediction explanations.
@@ -10,7 +11,7 @@ provenance in prediction explanations.
 That historical rate name is not independent verification: training can supply
 proxy budgets/asking rates. This index checks listing metadata shape; the
 training exporter separately checks it against trusted root listing documents.
-Distances are Euclidean in fitted feature space, not currency differences.
+Distances are Euclidean, Manhattan, or Cosine in fitted feature space, not currency differences.
 
 The command-line demo deliberately fits small synthetic vectors and rates to
 exercise indexing and artifact round-trips. Those values are demonstration
@@ -19,13 +20,14 @@ data, not marketplace observations or evidence of real mentor pricing.
 
 import argparse
 import json
+import math
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 try:
     import joblib
     import numpy as np
-    from sklearn.neighbors import KDTree
+    from sklearn.neighbors import BallTree, KDTree
 except ImportError as exc:
     raise RuntimeError("Missing spatial-index dependencies. Install from requirements.txt") from exc
 
@@ -41,6 +43,11 @@ DEFAULT_MIN_PARTITION_SIZE = 5
 DEFAULT_QUERY_NEIGHBORS = 5
 DEFAULT_FALLBACK_PARTITION = "general_tech"
 DEFAULT_IDW_EPSILON = 1e-6
+DEFAULT_CROSS_DOMAIN_PENALTY = 1.25
+DEFAULT_TAXONOMY_PATH = os.path.join("config", "industry_taxonomy.json")
+
+SUPPORTED_METRICS = ("euclidean", "manhattan", "cosine")
+SUPPORTED_KERNELS = ("quadratic", "linear", "power", "exponential", "gaussian", "rbf")
 
 
 def _normalize_partition(partition: Any) -> str:
@@ -48,6 +55,18 @@ def _normalize_partition(partition: Any) -> str:
     if normalized in SUPPORTED_INDUSTRY_PARTITIONS:
         return normalized
     return DEFAULT_FALLBACK_PARTITION
+
+
+def _load_taxonomy_data(taxonomy_path: Optional[str] = None) -> Dict[str, Any]:
+    target_path = taxonomy_path or DEFAULT_TAXONOMY_PATH
+    if os.path.exists(target_path):
+        try:
+            with open(target_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("taxonomy", {})
+        except Exception:
+            return {}
+    return {}
 
 
 def _coerce_hybrid_matrix(hybrid_vectors: Any, expected_dimensions: int = HYBRID_VECTOR_DIMENSIONS) -> np.ndarray:
@@ -94,11 +113,25 @@ def _coerce_rate_vector(verified_rates: Sequence[float], expected_rows: int) -> 
     return rates.astype(float, copy=False)
 
 
-class DomainPartitionedKDTreeIndexer:
-    """Build partition-specific KD-Trees over fused hybrid feature coordinates.
+def _normalize_vector_l2(vector: np.ndarray) -> np.ndarray:
+    norm = float(np.linalg.norm(vector))
+    if norm > 1e-12:
+        return vector / norm
+    return vector
 
-    Production coordinates have 53 dimensions: 50 text features followed by
-    three normalized metadata features. Each tree stores only its own partition
+
+def _normalize_matrix_l2(matrix: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms < 1e-12] = 1.0
+    return matrix / norms
+
+
+class DomainPartitionedKDTreeIndexer:
+    r"""Build partition-specific KD-Trees or BallTrees over fused hybrid feature coordinates.
+
+    Coordinates default to 53 dimensions ($q \in \mathbb{R}^{53}$): 50 text features
+    followed by three normalized metadata features, and dynamically support
+    arbitrary dimensions ($q \in \mathbb{R}^{n+3}$). Each tree stores only its own partition
     rows; aligned caller-supplied targets are interpreted as KES/hour, and optional
     listing IDs/titles are retained for matched-peer provenance.
     """
@@ -109,23 +142,68 @@ class DomainPartitionedKDTreeIndexer:
         minimum_partition_size: int = DEFAULT_MIN_PARTITION_SIZE,
         fallback_partition: str = DEFAULT_FALLBACK_PARTITION,
         vector_dimensions: Optional[int] = None,
+        metric: str = "euclidean",
+        kernel: str = "quadratic",
+        idw_power: float = 2.0,
+        decay_gamma: float = 1.0,
+        rbf_sigma: Optional[float] = None,
+        cross_domain_penalty: float = DEFAULT_CROSS_DOMAIN_PENALTY,
+        taxonomy_path: Optional[str] = None,
     ) -> None:
-        """Configure tree size, minimum usable partition volume, and fallback.
+        """Configure tree size, minimum partition volume, distance metric, and weighting kernel.
 
-        ``vector_dimensions`` defaults to the production 53D hybrid schema;
-        it can be overridden for controlled tests or compatible artifacts.
+        ``metric`` supports 'euclidean', 'manhattan', or 'cosine'.
+        ``kernel`` supports 'quadratic', 'linear', 'power', 'exponential', or 'gaussian'/'rbf'.
         """
+        metric_norm = str(metric or "euclidean").strip().lower()
+        if metric_norm not in SUPPORTED_METRICS:
+            raise ValueError(f"Unsupported metric '{metric}'. Expected one of {SUPPORTED_METRICS}.")
+        kernel_norm = str(kernel or "quadratic").strip().lower()
+        if kernel_norm not in SUPPORTED_KERNELS:
+            raise ValueError(f"Unsupported kernel '{kernel}'. Expected one of {SUPPORTED_KERNELS}.")
+
         self.leaf_size = max(1, int(leaf_size))
         self.minimum_partition_size = max(1, int(minimum_partition_size))
         self.fallback_partition = _normalize_partition(fallback_partition)
-        self.partition_trees: Dict[str, KDTree] = {}
+        self.hybrid_dimensions = max(1, int(vector_dimensions or HYBRID_VECTOR_DIMENSIONS))
+        self.metric = metric_norm
+        self.kernel = kernel_norm
+        self.idw_power = float(idw_power)
+        self.decay_gamma = float(decay_gamma)
+        self.rbf_sigma = float(rbf_sigma) if rbf_sigma is not None else None
+        self.cross_domain_penalty = max(1.0, float(cross_domain_penalty))
+        self.taxonomy_path = taxonomy_path
+        self.taxonomy = _load_taxonomy_data(taxonomy_path)
+
+        self.partition_trees: Dict[str, Union[KDTree, BallTree]] = {}
         self.partition_row_indices: Dict[str, np.ndarray] = {}
         self.partition_verified_rates: Dict[str, np.ndarray] = {}
         self.partition_listing_ids: Dict[str, List[Optional[str]]] = {}
         self.partition_job_titles: Dict[str, List[Optional[str]]] = {}
         self.partition_counts: Dict[str, int] = {}
-        self.hybrid_dimensions = max(1, int(vector_dimensions or HYBRID_VECTOR_DIMENSIONS))
+
+        # Global semantic index for Tier 3 cold-start fallback
+        self.global_tree: Optional[Union[KDTree, BallTree]] = None
+        self.global_row_indices: Optional[np.ndarray] = None
+        self.global_verified_rates: Optional[np.ndarray] = None
+        self.global_listing_ids: Optional[List[Optional[str]]] = None
+        self.global_job_titles: Optional[List[Optional[str]]] = None
+        self.global_partitions: Optional[List[str]] = None
+        self.global_count: int = 0
+
         self.fitted = False
+
+    def _create_tree(self, matrix: np.ndarray) -> Union[KDTree, BallTree]:
+        """Instantiate appropriate tree based on metric."""
+        if self.metric == "euclidean":
+            return KDTree(matrix, leaf_size=self.leaf_size, metric="euclidean")
+        elif self.metric == "manhattan":
+            return BallTree(matrix, leaf_size=self.leaf_size, metric="manhattan")
+        elif self.metric == "cosine":
+            # For cosine distance, we index L2-normalized coordinates in Euclidean space
+            norm_matrix = _normalize_matrix_l2(matrix)
+            return BallTree(norm_matrix, leaf_size=self.leaf_size, metric="euclidean")
+        raise ValueError(f"Unknown metric {self.metric}")
 
     def fit(
         self,
@@ -136,21 +214,7 @@ class DomainPartitionedKDTreeIndexer:
         listing_ids: Optional[Sequence[Optional[str]]] = None,
         job_titles: Optional[Sequence[Optional[str]]] = None,
     ) -> None:
-        """Fit one KD-Tree per normalized industry partition.
-
-        ``hybrid_vectors`` is a non-empty row-major feature matrix, with one
-        partition label per row. ``record_indices`` are caller/global row IDs,
-        not positions inside any one partition tree; when omitted, input row
-        numbers are used. Optional ``verified_rates`` must align with matrix
-        rows and contain the KES/hour targets used by
-        :meth:`predict_base_rate`. Optional listing IDs and job titles must be
-        supplied together and row-aligned; a pair of ``None`` values means
-        that no listing provenance is known for that peer.
-
-        Invalid dimensions, non-finite values, or misaligned metadata raise
-        ``ValueError``. Partition names outside the supported set normalize
-        to ``general_tech``.
-        """
+        """Fit one spatial tree per industry partition and a global semantic fallback tree."""
         matrix = _coerce_hybrid_matrix(hybrid_vectors, expected_dimensions=self.hybrid_dimensions)
         if len(industry_partitions) != matrix.shape[0]:
             raise ValueError(
@@ -189,8 +253,11 @@ class DomainPartitionedKDTreeIndexer:
         grouped_rates: Dict[str, List[float]] = {}
         grouped_listing_ids: Dict[str, List[Optional[str]]] = {}
         grouped_job_titles: Dict[str, List[Optional[str]]] = {}
+        normalized_partitions_list: List[str] = []
+
         for row_number, partition in enumerate(industry_partitions):
             normalized_partition = _normalize_partition(partition)
+            normalized_partitions_list.append(normalized_partition)
             grouped_vectors.setdefault(normalized_partition, []).append(matrix[row_number])
             grouped_indices.setdefault(normalized_partition, []).append(int(resolved_indices[row_number]))
             if resolved_rates is not None:
@@ -200,7 +267,7 @@ class DomainPartitionedKDTreeIndexer:
                 grouped_job_titles.setdefault(normalized_partition, []).append(job_titles[row_number])
 
         if not grouped_vectors:
-            raise ValueError("At least one active partition is required to fit the KD-Tree indexer.")
+            raise ValueError("At least one active partition is required to fit the spatial indexer.")
 
         self.partition_trees = {}
         self.partition_row_indices = {}
@@ -211,7 +278,7 @@ class DomainPartitionedKDTreeIndexer:
 
         for partition, rows in grouped_vectors.items():
             partition_matrix = np.vstack(rows)
-            self.partition_trees[partition] = KDTree(partition_matrix, leaf_size=self.leaf_size)
+            self.partition_trees[partition] = self._create_tree(partition_matrix)
             self.partition_row_indices[partition] = np.asarray(grouped_indices[partition], dtype=int)
             if resolved_rates is not None:
                 self.partition_verified_rates[partition] = np.asarray(grouped_rates[partition], dtype=float)
@@ -220,34 +287,56 @@ class DomainPartitionedKDTreeIndexer:
                 self.partition_job_titles[partition] = grouped_job_titles[partition]
             self.partition_counts[partition] = int(partition_matrix.shape[0])
 
+        # Fit Global Semantic Tree (Tier 3 fallback)
+        self.global_tree = self._create_tree(matrix)
+        self.global_row_indices = resolved_indices
+        self.global_verified_rates = resolved_rates
+        self.global_listing_ids = list(listing_ids) if listing_ids is not None else None
+        self.global_job_titles = list(job_titles) if job_titles is not None else None
+        self.global_partitions = normalized_partitions_list
+        self.global_count = int(matrix.shape[0])
+
         self.fitted = True
 
     def active_partitions(self) -> Tuple[str, ...]:
         """Return the fitted partition names in deterministic sorted order."""
         return tuple(sorted(self.partition_trees.keys()))
 
-    def _fallback_candidates(self, requested_partition: str) -> List[str]:
+    def _fallback_candidates(self, requested_partition: str, use_taxonomy: bool = False) -> List[str]:
+        """Determine candidate partitions for fallback routing."""
         active = list(self.partition_counts.keys())
         if not active:
             return []
 
-        return [self.fallback_partition] if self.fallback_partition in active and self.fallback_partition != requested_partition else []
+        candidates: List[str] = []
+        if use_taxonomy and self.taxonomy and requested_partition in self.taxonomy:
+            spec = self.taxonomy[requested_partition]
+            siblings = spec.get("siblings", [])
+            for sibling in siblings:
+                if sibling in active and sibling != requested_partition and sibling not in candidates:
+                    candidates.append(sibling)
+            parent = spec.get("parent")
+            if parent and parent in active and parent != requested_partition and parent not in candidates:
+                candidates.append(parent)
+
+        if self.fallback_partition in active and self.fallback_partition != requested_partition and self.fallback_partition not in candidates:
+            candidates.append(self.fallback_partition)
+
+        return candidates
 
     def resolve_query_partition(
         self,
         requested_partition: str,
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
+        use_taxonomy: bool = False,
+        allow_global_pool: bool = False,
     ) -> Dict[str, Any]:
-        """Choose the partition to query, applying the configured volume policy.
+        """Choose the partition to query, applying the multi-tier cold-start volume policy.
 
-        A requested partition is used directly when it contains at least
-        ``max(k, minimum_partition_size, 1)`` rows. Otherwise, if fallback is
-        enabled, only the configured fallback partition is considered and it
-        must meet that same minimum. An existing undersized partition may
-        still be queried when fallback is disabled, using as many rows as it
-        contains; an unavailable partition with fallback disabled, or a
-        missing/undersized fallback, raises ``KeyError``.
+        Tier 1: Direct Partition Match (if partition volume >= required_count).
+        Tier 2: Taxonomy Hierarchy Rollup / Fallback Partition.
+        Tier 3: Global Semantic Pool across all partitions (if allow_global_pool=True).
         """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before resolve_query_partition().")
@@ -256,26 +345,33 @@ class DomainPartitionedKDTreeIndexer:
         requested_count = self.partition_counts.get(requested, 0)
         required_count = max(1, int(k), self.minimum_partition_size)
 
+        # Tier 1: Direct partition match
         if requested in self.partition_trees and requested_count >= required_count:
             return {
                 "requested_partition": requested,
                 "routed_partition": requested,
                 "fallback_triggered": False,
+                "fallback_tier": 1,
+                "is_cold_start": False,
                 "reason": "requested partition has sufficient volume",
             }
 
+        # Fallback disabled branch
         if requested in self.partition_trees and not allow_fallback:
             return {
                 "requested_partition": requested,
                 "routed_partition": requested,
                 "fallback_triggered": False,
+                "fallback_tier": 1,
+                "is_cold_start": False,
                 "reason": "fallback disabled for low-volume partition",
             }
 
         if not allow_fallback and requested not in self.partition_trees:
             raise KeyError(f"No KD-Tree exists for requested partition '{requested}'.")
 
-        for candidate in self._fallback_candidates(requested):
+        # Tier 2: Taxonomy / Fallback partition routing
+        for candidate in self._fallback_candidates(requested, use_taxonomy=use_taxonomy):
             if self.partition_counts[candidate] >= required_count:
                 trigger_reason = (
                     "requested partition unavailable" if requested_count == 0 else "low-volume partition fallback triggered"
@@ -284,8 +380,21 @@ class DomainPartitionedKDTreeIndexer:
                     "requested_partition": requested,
                     "routed_partition": candidate,
                     "fallback_triggered": True,
+                    "fallback_tier": 2,
+                    "is_cold_start": True,
                     "reason": trigger_reason,
                 }
+
+        # Tier 3: Global Semantic Pool
+        if allow_global_pool and self.global_count >= required_count and self.global_tree is not None:
+            return {
+                "requested_partition": requested,
+                "routed_partition": "__global_pool__",
+                "fallback_triggered": True,
+                "fallback_tier": 3,
+                "is_cold_start": True,
+                "reason": "global semantic pool fallback triggered",
+            }
 
         raise KeyError(f"No partition with at least {required_count} peers exists for '{requested}'.")
 
@@ -295,35 +404,89 @@ class DomainPartitionedKDTreeIndexer:
         requested_partition: str,
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
+        use_taxonomy: bool = False,
+        allow_global_pool: bool = False,
     ) -> Dict[str, Any]:
-        route = self.resolve_query_partition(requested_partition=requested_partition, k=k, allow_fallback=allow_fallback)
+        route = self.resolve_query_partition(
+            requested_partition=requested_partition,
+            k=k,
+            allow_fallback=allow_fallback,
+            use_taxonomy=use_taxonomy,
+            allow_global_pool=allow_global_pool,
+        )
         routed_partition = str(route["routed_partition"])
+
+        if routed_partition == "__global_pool__":
+            # Tier 3 Global Tree query
+            tree = cast(Union[KDTree, BallTree], self.global_tree)
+            partition_row_indices = cast(np.ndarray, self.global_row_indices)
+            total_count = self.global_count
+            q_vec = _normalize_vector_l2(query_vector) if self.metric == "cosine" else query_vector
+            neighbor_count = min(max(1, int(k)), total_count)
+            raw_distances, local_indices = tree.query(q_vec.reshape(1, -1), k=neighbor_count, return_distance=True)
+            local_index_array = np.asarray(local_indices[0], dtype=int)
+            dist_array = np.asarray(raw_distances[0], dtype=float)
+
+            if self.metric == "cosine":
+                dist_array = np.clip(0.5 * np.square(dist_array), 0.0, 2.0)
+
+            # Apply cross-domain distance penalty for peers from other partitions
+            if self.global_partitions is not None:
+                penalized_distances = []
+                for idx, dist in zip(local_index_array, dist_array):
+                    peer_part = self.global_partitions[idx]
+                    penalty = 1.0 if peer_part == requested_partition else self.cross_domain_penalty
+                    penalized_distances.append(float(dist * penalty))
+                distance_array = np.asarray(penalized_distances, dtype=float)
+            else:
+                distance_array = dist_array
+
+            global_indices = partition_row_indices[local_index_array]
+            return {
+                **route,
+                "neighbor_count": int(neighbor_count),
+                "local_neighbor_positions": [int(index) for index in local_index_array.tolist()],
+                "neighbor_indices": [int(index) for index in global_indices.tolist()],
+                "distances": [float(value) for value in distance_array.tolist()],
+            }
 
         tree = self.partition_trees[routed_partition]
         partition_row_indices = self.partition_row_indices[routed_partition]
         neighbor_count = min(max(1, int(k)), self.partition_counts[routed_partition])
 
-        distances, local_indices = tree.query(query_vector.reshape(1, -1), k=neighbor_count, return_distance=True)
+        q_vec = _normalize_vector_l2(query_vector) if self.metric == "cosine" else query_vector
+        raw_distances, local_indices = tree.query(q_vec.reshape(1, -1), k=neighbor_count, return_distance=True)
         local_index_array = np.asarray(local_indices[0], dtype=int)
-        distance_array = np.asarray(distances[0], dtype=float)
-        # Tree positions address partition-local arrays; map them back to the
-        # caller's row IDs before returning peer indices.
+        dist_array = np.asarray(raw_distances[0], dtype=float)
+
+        if self.metric == "cosine":
+            dist_array = np.clip(0.5 * np.square(dist_array), 0.0, 2.0)
+
         global_indices = partition_row_indices[local_index_array]
         return {
             **route,
             "neighbor_count": int(neighbor_count),
             "local_neighbor_positions": [int(index) for index in local_index_array.tolist()],
             "neighbor_indices": [int(index) for index in global_indices.tolist()],
-            "distances": [float(value) for value in distance_array.tolist()],
+            "distances": [float(value) for value in dist_array.tolist()],
         }
 
     @staticmethod
-    def compute_inverse_distance_weights(distances: Sequence[float], epsilon: float = DEFAULT_IDW_EPSILON) -> np.ndarray:
-        """Return normalized quadratic IDW weights for finite nonnegative distances.
+    def compute_inverse_distance_weights(
+        distances: Sequence[float],
+        epsilon: float = DEFAULT_IDW_EPSILON,
+        kernel: str = "quadratic",
+        power: float = 2.0,
+        gamma: float = 1.0,
+        sigma: Optional[float] = None,
+    ) -> np.ndarray:
+        """Return normalized inverse-distance weights supporting multiple decay kernels.
 
-        Each unnormalized weight is ``1 / (distance**2 + epsilon)``; the
-        positive epsilon (default ``1e-6``) keeps exact and duplicate matches
-        finite. The returned weights sum to one.
+        Kernels:
+        - 'quadratic' (default): 1 / (d**2 + epsilon)
+        - 'power' / 'linear': 1 / (d**p + epsilon)
+        - 'exponential': exp(-gamma * d)
+        - 'gaussian' / 'rbf': exp(-d**2 / (2 * sigma**2))
         """
         distance_array = np.asarray(distances, dtype=float).reshape(-1)
         if distance_array.size == 0:
@@ -335,8 +498,29 @@ class DomainPartitionedKDTreeIndexer:
 
         if not np.isfinite(epsilon) or epsilon <= 0:
             raise ValueError("epsilon must be finite and positive.")
-        weights = 1.0 / (np.square(distance_array) + epsilon)
-        return (weights / np.sum(weights)).astype(float, copy=False)
+
+        k_norm = str(kernel or "quadratic").strip().lower()
+
+        if k_norm == "quadratic":
+            raw_weights = 1.0 / (np.square(distance_array) + epsilon)
+        elif k_norm == "linear":
+            raw_weights = 1.0 / (distance_array + epsilon)
+        elif k_norm == "power":
+            p = max(0.1, float(power))
+            raw_weights = 1.0 / (np.power(distance_array, p) + epsilon)
+        elif k_norm == "exponential":
+            g = max(0.001, float(gamma))
+            raw_weights = np.exp(-g * distance_array)
+        elif k_norm in ("gaussian", "rbf"):
+            effective_sigma = float(sigma) if sigma is not None and sigma > 0 else max(float(np.median(distance_array)), 1e-4)
+            raw_weights = np.exp(-np.square(distance_array) / (2.0 * (effective_sigma ** 2)))
+        else:
+            raise ValueError(f"Unsupported kernel '{kernel}'. Expected one of {SUPPORTED_KERNELS}.")
+
+        total = np.sum(raw_weights)
+        if total <= 0 or not np.isfinite(total):
+            return np.full_like(raw_weights, 1.0 / raw_weights.size, dtype=float)
+        return (raw_weights / total).astype(float, copy=False)
 
     @staticmethod
     def distance_to_similarity_score(distance: float) -> float:
@@ -350,15 +534,10 @@ class DomainPartitionedKDTreeIndexer:
         requested_partition: str,
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
+        use_taxonomy: bool = False,
+        allow_global_pool: bool = False,
     ) -> Dict[str, Any]:
-        """Return nearest-peer indices and distances for a hybrid query vector.
-
-        The result identifies requested and routed partitions, whether
-        fallback occurred, the number of neighbors actually returned, their
-        caller/global row IDs, and Euclidean distances. It does not require or
-        return target rates. See :meth:`resolve_query_partition` for behavior
-        when a partition is missing or below the requested volume.
-        """
+        """Return nearest-peer indices and distances for a hybrid query vector."""
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before query().")
 
@@ -368,6 +547,8 @@ class DomainPartitionedKDTreeIndexer:
             requested_partition=requested_partition,
             k=k,
             allow_fallback=allow_fallback,
+            use_taxonomy=use_taxonomy,
+            allow_global_pool=allow_global_pool,
         )
         result.pop("local_neighbor_positions", None)
         return result
@@ -379,35 +560,87 @@ class DomainPartitionedKDTreeIndexer:
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
         epsilon: float = DEFAULT_IDW_EPSILON,
+        kernel: Optional[str] = None,
+        power: Optional[float] = None,
+        gamma: Optional[float] = None,
+        sigma: Optional[float] = None,
+        use_taxonomy: bool = False,
+        allow_global_pool: bool = False,
+        tier4_prior_rate: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Estimate a base hourly rate from nearest peers in KES/hour.
 
-        Requires that :meth:`fit` received ``verified_rates``. The base
-        estimate is the weighted mean of the selected peers using normalized
-        quadratic IDW weights (``1 / (distance**2 + epsilon)``). The response
-        includes the full-precision weighted population standard deviation,
-        partition-routing details, and per-peer rates, similarities, weights,
-        and any retained listing provenance. Low-volume routing follows
-        :meth:`resolve_query_partition`; if no eligible partition exists,
-        ``KeyError`` is raised rather than returning a partial prediction.
+        Supports multi-tier fallback cascade:
+        - Tier 1: Direct Partition
+        - Tier 2: Taxonomy Rollup / Sibling
+        - Tier 3: Global Semantic Pool
+        - Tier 4: Macroeconomic Empirical Prior
         """
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before predict_base_rate().")
-        if not self.partition_verified_rates:
+        if not self.partition_verified_rates and self.global_verified_rates is None:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted with verified_rates before predict_base_rate().")
 
         resolved_query = _coerce_query_vector(query_vector, expected_dimensions=self.hybrid_dimensions)
-        result = self._query_partition_tree(
-            query_vector=resolved_query,
-            requested_partition=requested_partition,
-            k=k,
-            allow_fallback=allow_fallback,
-        )
+
+        try:
+            result = self._query_partition_tree(
+                query_vector=resolved_query,
+                requested_partition=requested_partition,
+                k=k,
+                allow_fallback=allow_fallback,
+                use_taxonomy=use_taxonomy,
+                allow_global_pool=allow_global_pool,
+            )
+        except KeyError:
+            if tier4_prior_rate is not None:
+                # Tier 4 Fallback: Macroeconomic Empirical Prior
+                prior = float(tier4_prior_rate)
+                return {
+                    "requested_partition": _normalize_partition(requested_partition),
+                    "routed_partition": "__prior_rate__",
+                    "fallback_triggered": True,
+                    "fallback_tier": 4,
+                    "is_cold_start": True,
+                    "reason": "Tier 4 macroeconomic prior fallback triggered",
+                    "neighbor_count": 0,
+                    "neighbor_indices": [],
+                    "distances": [],
+                    "k_neighbors_used": 0,
+                    "base_predicted_rate": round(prior, 2),
+                    "peer_stddev": 0.0,
+                    "nearest_neighbors": [],
+                    "distance_metric": self.metric,
+                    "distance_kernel": kernel or self.kernel,
+                }
+            raise
+
         routed_partition = str(result["routed_partition"])
         local_neighbor_positions = np.asarray(result["local_neighbor_positions"], dtype=int)
         distance_array = np.asarray(result["distances"], dtype=float)
-        verified_rates = self.partition_verified_rates[routed_partition][local_neighbor_positions]
-        idw_weights = self.compute_inverse_distance_weights(distance_array, epsilon=epsilon)
+
+        if routed_partition == "__global_pool__":
+            verified_rates = cast(np.ndarray, self.global_verified_rates)[local_neighbor_positions]
+            listing_source = self.global_listing_ids
+            job_title_source = self.global_job_titles
+        else:
+            verified_rates = self.partition_verified_rates[routed_partition][local_neighbor_positions]
+            listing_source = self.partition_listing_ids.get(routed_partition)
+            job_title_source = self.partition_job_titles.get(routed_partition)
+
+        effective_kernel = kernel or self.kernel
+        effective_power = power if power is not None else self.idw_power
+        effective_gamma = gamma if gamma is not None else self.decay_gamma
+        effective_sigma = sigma if sigma is not None else self.rbf_sigma
+
+        idw_weights = self.compute_inverse_distance_weights(
+            distance_array,
+            epsilon=epsilon,
+            kernel=effective_kernel,
+            power=effective_power,
+            gamma=effective_gamma,
+            sigma=effective_sigma,
+        )
         weighted_rate = float(np.dot(verified_rates, idw_weights))
         peer_stddev = weighted_peer_stddev(verified_rates.tolist(), idw_weights.tolist())
 
@@ -420,16 +653,18 @@ class DomainPartitionedKDTreeIndexer:
             idw_weights.tolist(),
         ):
             peer = {
-                    "peer_index": int(peer_index),
-                    "distance": round(float(distance), 6),
-                    "verified_rate": round(float(verified_rate), 2),
-                    "similarity_score": round(self.distance_to_similarity_score(float(distance)), 6),
-                    "idw_weight": round(float(weight), 6),
-                }
-            listing_id = self.partition_listing_ids.get(routed_partition, [])[local_position] if routed_partition in self.partition_listing_ids else None
-            if listing_id is not None:
-                peer["listing_id"] = listing_id
-                peer["job_title"] = self.partition_job_titles[routed_partition][local_position]
+                "peer_index": int(peer_index),
+                "distance": round(float(distance), 6),
+                "verified_rate": round(float(verified_rate), 2),
+                "similarity_score": round(self.distance_to_similarity_score(float(distance)), 6),
+                "idw_weight": round(float(weight), 6),
+            }
+            if listing_source is not None and local_position < len(listing_source):
+                listing_id = listing_source[local_position]
+                if listing_id is not None:
+                    peer["listing_id"] = listing_id
+                    if job_title_source is not None and local_position < len(job_title_source):
+                        peer["job_title"] = job_title_source[local_position]
             nearest_neighbors.append(peer)
 
         result.pop("local_neighbor_positions", None)
@@ -439,17 +674,14 @@ class DomainPartitionedKDTreeIndexer:
                 "base_predicted_rate": round(weighted_rate, 2),
                 "peer_stddev": peer_stddev,
                 "nearest_neighbors": nearest_neighbors,
+                "distance_metric": self.metric,
+                "distance_kernel": effective_kernel,
             }
         )
         return result
 
     def save_artifacts(self, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> None:
-        """Serialize fitted trees and aligned row/rate/provenance metadata.
-
-        Writes the joblib index bundle and a JSON metadata summary under
-        ``artifact_dir``. The bundle may omit rates or listing provenance when
-        those optional inputs were not supplied during fitting.
-        """
+        """Serialize fitted trees and aligned metadata."""
         if not self.fitted:
             raise RuntimeError("DomainPartitionedKDTreeIndexer must be fitted before save_artifacts().")
 
@@ -461,13 +693,26 @@ class DomainPartitionedKDTreeIndexer:
             "leaf_size": self.leaf_size,
             "minimum_partition_size": self.minimum_partition_size,
             "fallback_partition": self.fallback_partition,
+            "hybrid_dimensions": self.hybrid_dimensions,
+            "metric": self.metric,
+            "kernel": self.kernel,
+            "idw_power": self.idw_power,
+            "decay_gamma": self.decay_gamma,
+            "rbf_sigma": self.rbf_sigma,
+            "cross_domain_penalty": self.cross_domain_penalty,
             "partition_trees": self.partition_trees,
             "partition_row_indices": self.partition_row_indices,
             "partition_verified_rates": self.partition_verified_rates,
             "partition_listing_ids": self.partition_listing_ids,
             "partition_job_titles": self.partition_job_titles,
             "partition_counts": self.partition_counts,
-            "hybrid_dimensions": self.hybrid_dimensions,
+            "global_tree": self.global_tree,
+            "global_row_indices": self.global_row_indices,
+            "global_verified_rates": self.global_verified_rates,
+            "global_listing_ids": self.global_listing_ids,
+            "global_job_titles": self.global_job_titles,
+            "global_partitions": self.global_partitions,
+            "global_count": self.global_count,
         }
         joblib.dump(payload, artifact_path)
 
@@ -476,23 +721,20 @@ class DomainPartitionedKDTreeIndexer:
             "minimum_partition_size": self.minimum_partition_size,
             "fallback_partition": self.fallback_partition,
             "hybrid_dimensions": self.hybrid_dimensions,
+            "metric": self.metric,
+            "kernel": self.kernel,
             "active_partitions": list(self.active_partitions()),
             "has_verified_rates": bool(self.partition_verified_rates),
             "has_listing_provenance": any(any(ids) for ids in self.partition_listing_ids.values()),
             "partition_counts": {partition: int(count) for partition, count in self.partition_counts.items()},
+            "global_count": self.global_count,
         }
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, sort_keys=True)
 
     @classmethod
     def load_artifacts(cls, artifact_dir: str = DEFAULT_ARTIFACT_DIR) -> "DomainPartitionedKDTreeIndexer":
-        """Restore a saved index bundle, including optional rates and provenance.
-
-        Returns a fitted indexer ready for querying. Missing optional
-        provenance in older compatible bundles remains absent rather than
-        being inferred. This low-level loader deserializes joblib directly;
-        serving must verify the independently pinned manifest before calling it.
-        """
+        """Restore a saved index bundle."""
         artifact_path = os.path.join(artifact_dir, DEFAULT_KDTREE_ARTIFACT)
         payload = joblib.load(artifact_path)
 
@@ -501,8 +743,14 @@ class DomainPartitionedKDTreeIndexer:
             minimum_partition_size=int(payload.get("minimum_partition_size", DEFAULT_MIN_PARTITION_SIZE)),
             fallback_partition=str(payload.get("fallback_partition", DEFAULT_FALLBACK_PARTITION)),
             vector_dimensions=int(payload.get("hybrid_dimensions", HYBRID_VECTOR_DIMENSIONS)),
+            metric=str(payload.get("metric", "euclidean")),
+            kernel=str(payload.get("kernel", "quadratic")),
+            idw_power=float(payload.get("idw_power", 2.0)),
+            decay_gamma=float(payload.get("decay_gamma", 1.0)),
+            rbf_sigma=float(payload["rbf_sigma"]) if payload.get("rbf_sigma") is not None else None,
+            cross_domain_penalty=float(payload.get("cross_domain_penalty", DEFAULT_CROSS_DOMAIN_PENALTY)),
         )
-        instance.partition_trees = cast(Dict[str, KDTree], dict(payload.get("partition_trees", {})))
+        instance.partition_trees = dict(payload.get("partition_trees", {}))
         instance.partition_row_indices = {
             str(partition): np.asarray(indices, dtype=int)
             for partition, indices in dict(payload.get("partition_row_indices", {})).items()
@@ -516,7 +764,13 @@ class DomainPartitionedKDTreeIndexer:
         instance.partition_counts = {
             str(partition): int(count) for partition, count in dict(payload.get("partition_counts", {})).items()
         }
-        instance.hybrid_dimensions = int(payload.get("hybrid_dimensions", HYBRID_VECTOR_DIMENSIONS))
+        instance.global_tree = payload.get("global_tree")
+        instance.global_row_indices = payload.get("global_row_indices")
+        instance.global_verified_rates = payload.get("global_verified_rates")
+        instance.global_listing_ids = payload.get("global_listing_ids")
+        instance.global_job_titles = payload.get("global_job_titles")
+        instance.global_partitions = payload.get("global_partitions")
+        instance.global_count = int(payload.get("global_count", 0))
         instance.fitted = True
         return instance
 
@@ -560,16 +814,11 @@ def _build_demo_training_data() -> Tuple[np.ndarray, List[str], np.ndarray, np.n
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse options for the synthetic fit/query/IDW command-line demonstration.
-
-    The demonstration has very small partitions; query modes require ``k`` and
-    ``--min-partition-size`` values that the selected or fallback partition
-    can satisfy (for example, both set to 1).
-    """
-    parser = argparse.ArgumentParser(description="Build and query domain-partitioned KD-Tree indices.")
+    """Parse options for the synthetic demonstration."""
+    parser = argparse.ArgumentParser(description="Build and query domain-partitioned spatial indices.")
     parser.add_argument("--mode", choices=("fit_demo", "query_demo", "idw_demo"), default="query_demo")
-    parser.add_argument("--artifact-dir", default=DEFAULT_ARTIFACT_DIR, help="Directory for saved KD-Tree artifacts")
-    parser.add_argument("--leaf-size", type=int, default=DEFAULT_LEAF_SIZE, help="KD-Tree leaf size")
+    parser.add_argument("--artifact-dir", default=DEFAULT_ARTIFACT_DIR, help="Directory for saved artifacts")
+    parser.add_argument("--leaf-size", type=int, default=DEFAULT_LEAF_SIZE, help="Spatial tree leaf size")
     parser.add_argument(
         "--min-partition-size",
         type=int,
@@ -582,21 +831,21 @@ def parse_args() -> argparse.Namespace:
         help="Partition to query during demo mode",
     )
     parser.add_argument("--k", type=int, default=DEFAULT_QUERY_NEIGHBORS, help="Number of neighbors to retrieve")
+    parser.add_argument("--metric", choices=SUPPORTED_METRICS, default="euclidean", help="Distance metric")
+    parser.add_argument("--kernel", choices=SUPPORTED_KERNELS, default="quadratic", help="IDW weighting kernel")
     return parser.parse_args()
 
 
 def main() -> None:
-    """Fit, persist, reload, and optionally query the synthetic demonstration index.
-
-    Query modes raise the same insufficient-partition error as the production
-    indexer when the demo's tiny partitions cannot meet the requested volume.
-    """
+    """Fit, persist, reload, and query the synthetic demonstration index."""
     args = parse_args()
     matrix, partitions, verified_rates, query_vector = _build_demo_training_data()
 
     indexer = DomainPartitionedKDTreeIndexer(
         leaf_size=args.leaf_size,
         minimum_partition_size=args.min_partition_size,
+        metric=args.metric,
+        kernel=args.kernel,
     )
     indexer.fit(matrix, partitions, verified_rates=verified_rates)
     indexer.save_artifacts(args.artifact_dir)
@@ -610,6 +859,8 @@ def main() -> None:
         "artifact_dir": args.artifact_dir,
         "leaf_size": restored.leaf_size,
         "minimum_partition_size": restored.minimum_partition_size,
+        "metric": restored.metric,
+        "kernel": restored.kernel,
     }
 
     if args.mode == "query_demo":

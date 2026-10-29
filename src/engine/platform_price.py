@@ -76,10 +76,49 @@ def _require_platform_key(provided: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail=f"valid {PLATFORM_KEY_HEADER} header required")
 
 
+VOCATIONAL_CATEGORIES: set[str] = {
+    "agriculture & farming",
+    "automotive & mechanics",
+    "beauty & cosmetology",
+    "construction & building",
+    "culinary & hospitality",
+    "education & academia",
+    "electrical & electronics",
+    "fashion & textiles",
+    "finance & accounting",
+    "healthcare & medical",
+    "legal & compliance",
+    "personal development",
+    "transport & logistics",
+}
+
+
+def _is_vocational(category_or_industry: Optional[str]) -> bool:
+    if not category_or_industry:
+        return False
+    norm = category_or_industry.strip().lower()
+    return norm in VOCATIONAL_CATEGORIES or any(
+        voc in norm for voc in ("vocational", "culinary", "welding", "plumbing", "mechanics", "cosmetology", "farming")
+    )
+
+
 def _profile_for(repository: Any, mentor_id: str) -> Dict[str, Any]:
+    clean_id = mentor_id.strip()
     try:
+        if hasattr(repository, "get_profile"):
+            profile = repository.get_profile(clean_id)
+            if profile:
+                return profile
+            if clean_id != mentor_id:
+                profile = repository.get_profile(mentor_id)
+                if profile:
+                    return profile
         for profile in repository.list_profiles():
-            if str(profile.get("profile_id", "")) == mentor_id:
+            pid = str(profile.get("profile_id", "")).strip()
+            meta = profile.get("metadata") or {}
+            user_id = str(meta.get("platform_mentor_user_id", "")).strip()
+            prof_id = str(meta.get("platform_mentor_profile_id", "")).strip()
+            if clean_id in (pid, user_id, prof_id) or mentor_id in (pid, user_id, prof_id):
                 return profile
     except Exception:  # repository failures must not masquerade as "no profile"
         raise HTTPException(status_code=503, detail="pricing repository unavailable")
@@ -87,7 +126,8 @@ def _profile_for(repository: Any, mentor_id: str) -> Dict[str, Any]:
 
 
 def _resolve_query(request: PlatformPriceRequest, repository: Any) -> PricingQueryDTO:
-    profile = _profile_for(repository, request.mentor_id)
+    clean_id = request.mentor_id.strip()
+    profile = _profile_for(repository, clean_id)
     metadata = profile.get("metadata") or {}
 
     resolved = {
@@ -150,12 +190,43 @@ def register_platform_price(app: FastAPI, dependencies: Any) -> None:
         x_platform_key: Optional[str] = Header(default=None, alias=PLATFORM_KEY_HEADER),
     ) -> PlatformPriceResponse:
         _require_platform_key(x_platform_key)
+        profile = _profile_for(dependencies.repository, request.mentor_id)
+        metadata = profile.get("metadata") or {}
+
+        # Supervisor Guidance (3): Vocational mentors are explicitly outside technical scope
+        industry_check = request.selected_industry or metadata.get("selected_industry") or metadata.get("platform_category")
+        if (
+            metadata.get("is_in_scope") is False
+            or profile.get("is_in_scope") is False
+            or str(metadata.get("mentor_type", "")).upper() == "VOCATIONAL"
+            or _is_vocational(industry_check)
+            or _is_vocational(metadata.get("platform_category"))
+        ):
+            category_name = industry_check or metadata.get("platform_category") or "vocational"
+            reason = metadata.get(
+                "out_of_scope_reason",
+                f"Outside scope: Category '{category_name}' (VOCATIONAL) is outside the technical model scope",
+            )
+            if not reason.lower().startswith("outside scope"):
+                reason = f"Outside scope: {reason}"
+            return PlatformPriceResponse(min=0.0, max=0.0, comparables=[], reason=reason)
+
         query = _resolve_query(request, dependencies.repository)
         try:
             payload = dependencies.inference(query)
             prediction = PredictionResultDTO.model_validate(payload)
         except HTTPException:
             raise
+        except ValueError as exc:
+            msg = str(exc)
+            if "No trained density for partition" in msg or "outside scope" in msg.lower() or "not a supported partition" in msg.lower():
+                return PlatformPriceResponse(
+                    min=0.0,
+                    max=0.0,
+                    comparables=[],
+                    reason=f"Outside scope: {msg}",
+                )
+            raise HTTPException(status_code=500, detail="inference failed") from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail="inference failed") from exc
         return to_platform_response(prediction)

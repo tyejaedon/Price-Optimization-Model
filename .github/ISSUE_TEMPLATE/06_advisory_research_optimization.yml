@@ -1,0 +1,78 @@
+name: Advisory Research & Algorithmic Optimization (Optional)
+description: Experimental evaluation, ensemble benchmarking, metric tuning, vector scaling, and drift monitoring
+title: "[Advisory/M16] "
+labels:
+  - project:feature-track
+  - scope:optional
+  - track:advisory-research
+  - machine-learning
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for optional, non-blocking research and algorithmic optimization issues originating from external supervisor feedback.
+        
+        **Governance Note:** Internal supervisor and class coordinator directives take precedence over external advisory recommendations. Milestone 16 issues are exploratory and non-blocking for core academic deliverables.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - "Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track)"
+      description: Target milestone for this issue.
+    validations:
+      required: true
+  - type: dropdown
+    id: research_domain
+    attributes:
+      label: Research and Optimization Area
+      options:
+        - Ensemble Benchmarking (XGBoost, Random Forest, Ridge vs KNN)
+        - Dynamic KNN Hyperparameter Tuning & Distance Metrics (Cosine, Manhattan)
+        - Distance Weighting Kernels (Gaussian RBF, Exponential, IDW Variants)
+        - Semantic NLP Comparison (TF-IDF + SVD vs all-MiniLM-L6-v2)
+        - Multi-Tier Cold-Start Fallback Architecture & Sparse Partitions
+        - Vector Search Scaling & ANN Indexing (FAISS CPU / Annoy)
+        - Continuous Retraining & Statistical Drift Monitoring (PSI, KS Test)
+      description: Select the specific supervisory recommendation addressed.
+    validations:
+      required: true
+  - type: textarea
+    id: reviewer_guidance
+    attributes:
+      label: External Reviewer Guidance Addressed
+      description: Quote or summarize the external supervisor guidance or premise.
+      placeholder: "e.g. Compare knn regression against tree ensembles (XGBoost, Random Forest)..."
+    validations:
+      required: true
+  - type: textarea
+    id: hypothesis_and_scope
+    attributes:
+      label: Technical Hypothesis & Experimental Scope
+      description: What is being benchmarked, tuned, or architected, and why?
+      placeholder: Describe the baseline, candidate approaches, input features, and experimental protocol.
+    validations:
+      required: true
+  - type: textarea
+    id: technical_tasks
+    attributes:
+      label: Proposed Tasks
+      description: Checkbox list of implementation and evaluation steps.
+      placeholder: |
+        - [ ] Build benchmarking harness
+        - [ ] Execute hyperparameter sweep or comparative run
+        - [ ] Measure error metrics and latency envelope
+        - [ ] Document findings in reports/experiments/
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria & Non-Blocking Safeguards
+      description: Concrete criteria demonstrating completion without compromising baseline stability.
+      placeholder: |
+        - [ ] Zero data leakage across train/validation/test splits
+        - [ ] Latency budget P95 < 250ms preserved
+        - [ ] Explicitly marked as optional research; core API contracts remain backward compatible
+    validations:
+      required: true
