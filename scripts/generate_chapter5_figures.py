@@ -3,6 +3,8 @@
 
 Produces:
 - docs/figures/fig5_2_coordinate_fusion_pipeline.svg and .png (M15.2, Issue #183)
+- docs/figures/fig5_3_svd_dimensionality_pareto.svg and .png (M15.3, Issue #184)
+- docs/figures/fig5_4_model_architecture_benchmark.svg and .png (M15.3, Issue #184)
 """
 
 import os
@@ -12,6 +14,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIGURES_DIR = REPO_ROOT / "docs" / "figures"
@@ -149,5 +152,150 @@ def generate_figure_5_2():
     print(f"Exported: {svg_path} and {png_path}")
 
 
+def generate_figure_5_3():
+    """Figure 5.3: Latent SVD Dimensionality Scree Plot & Pareto Frontier Trade-Offs."""
+    dims = np.array([10, 25, 50, 75, 100, 150])
+    cum_var = np.array([8.57, 12.35, 17.23, 21.14, 24.32, 28.60])  # Cumulative variance %
+    r2_scores = np.array([0.412, 0.463, 0.480, 0.484, 0.485, 0.486])  # Holdout R^2
+    latencies_p95 = np.array([4.10, 4.62, 5.25, 6.45, 7.80, 10.95])  # Latency P95 (ms)
+    ram_mb = np.array([12.1, 14.8, 18.4, 23.2, 28.5, 39.2])  # In-memory footprint (MB)
+
+    fig, ax1 = plt.subplots(figsize=(10, 6), dpi=300)
+    fig.patch.set_facecolor("#FAFAFA")
+    ax1.set_facecolor("#FFFFFF")
+
+    # Title
+    plt.title(
+        "Figure 5.3: Latent SVD Dimensionality Scree Elbow & Pareto Efficiency Frontier",
+        fontsize=12, fontweight="bold", pad=16, color="#1F2937"
+    )
+
+    color_var = "#2563EB"
+    ax1.set_xlabel("Latent SVD Dimensionality ($n$ components)", fontsize=10, fontweight="bold", labelpad=10)
+    ax1.set_ylabel("Cumulative Explained Variance (%)", color=color_var, fontsize=10, fontweight="bold")
+    line1 = ax1.plot(dims, cum_var, marker="o", lw=2.2, color=color_var, label="Explained Variance (%)")
+    ax1.tick_params(axis="y", labelcolor=color_var)
+    ax1.grid(True, linestyle="--", alpha=0.3, color="#9CA3AF")
+
+    # Annotate variance percentages
+    for x, y in zip(dims, cum_var):
+        ax1.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(-10, 8), fontsize=8, color=color_var)
+
+    # Twin axis for Holdout R^2 and Latency
+    ax2 = ax1.twinx()
+    color_r2 = "#D97706"
+    ax2.set_ylabel(r"Holdout Generalization $R^2$ / $P_{95}$ Latency (ms)", color=color_r2, fontsize=10, fontweight="bold")
+    line2 = ax2.plot(dims, r2_scores, marker="s", lw=2.2, color=color_r2, linestyle="-.", label=r"Holdout $R^2$")
+    line3 = ax2.plot(dims, latencies_p95 / 10.0, marker="^", lw=1.8, color="#DC2626", linestyle=":", label=r"$P_{95}$ Latency (scaled $\times 0.1$)")
+    ax2.tick_params(axis="y", labelcolor=color_r2)
+
+    # Highlight optimal elbow at n=50
+    ax1.axvline(x=50, color="#16A34A", linestyle="--", lw=2.0, alpha=0.8)
+    ax1.scatter([50], [17.23], color="#16A34A", s=130, zorder=5, edgecolor="#064E3B", lw=2)
+    ax1.annotate(
+        "Pareto Optimal Elbow (n=50)\n"
+        r"• Holdout $R^2 \approx 0.4801$" + "\n"
+        r"• $P_{95}\text{ Latency} = 5.25\text{ ms}$" + "\n"
+        r"• RAM Footprint = 18.4 MB" + "\n"
+        "• Diminishing Marginal Var (+0.18%/dim)",
+        xy=(50, 17.23), xytext=(65, 11.5),
+        arrowprops=dict(arrowstyle="->", lw=1.5, color="#16A34A"),
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="#DCFCE7", edgecolor="#16A34A", lw=1.5),
+        fontsize=8.5, color="#14532D"
+    )
+
+    # Combine legends
+    lines = line1 + line2 + line3
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc="lower right", frameon=True, facecolor="#F3F4F6", edgecolor="#D1D5DB")
+
+    svg_path = FIGURES_DIR / "fig5_3_svd_dimensionality_pareto.svg"
+    png_path = FIGURES_DIR / "fig5_3_svd_dimensionality_pareto.png"
+    plt.tight_layout()
+    plt.savefig(svg_path, format="svg", bbox_inches="tight")
+    plt.savefig(png_path, format="png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Exported: {svg_path} and {png_path}")
+
+
+def generate_figure_5_4():
+    """Figure 5.4: Model Architecture & Algorithm Benchmarks across Generalization vs. Explainability."""
+    models = [
+        "Category-Mean\nBaseline",
+        "Ridge\nRegression",
+        "K-Neighbors\nRegressor (k=10)",
+        "HistGradient\nBoosting",
+        "Domain-Partitioned\nKD-Tree + IDW",
+    ]
+    r2_scores = [0.0441, 0.3809, 0.4419, 0.4795, 0.4801]
+    rmse_kes = [31438, 24962, 23695, 22690, 22676]
+    explainability_score = [2, 5, 8, 3, 10]  # Qualitative 1-10 index (10 = exact instance peers)
+
+    x = np.arange(len(models))
+    width = 0.36
+
+    fig, ax1 = plt.subplots(figsize=(11, 6.2), dpi=300)
+    fig.patch.set_facecolor("#FAFAFA")
+    ax1.set_facecolor("#FFFFFF")
+
+    # Bar chart for R^2
+    rects1 = ax1.bar(x - width/2, r2_scores, width, label=r"Holdout Determination $R^2$", color="#3B82F6", edgecolor="#1D4ED8", alpha=0.9)
+    ax1.set_ylabel(r"Holdout Coefficient of Determination ($R^2$)", color="#1E40AF", fontsize=10, fontweight="bold")
+    ax1.set_ylim(0, 0.60)
+    ax1.tick_params(axis="y", labelcolor="#1E40AF")
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(models, fontsize=9, fontweight="medium")
+    ax1.grid(True, linestyle="--", alpha=0.3, axis="y", color="#9CA3AF")
+
+    # Twin axis for Explainability Score
+    ax2 = ax1.twinx()
+    rects2 = ax2.bar(x + width/2, explainability_score, width, label="Instance Peer Explainability (1-10)", color="#10B981", edgecolor="#047857", alpha=0.9)
+    ax2.set_ylabel("Peer Explainability Fidelity (1–10 Scale)", color="#065F46", fontsize=10, fontweight="bold")
+    ax2.set_ylim(0, 12)
+    ax2.tick_params(axis="y", labelcolor="#065F46")
+
+    # Title & Subtitle
+    plt.title("Figure 5.4: Empirical Model Architecture Benchmark across Generalization ($R^2$) and Peer Explainability",
+              fontsize=11.5, fontweight="bold", pad=16, color="#1F2937")
+
+    # Add values on top of bars
+    for rect in rects1:
+        h = rect.get_height()
+        ax1.annotate(f"{h:.4f}", xy=(rect.get_x() + rect.get_width()/2, h), xytext=(0, 4),
+                     textcoords="offset points", ha="center", va="bottom", fontsize=8.5, fontweight="bold", color="#1E40AF")
+
+    for rect in rects2:
+        h = rect.get_height()
+        ax2.annotate(f"{int(h)}/10", xy=(rect.get_x() + rect.get_width()/2, h), xytext=(0, 4),
+                     textcoords="offset points", ha="center", va="bottom", fontsize=8.5, fontweight="bold", color="#065F46")
+
+    # Highlight why Domain-Partitioned KDTree + IDW was selected over HistGradientBoosting
+    ax1.annotate(
+        "Production Selection:\n"
+        r"• Superior $R^2 = 0.4801$ (vs. 0.4795 Tree)" + "\n"
+        "• Exact instance-level peer attribution\n"
+        "• Verifiable M-Pesa tariff integration",
+        xy=(4 - width/2, 0.4801), xytext=(2.6, 0.50),
+        arrowprops=dict(arrowstyle="->", lw=1.5, color="#1E3A8A"),
+        bbox=dict(boxstyle="round,pad=0.5", facecolor="#EFF6FF", edgecolor="#3B82F6", lw=1.5),
+        fontsize=8.5, color="#1E3A8A"
+    )
+
+    # Combine legends
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left", frameon=True, facecolor="#F3F4F6", edgecolor="#D1D5DB")
+
+    svg_path = FIGURES_DIR / "fig5_4_model_architecture_benchmark.svg"
+    png_path = FIGURES_DIR / "fig5_4_model_architecture_benchmark.png"
+    plt.tight_layout()
+    plt.savefig(svg_path, format="svg", bbox_inches="tight")
+    plt.savefig(png_path, format="png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Exported: {svg_path} and {png_path}")
+
+
 if __name__ == "__main__":
     generate_figure_5_2()
+    generate_figure_5_3()
+    generate_figure_5_4()
