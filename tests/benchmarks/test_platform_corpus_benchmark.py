@@ -2,10 +2,11 @@
 
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -21,14 +22,112 @@ from src.benchmarks.platform_corpus_benchmark import (
     main,
     run_benchmark,
 )
+from src.core.artifact_contract import MANIFEST_NAME, file_sha256, write_manifest
+from src.data.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS, build_macro_lookup
 from src.data.ingest_platform import build_platform_records
+from src.engine.macro_arbitrage import ContinuousMetadataNormalizer, HYBRID_VECTOR_DIMENSIONS
+from src.engine.spatial_engine import DomainPartitionedKDTreeIndexer
+from src.nlp.nlp_pipeline import TextFeatureReducer
 
 
 class PlatformCorpusBenchmarkTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.repo_root = Path(__file__).resolve().parents[2]
-        self.artifact_dir = str(self.repo_root / "artifacts")
-        self.tariff_csv = str(self.repo_root / "config" / "tariffs" / "mpesa_p2p_users_2026-08-04.csv")
+    _temp_dir: Optional[tempfile.TemporaryDirectory] = None
+    artifact_dir: str = ""
+    tariff_csv: str = ""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.repo_root = Path(__file__).resolve().parents[2]
+        prod_manifest = cls.repo_root / "artifacts" / "artifact_manifest.json"
+        prod_tariff = cls.repo_root / "config" / "tariffs" / "mpesa_p2p_users_2026-08-04.csv"
+
+        if prod_manifest.is_file() and prod_tariff.is_file():
+            cls.artifact_dir = str(cls.repo_root / "artifacts")
+            cls.tariff_csv = str(prod_tariff)
+        else:
+            # CI environment without checked-in production model artifacts: build multi-partition synthetic fixture
+            cls._temp_dir = tempfile.TemporaryDirectory()
+            tmp_path = cls._temp_dir.name
+            cls.artifact_dir = os.path.join(tmp_path, "artifacts")
+            os.makedirs(cls.artifact_dir, exist_ok=True)
+
+            raw_fixture_dir = str(cls.repo_root / "tests" / "fixtures" / "raw")
+            cls.tariff_csv = str(
+                cls.repo_root
+                / "tests"
+                / "fixtures"
+                / "raw"
+                / "Mpesa_Tarrifs"
+                / "tarrifs_full_schedule.csv"
+            )
+            macro_lookup_path = os.path.join(tmp_path, "macro_lookup_table.json")
+            build_macro_lookup(raw_fixture_dir, macro_lookup_path)
+
+            texts = [f"mentor profile engineering python backend cloud devops {i}" for i in range(90)]
+            reducer = TextFeatureReducer(n_components=50, max_features=8000)
+            reducer.fit_transform(texts)
+            reducer.save_artifacts(cls.artifact_dir)
+
+            normalizer = ContinuousMetadataNormalizer(macro_lookup_path=macro_lookup_path)
+            normalizer.fit([
+                {
+                    "bilateral_arbitrage_factor": 1.0,
+                    "market_saturation_score": 0.2,
+                    "industry_relative_density": 0.3,
+                }
+            ])
+            normalizer.save_artifacts(cls.artifact_dir)
+
+            partitions = []
+            verified_rates = []
+            # Provide varied rates matching the empirical mentor distribution (2500 - 6500 KES)
+            base_rates_sample = [2600.0, 3400.0, 4500.0, 5400.0, 6400.0]
+            for p in SUPPORTED_INDUSTRY_PARTITIONS:
+                partitions.extend([p] * 5)
+                verified_rates.extend(base_rates_sample)
+            n = len(partitions)
+            vectors = np.zeros((n, HYBRID_VECTOR_DIMENSIONS), dtype=float)
+            indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=1)
+            indexer.fit(
+                vectors,
+                partitions,
+                record_indices=list(range(n)),
+                verified_rates=verified_rates,
+            )
+            indexer.save_artifacts(cls.artifact_dir)
+            shutil.copyfile(macro_lookup_path, os.path.join(cls.artifact_dir, "macro_lookup_table.json"))
+
+            config = {
+                "version": 1,
+                "text_dimensions": 50,
+                "metadata_features": [
+                    "bilateral_arbitrage_factor",
+                    "market_saturation_score",
+                    "industry_relative_density",
+                ],
+                "k_neighbors": 5,
+                "idw_epsilon": 1e-6,
+                "text_weight": 1.0,
+                "metadata_weight": 1.0,
+                "minimum_partition_size": 1,
+                "fallback_partition": "general_tech",
+                "allow_fallback": True,
+                "partition_density": {p: 0.5 for p in SUPPORTED_INDUSTRY_PARTITIONS},
+            }
+            with open(os.path.join(cls.artifact_dir, "inference_config.json"), "w", encoding="utf-8") as handle:
+                json.dump(config, handle)
+            write_manifest(
+                cls.artifact_dir,
+                config,
+                dataset_version="synthetic-fixture-v1",
+                source_type="synthetic proxy fixture",
+                split_policy="synthetic fixed fixture",
+            )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if cls._temp_dir is not None:
+            cls._temp_dir.cleanup()
 
     def test_compute_metrics_analytical_precision(self) -> None:
         y_true = np.array([4000.0, 5000.0, 6000.0])
