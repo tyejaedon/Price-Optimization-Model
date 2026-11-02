@@ -596,6 +596,7 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX; #173 Render hosted pricing service (M13.4) | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
 | 7 | Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps | #176-#182 advanced scaling benchmark; calibrated confidence; KS/Wasserstein drift auditing | Optional research track; evaluate weighting kernels, ANN scaling, and continuous MLOps drift gating without mutating production 53D schema. |
+| 8 | Milestone 15: System Documentation, AI/ML Implementation & Evaluation | #175-#187 platform mentor evaluation benchmark; multimodal curriculum; math formulations; residual dynamics & figures | Academic evaluation & thesis documentation track: benchmark quotes against 52 in-scope platform mentors, publish empirical MAE/MedAE/sMAPE and asymmetric risk distributions, contextualize proxy R² ≈ 0.48. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
 roadmap follows `docs/Architecture/Android_App_Guide.md`, which maps every Android source file back
@@ -625,6 +626,8 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 See `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md` and experiment record `docs/experiments/172_advanced_algorithmic_scaling.md`.
 
 **M14.2 mobile 3G RTT validation (#86):** `src/benchmarks/mobile_3g_rtt_validation.py` measures mobile-to-cloud round-trip latency on the full authenticated pricing journey under standardized 3G network conditions (Regular 3G: 750 kbps down, 250 kbps up, 200 ms RTT, 0.5% packet loss). Decomposing latency across token acquisition, TLS/TCP handshake, upload transmission, backend execution, download transmission, and client deserialization, warmed flows sustain P95 RTT of 272.56 ms (far below the < 3.0s Sprint 5 ceiling with 90.9% safety margin). Cold flows complete in ~885 ms, and error paths (401, 403, 422, 503, timeout) remain observable and responsive. See `docs/M14.2_Mobile_3G_RTT_Validation.md`.
+
+**M15.1 platform mentor evaluation (#175):** `src/benchmarks/platform_corpus_benchmark.py` directly benchmarks production pricing quotes against the 52 in-scope mentors in Career Mentor OS across both listed asking rates (Benchmark A: MAE = 1,166.65 KES, MedAE = 1,040.95 KES, sMAPE = 28.88%) and realised client session transactions (Benchmark B: MAE = 1,085.11 KES, MedAE = 883.72 KES, sMAPE = 25.80%). Achieves a 98.1% corridor containment rate, profiles asymmetric over-pricing (44.2%) vs under-pricing (55.8%) risk, and synthesizes academic defense rationale contextualizing the proxy marketplace R² ≈ 0.48 mutual information ceiling. See `docs/experiments/platform_mentor_evaluation_report.md`.
 
 ---
 
@@ -793,3 +796,34 @@ See `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md` and experiment record `docs
 
 **Dependency Notes**
 - Depends on #74, #75, #76, #85, #86, and #142 (Mobile Results Dashboard UX).
+
+---
+
+## Milestone 15: System Documentation, AI/ML Implementation & Evaluation
+
+**Goal:** Establish academic thesis documentation, empirical model evaluation on platform transaction truth, multimodal mentorship curriculum formulation, and mathematical specifications.
+
+**Deliverables:**
+- `src/benchmarks/platform_corpus_benchmark.py`
+- `tests/benchmarks/test_platform_corpus_benchmark.py`
+- `docs/experiments/platform_mentor_evaluation_report.md`
+
+### Issue M15.1 — Benchmark pricing quotes against 52 in-scope platform mentors' listed and realised rates
+**GitHub issue:** #175  
+**Labels:** `benchmarking`, `documentation`, `evaluation`, `machine-learning`, `project:feature-track`
+
+**Tasks**
+- [x] Ingest platform dataset (mentors, skills, bookings, reviews), filtering 222 platform mentors down to the 52 in-scope technical mentors (170 vocational mentors excluded under counted reasons).
+- [x] Execute end-to-end pricing pipeline inference for each mentor using production `InferenceRuntime` (53D feature space, partitioned KD-Tree, IDW weighting, Safaricom M-Pesa tariff).
+- [x] Compute empirical metrics (MAE, MedAE, RMSE, sMAPE %, MAPE %, R², Mean Bias) for Benchmark A (Listed Rates) and Benchmark B (Realised Rates from Completed Bookings).
+- [x] Analyze domain subgroup performance and asymmetric pricing risk profiles (over-pricing churn risk vs under-pricing margin erosion).
+- [x] Publish academic evaluation report addressing examiner criteria and contextualizing the proxy $R^2 \approx 0.48$ baseline.
+
+**Acceptance Criteria**
+- [x] Dedicated benchmark script evaluates all 52 in-scope platform mentors deterministically.
+- [x] Metric report includes MAE, MedAE, RMSE, sMAPE, and R² for both listed rates and realised rates.
+- [x] Comprehensive academic report published in `docs/experiments/platform_mentor_evaluation_report.md` addressing examiner criteria and the $R^2 \approx 0.48$ exploratory baseline.
+- [x] Zero raw datasets or platform credentials committed to Git.
+
+**Dependency Notes**
+- Depends on #102 (`src/data/ingest_platform.py`), #91 (`Label_Provenance_Audit_91.md`), #172 (`src/data/seed_platform_mentors.py`), and #174 (`src/engine/platform_price.py`).
