@@ -314,6 +314,7 @@ def create_app(
     trusted_manifest_sha256: Optional[str] = None,
     trusted_tariff_sha256: Optional[str] = None,
     cors_allowed_origins: tuple[str, ...] = (),
+    seed_platform_mentors: bool = False,
 ) -> FastAPI:
     """Build a local app or a gateway by injecting its external dependencies.
 
@@ -340,6 +341,13 @@ def create_app(
         inference=resolved_inference,
         admin_token=admin_token if admin_token is not None else os.getenv("MLOPS_ADMIN_TOKEN"),
     )
+    if seed_platform_mentors or os.getenv("SEED_PLATFORM_MENTORS", "").strip().lower() in {"1", "true", "yes"}:
+        try:
+            from src.data.seed_platform_mentors import seed_platform_mentor_profiles
+            seed_platform_mentor_profiles(dependencies.repository)
+        except Exception as exc:
+            logger.warning("Auto-seeding platform mentor profiles failed: %s", exc)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if runtime_inference:
@@ -702,6 +710,15 @@ def create_app(
     async def list_history(limit: int = 100, _: ServiceDependencies = Depends(require_admin)) -> Any:
         with resolved_metrics.timer("database.list_transactions"):
             return dependencies.repository.list_transactions(limit=limit)
+
+    @app.post("/api/v1/admin/seed-platform-mentors")
+    async def seed_platform_mentors_endpoint(
+        corpus_path: Optional[str] = None,
+        _: ServiceDependencies = Depends(require_admin),
+    ) -> Dict[str, Any]:
+        with resolved_metrics.timer("database.seed_platform_mentors"):
+            from src.data.seed_platform_mentors import seed_platform_mentor_profiles
+            return seed_platform_mentor_profiles(dependencies.repository, source=corpus_path)
 
     return app
 

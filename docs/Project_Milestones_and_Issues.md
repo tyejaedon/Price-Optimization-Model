@@ -576,7 +576,7 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | --- | --- | --- | --- |
 | 1 | Milestone 9: Canonical Blueprint & OOT Model Alignment | #66 blueprint; #67 offline/online 53D alignment; #91 provenance audit; #81 empirical OOT (deferred); #92 diagnostics (closed); #93 optional research benchmark; #94 supervised estimator research (deferred); #78 README (closed) | Reuse M1-M8 NLP, parity, KD-Tree, tariff and training foundations; empirical quality gating is not a delivery prerequisite. |
 | 2 | Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | #69 Firebase verification; #70 artifact preload/benchmark; #82 corridor; #83 DTO/route migration; #95 artifact/inference parity; #68 (closed/superseded) | Requires canonical contract and compatible model artifacts, **not** a passed empirical R2 gate; retain `POST /api/v1/optimize-price`, legacy compatibility and explicit unready responses. |
-| 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration; #113 named database selection | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
+| 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration; #113 named database selection; #172 mentor seeding from corpus (M11.7) | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
 | 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
@@ -596,3 +596,37 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **M11.4 mentor profile hydration (#84):** Authenticated pricing requests hydrate missing capability descriptions (`rawText` / `raw_description`), `mentorCountry`, `costOfLivingIndex`, and `industry` from verified `/mentors/{mentor_id}` profiles and root `/service_listings/{listing_id}` documents. Deterministic listing selection sorts matching active listings by immutable `listing_id` ascending. Explicit request overrides take precedence over Firestore attributes. Inactive, missing, or mismatched documents fail explicitly with HTTP 403 or 422, strictly preventing identity crossover, and never schedule a quote audit. See [M11.4 profile hydration](M11.4_Profile_Hydration.md).
 
+**M11.7 mentor seeding implementation (#172):** `src/data/seed_platform_mentors.py` seeds repository mentor profiles from `platform_mentor_corpus.parquet` (or `.csv` / raw cache), transforming ingested rows into canonical `ProfileDTO` entities. Each profile embeds `raw_description`, `selected_industry` (`industry_partition`), and both `platform_mentor_profile_id` and `platform_mentor_user_id` so that the Career Mentor OS platform adapter (`POST /price` with only `{"mentorId": "..."}`) resolves attributes and quotes successfully without client-side inline strings. An admin endpoint `POST /api/v1/admin/seed-platform-mentors` and `SEED_PLATFORM_MENTORS` environment flag enable dynamic/runtime hydration. See `docs/M11.7_Seed_Platform_Mentor_Profiles.md`.
+
+---
+
+## Milestone 11: Firestore Persistence & Asynchronous Pricing Audit
+
+**Goal:** Provide secure, verified persistence boundaries for mentor profiles, root listing coordinates, asynchronous pricing audits, and platform integration resolution.
+
+**Deliverables:**
+- `src/api/repository.py`
+- `src/data/seed_platform_mentors.py`
+- `docs/M11.7_Seed_Platform_Mentor_Profiles.md`
+- `tests/data/test_seed_platform_mentors.py`
+
+### Issue M11.7 — Seed repository mentor profiles from platform_mentor_corpus for POST /price resolution
+**GitHub issue:** #172  
+**Labels:** `data-engineering`, `backend`, `api`, `project:feature-track`
+
+**Tasks**
+- [x] Ingest platform mentor rows from `platform_mentor_corpus.parquet` / `.csv` or raw cache fixtures.
+- [x] Map harmonized fields to canonical `ProfileDTO` schema (`profile_id`, `country_code`, `account_status`, `full_name`, `email`).
+- [x] Populate profile `metadata` with `raw_description`, `selected_industry`, `platform_mentor_profile_id`, `platform_mentor_user_id`, and asking/realized rates.
+- [x] Support dual resolution in `src/engine/platform_price.py` for both `platform_mentor_profile_id` and `platform_mentor_user_id`.
+- [x] Add auto-seeding hook on server initialization (`SEED_PLATFORM_MENTORS`) and admin endpoint `POST /api/v1/admin/seed-platform-mentors`.
+- [x] Write unit and integration test suite asserting `POST /price` resolution with only `{"mentorId": "..."}`.
+
+**Acceptance Criteria**
+- [x] Single-field `POST /price` queries resolve without requiring client-supplied inline descriptions.
+- [x] Both profile ID (`p1`) and user ID (`u1`) resolve to the mentor's stored profile.
+- [x] Unseeded mentors return HTTP 422 naming missing fields.
+- [x] Seeding is idempotent and handles Parquet, CSV, and directory sources.
+
+**Dependency Notes**
+- Depends on `M1.7` (#102), `M10.5` (#83), and `M11.1` (#71).

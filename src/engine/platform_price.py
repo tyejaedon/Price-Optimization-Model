@@ -79,7 +79,10 @@ def _require_platform_key(provided: Optional[str]) -> None:
 def _profile_for(repository: Any, mentor_id: str) -> Dict[str, Any]:
     try:
         for profile in repository.list_profiles():
-            if str(profile.get("profile_id", "")) == mentor_id:
+            pid = str(profile.get("profile_id", ""))
+            metadata = profile.get("metadata") or {}
+            user_id = str(metadata.get("platform_mentor_user_id", ""))
+            if pid == mentor_id or (user_id and user_id == mentor_id):
                 return profile
     except Exception:  # repository failures must not masquerade as "no profile"
         raise HTTPException(status_code=503, detail="pricing repository unavailable")
