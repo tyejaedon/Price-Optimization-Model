@@ -27,10 +27,41 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.api_contracts import PredictionResultDTO, PricingQueryDTO
+from src.data.ingest_platform import PLATFORM_CATEGORY_PARTITIONS
 
 PLATFORM_KEY_ENV = "PLATFORM_PRICE_KEY"
 PLATFORM_KEY_HEADER = "X-Platform-Key"
+PLATFORM_OUT_OF_SCOPE_AS_ERROR_ENV = "PLATFORM_OUT_OF_SCOPE_AS_ERROR"
+PLATFORM_ERROR_OUT_OF_SCOPE_HEADER = "X-Platform-Error-On-Out-Of-Scope"
 DEFAULT_CLIENT_COUNTRY = "KE"
+
+# Canonical normalized dictionary of vocational and out-of-scope categories
+# derived from Career Mentor OS platform corpus partitions and supervisor directive.
+OUT_OF_SCOPE_CATEGORIES: Dict[str, str] = {
+    "agriculture & farming": "Agriculture & Farming",
+    "automotive & mechanics": "Automotive & Mechanics",
+    "beauty & cosmetology": "Beauty & Cosmetology",
+    "construction & building": "Construction & Building",
+    "culinary & hospitality": "Culinary & Hospitality",
+    "education & academia": "Education & Academia",
+    "electrical & electronics": "Electrical & Electronics",
+    "events & entertainment": "Events & Entertainment",
+    "fashion & textiles": "Fashion & Textiles",
+    "finance & accounting": "Finance & Accounting",
+    "healthcare & medical": "Healthcare & Medical",
+    "installation, maintenance & repair": "Installation, Maintenance & Repair",
+    "legal & compliance": "Legal & Compliance",
+    "manufacturing & production": "Manufacturing & Production",
+    "mining & natural resources": "Mining & Natural Resources",
+    "personal development": "Personal Development",
+    "public service & non-profit": "Public Service & Non-Profit",
+    "real estate & property": "Real Estate & Property",
+    "retail & consumer goods": "Retail & Consumer Goods",
+    "security & protective services": "Security & Protective Services",
+    "sports, fitness & recreation": "Sports, Fitness & Recreation",
+    "transport & logistics": "Transport & Logistics",
+    "travel & tourism": "Travel & Tourism",
+}
 
 
 class PlatformPriceRequest(BaseModel):
@@ -89,8 +120,68 @@ def _profile_for(repository: Any, mentor_id: str) -> Dict[str, Any]:
     return {}
 
 
-def _resolve_query(request: PlatformPriceRequest, repository: Any) -> PricingQueryDTO:
-    profile = _profile_for(repository, request.mentor_id)
+def detect_out_of_scope(request: PlatformPriceRequest, profile: Dict[str, Any]) -> Optional[str]:
+    """Inspect mentor inputs and profile attributes to detect vocational/out-of-scope disciplines.
+
+    Returns the canonical category name if out-of-scope, or None if in-scope.
+    """
+    metadata = profile.get("metadata") or {}
+    candidates = [
+        request.selected_industry,
+        metadata.get("platform_category"),
+        metadata.get("selected_industry"),
+        profile.get("category"),
+        profile.get("selected_industry"),
+        metadata.get("platform_specialization"),
+    ]
+    for candidate in candidates:
+        if not candidate or not isinstance(candidate, str):
+            continue
+        cleaned = candidate.strip()
+        norm = cleaned.lower()
+        if norm in OUT_OF_SCOPE_CATEGORIES:
+            return OUT_OF_SCOPE_CATEGORIES[norm]
+        for cat, partition in PLATFORM_CATEGORY_PARTITIONS.items():
+            if partition is None and norm == cat.strip().lower():
+                return cat
+
+    mentor_type = str(
+        metadata.get("platform_mentor_type")
+        or profile.get("mentor_type")
+        or ""
+    ).strip().upper()
+    if mentor_type == "VOCATIONAL":
+        category_name = (
+            metadata.get("platform_category")
+            or metadata.get("platform_specialization")
+            or profile.get("category")
+            or "Vocational Mentorship"
+        )
+        return str(category_name)
+
+    return None
+
+
+def build_outside_scope_response(category: str) -> PlatformPriceResponse:
+    """Build structured deterministic 200 response with zero bounds and domain boundary reason."""
+    category_display = category or "Vocational / Non-Technical"
+    reason = (
+        f"Mentorship category '{category_display}' is outside technical pricing scope. "
+        "Recommendations are available for software, data, product, and digital specializations only."
+    )
+    return PlatformPriceResponse(
+        min=0.0,
+        max=0.0,
+        comparables=[],
+        reason=reason,
+    )
+
+
+def _resolve_query(
+    request: PlatformPriceRequest, repository: Any, profile: Optional[Dict[str, Any]] = None
+) -> PricingQueryDTO:
+    if profile is None:
+        profile = _profile_for(repository, request.mentor_id)
     metadata = profile.get("metadata") or {}
 
     resolved = {
@@ -151,9 +242,36 @@ def register_platform_price(app: FastAPI, dependencies: Any) -> None:
     async def platform_price(
         request: PlatformPriceRequest,
         x_platform_key: Optional[str] = Header(default=None, alias=PLATFORM_KEY_HEADER),
+        x_platform_error_out_of_scope: Optional[str] = Header(
+            default=None, alias=PLATFORM_ERROR_OUT_OF_SCOPE_HEADER
+        ),
     ) -> PlatformPriceResponse:
         _require_platform_key(x_platform_key)
-        query = _resolve_query(request, dependencies.repository)
+        profile = _profile_for(dependencies.repository, request.mentor_id)
+
+        # Short-circuit vocational/out-of-scope mentors before invoking inference
+        out_of_scope_category = detect_out_of_scope(request, profile)
+        if out_of_scope_category:
+            should_error = (
+                (
+                    x_platform_error_out_of_scope is not None
+                    and x_platform_error_out_of_scope.strip().lower() in {"true", "1", "yes"}
+                )
+                or os.getenv(PLATFORM_OUT_OF_SCOPE_AS_ERROR_ENV, "").strip().lower()
+                in {"true", "1", "yes"}
+            )
+            if should_error:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "error": "OUT_OF_SCOPE_CATEGORY",
+                        "category": out_of_scope_category,
+                        "message": "Category is outside technical mentorship pricing scope.",
+                    },
+                )
+            return build_outside_scope_response(out_of_scope_category)
+
+        query = _resolve_query(request, dependencies.repository, profile=profile)
         try:
             payload = dependencies.inference(query)
             prediction = PredictionResultDTO.model_validate(payload)
