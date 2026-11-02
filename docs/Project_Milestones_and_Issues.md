@@ -578,7 +578,7 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | 2 | Milestone 10: In-Memory Inference, Pricing Corridor & Secure Gateway | #69 Firebase verification; #70 artifact preload/benchmark; #82 corridor; #83 DTO/route migration; #95 artifact/inference parity; #68 (closed/superseded) | Requires canonical contract and compatible model artifacts, **not** a passed empirical R2 gate; retain `POST /api/v1/optimize-price`, legacy compatibility and explicit unready responses. |
 | 3 | Milestone 11: Firestore Persistence & Asynchronous Pricing Audit | #71 root listings; #72 audit; #73 tariff correction; #84 mentor hydration; #113 named database selection; #172 mentor seeding from corpus (M11.7) | Requires verified UID and listing identity; reuse repository, observability and tariff modules. |
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
-| 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
+| 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX; #173 Render hosted pricing service (M13.4) | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
@@ -597,6 +597,8 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 **M11.4 mentor profile hydration (#84):** Authenticated pricing requests hydrate missing capability descriptions (`rawText` / `raw_description`), `mentorCountry`, `costOfLivingIndex`, and `industry` from verified `/mentors/{mentor_id}` profiles and root `/service_listings/{listing_id}` documents. Deterministic listing selection sorts matching active listings by immutable `listing_id` ascending. Explicit request overrides take precedence over Firestore attributes. Inactive, missing, or mismatched documents fail explicitly with HTTP 403 or 422, strictly preventing identity crossover, and never schedule a quote audit. See [M11.4 profile hydration](M11.4_Profile_Hydration.md).
 
 **M11.7 mentor seeding implementation (#172):** `src/data/seed_platform_mentors.py` seeds repository mentor profiles from `platform_mentor_corpus.parquet` (or `.csv` / raw cache), transforming ingested rows into canonical `ProfileDTO` entities. Each profile embeds `raw_description`, `selected_industry` (`industry_partition`), and both `platform_mentor_profile_id` and `platform_mentor_user_id` so that the Career Mentor OS platform adapter (`POST /price` with only `{"mentorId": "..."}`) resolves attributes and quotes successfully without client-side inline strings. An admin endpoint `POST /api/v1/admin/seed-platform-mentors` and `SEED_PLATFORM_MENTORS` environment flag enable dynamic/runtime hydration. See `docs/M11.7_Seed_Platform_Mentor_Profiles.md`.
+
+**M13.4 Render hosted deployment implementation (#173):** `render.yaml` declares the Render Blueprint infrastructure-as-code for hosting the pricing service on Render. The hosted web entrypoint `src.api.hosted:app` auto-binds to `$PORT`, satisfies `/health` and `/ready` probes, enforces `PLATFORM_PRICE_KEY` via `X-Platform-Key` header authentication on `POST /price`, auto-seeds platform mentor profiles, and verifies immutable artifact and P2P M-Pesa tariff SHA-256 digests. See `docs/M13.4_Render_Hosted_Pricing_Deployment.md`.
 
 ---
 
@@ -630,3 +632,37 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **Dependency Notes**
 - Depends on `M1.7` (#102), `M10.5` (#83), and `M11.1` (#71).
+
+---
+
+## Milestone 13: Mobile Integration & Backend Deployment
+
+**Goal:** Package, deploy, and verify the production inference engine across cloud container environments, hosted services, and native client integrations.
+
+**Deliverables:**
+- `render.yaml`
+- `src/api/hosted.py`
+- `docs/M13.4_Render_Hosted_Pricing_Deployment.md`
+- `tests/api/test_hosted_render_deployment.py`
+
+### Issue M13.4 — Deploy hosted pricing service on Render with PLATFORM_PRICE_KEY authentication
+**GitHub issue:** #173  
+**Labels:** `devops`, `deployment`, `security`, `platform`, `project:feature-track`
+
+**Tasks**
+- [x] Author declarative Render Blueprint infrastructure-as-code (`render.yaml`).
+- [x] Build dedicated hosted ASGI entrypoint `src.api.hosted:app` auto-binding to dynamic `$PORT`.
+- [x] Implement constant-time `PLATFORM_PRICE_KEY` authentication via `X-Platform-Key` header on `POST /price`.
+- [x] Enforce fail-closed security posture (503 when unset, 401 when invalid).
+- [x] Validate immutable SHA-256 pins for artifacts and 15-band P2P M-Pesa tariff schedule.
+- [x] Wire automatic mentor seeding on startup (`SEED_PLATFORM_MENTORS=true`).
+- [x] Implement `/health` and `/ready` probes returning HTTP 200.
+
+**Acceptance Criteria**
+- [x] Blueprint specification conforms to Render platform standards.
+- [x] `POST /price` returns `{ min, max, comparables, reason }` matching the platform adapter contract.
+- [x] Container security and existing protected Firebase deployment checks are preserved.
+- [x] Integration tests pass without cloud credentials or network dependencies.
+
+**Dependency Notes**
+- Depends on `M11.7` (#172), `M13.2` (#77), and `M11.3` (#73).
