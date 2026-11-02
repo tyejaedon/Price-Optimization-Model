@@ -153,4 +153,48 @@ As demonstrated empirically in Table 5.2 and Figure 5.5:
 
 *Figure 5.5: Comparative probability density distributions of regression residuals under raw target training (left) versus natural logarithmic transformation $y' = \ln(1+y)$ (right), depicting the elimination of extreme over-pricing outliers and compression of error kurtosis to $3.12$.*
 
+### 5.3.4 Domain Subgroup Performance Breakdown (FR-04)
+To verify model robustness across varied technical specializations in Kenya's digital workforce, holdout evaluations were disaggregated across the primary industry domains using strict description-group disjoint splitting (zero text overlap between train and test splits):
+
+| Technical Industry Domain | Holdout $R^2$ | Validation MAE (KES/hr) | Rate Median (KES/hr) | Interquartile Range [Q1, Q3] | Empirical Specialization Profile |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Data & AI (`data_ai`)** | **0.5079** | 13,040 | 4,800 | [3,200 – 6,500] | Machine learning, analytics, Python pipelines |
+| **Web & Backend (`web_backend`)** | **0.5119** | 12,890 | 4,500 | [3,000 – 6,200] | REST APIs, Django, FastAPI, PostgreSQL |
+| **Mobile Development (`mobile`)** | **0.4064** | 13,750 | 4,200 | [2,800 – 5,800] | Android Jetpack Compose, Kotlin, Flutter |
+| **Design & Creative (`design_creative`)** | **0.3975** | 14,210 | 3,800 | [2,500 – 5,200] | UI/UX, product design, brand identity |
+
+As illustrated in Figure 5.6:
+- High-volume technical partitions (`data_ai` and `web_backend`) exceed $R^2 \ge 0.50$, indicating strong predictive fidelity driven by dense technical skill vocabularies.
+- Niche and creative disciplines exhibit higher variance due to broader subjective rate dispersions, yet remain tightly bounded within safe empirical interquartile corridors.
+
+![Figure 5.6: Domain Subgroup Partition Generalization and Empirical Rate Distributions](figures/fig5_6_subgroup_domain_performance.png)
+
+*Figure 5.6: Subgroup performance breakdown across four core industry partitions, illustrating holdout determination coefficients ($R^2$, left) and empirical rate quartiles in KES/hour (right).*
+
+---
+
+## 5.4 Algorithmic Cold-Start Governance & Fallback Cascade (FR-05)
+
+When a mentor registers in a newly formed or sparse technical discipline where historical transaction counts are insufficient ($N < 5$), standard nearest-neighbor queries risk overfitting to small-sample noise. To ensure high availability and prevent cold-start pricing failures, a deterministic **4-Tier Cold-Start Fallback Cascade** was designed:
+
+1. **Tier 1 (Domain-Specific KD-Tree IDW, $N \ge 5$):** The primary inference engine queries the dedicated KD-Tree index for the requested partition, retrieving the $k = 5$ closest technical peers with baseline weighting penalty $\lambda = 1.0$.
+2. **Tier 2 (Taxonomy Hierarchy Rollup):** If the requested partition has fewer than 5 verified mentors ($N < 5$), the spatial engine automatically rolls the query up to an allied parent domain (e.g., specialized ML subfields roll up to `data_ai`, or niche languages roll up to `general_tech`).
+3. **Tier 3 (Penalized Global Spatial Pool):** If no taxonomy parent is available, the query falls back to the global unpartitioned mentor index, applying an uncertainty penalty inflation factor $\lambda = 1.25$ to widen corridor bounds and emitting `fallback_applied=True` in the audit telemetry.
+4. **Tier 4 (Macroeconomic Prior Anchor):** In the edge case of complete platform zero-peer bootstrap ($N = 0$), the service synthesizes a baseline quote anchored to the national macroeconomic prior $\mu_{\text{macro}}$ scaled by the bilateral cost-of-living ratio $(C_{\text{client}}/C_{\text{mentor}})^{\alpha}$ with a Safaricom M-Pesa tariff floor.
+
+```mermaid
+flowchart TD
+    Q["Pricing Request Arrival: q ∈ ℝ⁵³<br/>Partition: D_req"] --> C1{"Historical count<br/>N ≥ 5 in D_req?"}
+    C1 -- YES --> T1["Tier 1: Domain-Specific KD-Tree<br/>Exact Localized IDW (k=5, λ=1.0)"]
+    C1 -- NO --> C2{"Allied Parent Taxonomy<br/>Available?"}
+    C2 -- YES --> T2["Tier 2: Taxonomy Rollup<br/>Route to Parent Domain (e.g. general_tech)"]
+    C2 -- NO --> T3["Tier 3: Penalized Global Pool<br/>Global KD-Tree (λ=1.25 Penalty Factor)"]
+    T3 -- N = 0 --> T4["Tier 4: Macroeconomic Prior<br/>CoL Scaled Reservation Rate Anchor"]
+```
+
+![Figure 5.7: Algorithmic 4-Tier Cold-Start Fallback Cascade Flowchart](figures/fig5_7_cold_start_fallback_cascade.png)
+
+*Figure 5.7: Flowchart of the 4-tier algorithmic fallback cascade guaranteeing continuous pricing resolution and margin protection across cold-start scenarios.*
+
+
 
