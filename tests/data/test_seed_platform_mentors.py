@@ -244,6 +244,43 @@ class SeedPlatformMentorsTests(unittest.TestCase):
                 )
                 self.assertEqual(resp.status_code, 200, resp.text)
 
+    def test_seed_vocational_mentors_and_price_resolution(self) -> None:
+        repo = InMemoryRepository()
+        summary = seed_platform_mentor_profiles(
+            repo, source=self.fixtures_dir, include_vocational=True
+        )
+        self.assertGreaterEqual(summary["profiles_seeded"], 6)
+
+        app = create_app(
+            inference=mock_inference,
+            repository=repo,
+        )
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": PLATFORM_KEY}):
+            with TestClient(app) as client:
+                # p5 is Esther Wanjiru, Culinary & Hospitality (VOCATIONAL)
+                resp = client.post(
+                    "/price",
+                    json={"mentorId": "p5"},
+                    headers={"X-Platform-Key": PLATFORM_KEY},
+                )
+                self.assertEqual(resp.status_code, 200, resp.text)
+                body = resp.json()
+                self.assertEqual(body["min"], 0.0)
+                self.assertEqual(body["max"], 0.0)
+                self.assertEqual(body["comparables"], [])
+                self.assertIn("Culinary & Hospitality", body["reason"])
+                self.assertIn("outside technical pricing scope", body["reason"])
+
+                # Also resolves via user alias u5
+                alias_resp = client.post(
+                    "/price",
+                    json={"mentorId": "u5"},
+                    headers={"X-Platform-Key": PLATFORM_KEY},
+                )
+                self.assertEqual(alias_resp.status_code, 200)
+                self.assertEqual(alias_resp.json()["min"], 0.0)
+                self.assertIn("Culinary & Hospitality", alias_resp.json()["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

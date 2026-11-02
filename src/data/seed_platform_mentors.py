@@ -80,6 +80,7 @@ def mentor_record_to_profile(record: Dict[str, Any]) -> Dict[str, Any]:
     profile_id = str(
         record.get("platform_mentor_profile_id")
         or record.get("profile_id")
+        or record.get("mentor_profile_id")
         or ""
     ).strip()
     if not profile_id:
@@ -88,6 +89,7 @@ def mentor_record_to_profile(record: Dict[str, Any]) -> Dict[str, Any]:
     user_id = str(
         record.get("platform_mentor_user_id")
         or record.get("user_id")
+        or record.get("mentor_user_id")
         or ""
     ).strip()
 
@@ -98,16 +100,42 @@ def mentor_record_to_profile(record: Dict[str, Any]) -> Dict[str, Any]:
         or "KE"
     )
 
-    raw_description = str(record.get("raw_description") or "").strip()
-    selected_industry = str(
-        record.get("industry_partition")
-        or record.get("selected_industry")
+    category = str(
+        record.get("platform_category")
+        or record.get("category")
+        or ""
+    ).strip()
+    specialization = str(
+        record.get("platform_specialization")
+        or record.get("specialization")
+        or ""
+    ).strip()
+    mentor_type = str(
+        record.get("platform_mentor_type")
+        or record.get("mentor_type")
         or ""
     ).strip()
 
+    raw_description = str(record.get("raw_description") or "").strip()
+    if not raw_description and (specialization or category):
+        raw_description = f"{specialization} in {category}".strip()
+
+    selected_industry = str(
+        record.get("industry_partition")
+        or record.get("selected_industry")
+        or category
+        or ""
+    ).strip()
+
+    first_name = str(record.get("first_name") or "").strip()
+    last_name = str(record.get("last_name") or "").strip()
+    composed_name = f"{first_name} {last_name}".strip()
+
     full_name = str(
         record.get("full_name")
+        or composed_name
         or record.get("platform_specialization")
+        or record.get("specialization")
         or record.get("job_title")
         or f"Mentor {profile_id}"
     ).strip()
@@ -164,6 +192,8 @@ def mentor_record_to_profile(record: Dict[str, Any]) -> Dict[str, Any]:
 
 def load_platform_records(
     source: Union[str, Path, List[Dict[str, Any]], None] = None,
+    *,
+    include_vocational: bool = False,
 ) -> List[Dict[str, Any]]:
     """Load platform records from a parquet, csv, raw cache directory, or list.
 
@@ -173,6 +203,9 @@ def load_platform_records(
     3. DEFAULT_OUTPUT_CSV (data/processed/platform_mentor_corpus.csv)
     4. DEFAULT_CACHE_DIR (data/raw/career_mentor_os/)
     5. tests/fixtures/platform/ (fixture fallback)
+
+    When ``include_vocational`` is True and source is a directory with ``mentors.csv``,
+    all platform mentor records (including vocational categories) are returned.
     """
     if isinstance(source, list):
         return source
@@ -201,6 +234,10 @@ def load_platform_records(
         return []
 
     if os.path.isdir(candidate_path):
+        if include_vocational and os.path.exists(os.path.join(candidate_path, "mentors.csv")):
+            with open(os.path.join(candidate_path, "mentors.csv"), "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                return [dict(row) for row in reader]
         result = build_platform_records(candidate_path)
         return result.records
 
@@ -225,6 +262,7 @@ def seed_platform_mentor_profiles(
     source: Union[str, Path, List[Dict[str, Any]], None] = None,
     *,
     create_user_aliases: bool = True,
+    include_vocational: bool = False,
 ) -> Dict[str, Any]:
     """Seed repository with mentor profiles from platform corpus records.
 
@@ -236,7 +274,7 @@ def seed_platform_mentor_profiles(
 
     Returns summary dictionary with counts of seeded profiles and aliases.
     """
-    records = load_platform_records(source)
+    records = load_platform_records(source, include_vocational=include_vocational)
     seeded_count = 0
     alias_count = 0
     skipped_count = 0

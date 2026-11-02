@@ -125,6 +125,164 @@ class PlatformPriceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["final_quoted_rate"], 4757.0)
 
+    def test_vocational_mentor_profile_outside_scope_returns_200_structured(self) -> None:
+        repo = InMemoryRepository()
+        repo.upsert_profile(
+            "mentor-culinary",
+            {
+                "profile_id": "mentor-culinary",
+                "full_name": "Esther Wanjiru",
+                "email": "esther@example.com",
+                "country_code": "KE",
+                "metadata": {
+                    "platform_category": "Culinary & Hospitality",
+                    "platform_mentor_type": "VOCATIONAL",
+                    "platform_specialization": "Professional Cooking",
+                    "raw_description": "Professional Cooking in Culinary & Hospitality",
+                    "selected_industry": "Culinary & Hospitality",
+                },
+            },
+        )
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client(repo) as client:
+                resp = client.post(
+                    "/price",
+                    json={"mentorId": "mentor-culinary"},
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        body = resp.json()
+        self.assertEqual(body["min"], 0.0)
+        self.assertEqual(body["max"], 0.0)
+        self.assertEqual(body["comparables"], [])
+        self.assertIn("Culinary & Hospitality", body["reason"])
+        self.assertIn("outside technical pricing scope", body["reason"])
+
+    def test_vocational_mentor_inline_industry_outside_scope(self) -> None:
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client() as client:
+                resp = client.post(
+                    "/price",
+                    json={
+                        "mentorId": "inline-mechanic",
+                        "selected_industry": "Automotive & Mechanics",
+                        "raw_description": "Auto mechanic and diagnostics specialist.",
+                        "mentor_country": "KE",
+                    },
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        body = resp.json()
+        self.assertEqual(body["min"], 0.0)
+        self.assertEqual(body["max"], 0.0)
+        self.assertEqual(body["comparables"], [])
+        self.assertIn("Automotive & Mechanics", body["reason"])
+        self.assertIn("outside technical pricing scope", body["reason"])
+
+    def test_vocational_short_circuits_inference_completely(self) -> None:
+        def poison_inference(query: PricingQueryDTO) -> Dict[str, Any]:
+            raise AssertionError("KD-tree inference should NEVER be executed for vocational mentors!")
+
+        repo = InMemoryRepository()
+        repo.upsert_profile(
+            "mentor-beauty",
+            {
+                "profile_id": "mentor-beauty",
+                "full_name": "Grace Auma",
+                "email": "grace@example.com",
+                "country_code": "KE",
+                "metadata": {
+                    "platform_category": "Beauty & Cosmetology",
+                    "platform_mentor_type": "VOCATIONAL",
+                },
+            },
+        )
+        app = create_app(inference=poison_inference, repository=repo)
+        client = TestClient(app)
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            resp = client.post(
+                "/price",
+                json={"mentorId": "mentor-beauty"},
+                headers={"X-Platform-Key": KEY},
+            )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["min"], 0.0)
+        self.assertIn("Beauty & Cosmetology", resp.json()["reason"])
+
+    def test_vocational_error_mode_via_header_and_env(self) -> None:
+        repo = InMemoryRepository()
+        repo.upsert_profile(
+            "mentor-farm",
+            {
+                "profile_id": "mentor-farm",
+                "full_name": "John Kimani",
+                "email": "john@example.com",
+                "country_code": "KE",
+                "metadata": {
+                    "platform_category": "Agriculture & Farming",
+                    "platform_mentor_type": "VOCATIONAL",
+                },
+            },
+        )
+        # Via header
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client(repo) as client:
+                resp = client.post(
+                    "/price",
+                    json={"mentorId": "mentor-farm"},
+                    headers={
+                        "X-Platform-Key": KEY,
+                        "X-Platform-Error-On-Out-Of-Scope": "true",
+                    },
+                )
+        self.assertEqual(resp.status_code, 422)
+        detail = resp.json()["detail"]
+        self.assertEqual(detail["error"], "OUT_OF_SCOPE_CATEGORY")
+        self.assertEqual(detail["category"], "Agriculture & Farming")
+
+        # Via environment variable
+        with patch.dict(
+            os.environ,
+            {"PLATFORM_PRICE_KEY": KEY, "PLATFORM_OUT_OF_SCOPE_AS_ERROR": "true"},
+        ):
+            with self._client(repo) as client:
+                resp = client.post(
+                    "/price",
+                    json={"mentorId": "mentor-farm"},
+                    headers={"X-Platform-Key": KEY},
+                )
+        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.json()["detail"]["error"], "OUT_OF_SCOPE_CATEGORY")
+
+    def test_various_vocational_categories(self) -> None:
+        vocational_categories = [
+            "Construction & Building",
+            "Transport & Logistics",
+            "Healthcare & Medical",
+            "Fashion & Textiles",
+            "Electrical & Electronics",
+        ]
+        with patch.dict(os.environ, {"PLATFORM_PRICE_KEY": KEY}):
+            with self._client() as client:
+                for cat in vocational_categories:
+                    resp = client.post(
+                        "/price",
+                        json={
+                            "mentorId": f"mentor-{cat.lower()[:4]}",
+                            "selected_industry": cat,
+                            "raw_description": f"Experienced mentor in {cat}",
+                            "mentor_country": "KE",
+                        },
+                        headers={"X-Platform-Key": KEY},
+                    )
+                    self.assertEqual(resp.status_code, 200)
+                    body = resp.json()
+                    self.assertEqual(body["min"], 0.0)
+                    self.assertEqual(body["max"], 0.0)
+                    self.assertEqual(body["comparables"], [])
+                    self.assertIn(cat, body["reason"])
+                    self.assertIn("outside technical pricing scope", body["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
