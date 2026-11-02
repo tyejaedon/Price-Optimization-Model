@@ -29,6 +29,15 @@ Milestone 7: Production ASGI API Service (FastAPI)
       |
       v
 Milestone 8: Automated Verification, Latency Profiling & MLOps
+      |
+      v
+Milestone 9-11: Canonical Blueprint, In-Memory Corridor & Firestore Seeding (M11.7)
+      |
+      v
+Milestone 12-14: Native Android Shell & Hosted Cloud Deployment (M13.4 Render)
+      |
+      v
+Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps
 ```
 
 ---
@@ -546,6 +555,12 @@ M2.1 (Text Cleaner) ------> M2.2 (TF-IDF & SVD) ---------------------------> M7.
 M3.1 (Meta Scaler) -------> M3.2 -------------------------------------------> M8.1
 M5.1 (M-Pesa Tariff) -------------------------------------------------------> M7.2 --> M8.2
 M7.2 + M8.2 ---------------------------------------------------------------> M8.7 (UC8-UC11 MLOps controls)
+                                                                                  |
+M1.7 (Platform Ingest) + M11.1 (Firestore) --------------------------------> M11.7 (Corpus Profile Seeding)
+                                                                                  |
+M11.7 + M13.2 (Container) + M11.3 (Tariff Pin) -----------------------------> M13.4 (Render Deployment)
+                                                                                  |
+M4.1 (KD-Tree) + M6.2 (Eval) + M8.2 (Profiling) ----------------------------> M16.1-M16.3 (Advanced Scaling & MLOps)
 ```
 
 ---
@@ -580,6 +595,7 @@ The [canonical blueprint](architecture_blueprint%20%281%29.md) defines the targe
 | 4 | Milestone 12: Native Android Shell & Firebase Authentication | #74 Compose app; #75 sign-in/token handling; #140 design system/accessibility | Client uses protected pricing gateway; no backend admin credentials on device. |
 | 5 | Milestone 13: Mobile Integration & Backend Deployment | #76 Retrofit integration; #77 Docker/CI (closed); #141 Android CI pipeline; #142 results dashboard UX; #173 Render hosted pricing service (M13.4) | Integrate with the canonical DTO and deploy a complete artifact set outside Git. |
 | 6 | Milestone 14: Mobile Usability & End-to-End Validation | #85 protected demo; #86 3G RTT; #87 SUS | Validate authenticated system; the demo does not replace Android or bypass auth. |
+| 7 | Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps | #176-#182 advanced scaling benchmark; calibrated confidence; KS/Wasserstein drift auditing | Optional research track; evaluate weighting kernels, ANN scaling, and continuous MLOps drift gating without mutating production 53D schema. |
 
 **Android implementation guide (#74, #140-#142):** The `app/` Gradle module scaffolded under this
 roadmap follows `docs/Architecture/Android_App_Guide.md`, which maps every Android source file back
@@ -600,6 +616,12 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **M13.4 Render hosted deployment implementation (#173):** `render.yaml` declares the Render Blueprint infrastructure-as-code for hosting the pricing service on Render. The hosted web entrypoint `src.api.hosted:app` auto-binds to `$PORT`, satisfies `/health` and `/ready` probes, enforces `PLATFORM_PRICE_KEY` via `X-Platform-Key` header authentication on `POST /price`, auto-seeds platform mentor profiles, and verifies immutable artifact and P2P M-Pesa tariff SHA-256 digests. See `docs/M13.4_Render_Hosted_Pricing_Deployment.md`.
 
+**Milestone 16 Research Track implementation (#176-#182):** `src/benchmarks/advanced_algorithmic_scaling.py` delivers the optional research suite evaluating:
+1. **Algorithmic Weighting Kernels & Calibrated Confidence (#176, #177):** Compares Euclidean IDW, Cosine IDW, Softmax/Gaussian kernel, and local Ridge regression, replacing the uncalibrated 0.0 placeholder with an empirical, dispersion-bounded neighborhood consensus score in $[0.0, 1.0]$.
+2. **Vector Search Index Scaling (#181):** Profiles latency ($P_{50}, P_{95}, P_{99}$), peak memory, and Recall@5 scaling from $1,000$ to $20,000+$ vectors, demonstrating that exact partitioned KD-Trees sustain sub-millisecond $P_{95}$ latency ($<0.70\text{ ms}$) and 100% recall without requiring lossy ANN quantization.
+3. **Continuous MLOps Drift Auditing (#182):** Detects coordinate distribution drift using two-sample Kolmogorov-Smirnov tests ($p < 0.01$) and 1D Wasserstein distances alongside market rate divergence to drive automated retrain alert triggers.
+See `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md` and experiment record `docs/experiments/172_advanced_algorithmic_scaling.md`.
+
 ---
 
 ## Milestone 11: Firestore Persistence & Asynchronous Pricing Audit
@@ -614,7 +636,7 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 ### Issue M11.7 — Seed repository mentor profiles from platform_mentor_corpus for POST /price resolution
 **GitHub issue:** #172  
-**Labels:** `data-engineering`, `backend`, `api`, `project:feature-track`
+**Labels:** `data`, `backend`, `persistence`, `platform`, `project:feature-track`
 
 **Tasks**
 - [x] Ingest platform mentor rows from `platform_mentor_corpus.parquet` / `.csv` or raw cache fixtures.
@@ -666,3 +688,56 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 
 **Dependency Notes**
 - Depends on `M11.7` (#172), `M13.2` (#77), and `M11.3` (#73).
+
+---
+
+## Milestone 16: Advanced Algorithmic Optimization, Vector Search Scaling & Continuous MLOps (Optional Research Track)
+
+**Goal:** Establish reproducible empirical research protocols for advanced neighborhood weighting, empirical confidence calibration, sub-millisecond vector indexing scaling, and automated coordinate/concept drift auditing.
+
+**Deliverables:**
+- `src/benchmarks/advanced_algorithmic_scaling.py`
+- `docs/experiments/172_advanced_algorithmic_scaling.md`
+- `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md`
+- `tests/benchmarks/test_advanced_algorithmic_scaling.py`
+
+### Issue M16.1/M16.2 — Implement Advanced Algorithmic Weighting Kernels & Calibrated Confidence Estimation
+**GitHub issue:** #176, #177  
+**Labels:** `research`, `machine-learning`, `algorithms`, `project:feature-track`
+
+**Tasks**
+- [x] Formulate and evaluate Cosine-distance IDW, Softmax/Gaussian kernel, and local Ridge regression.
+- [x] Formulate dispersion-bounded empirical neighborhood confidence score in $[0.0, 1.0]$.
+- [x] Contrast outlier resistance of Gaussian kernel against quadratic IDW baseline.
+
+**Acceptance Criteria**
+- [x] Confidence score is bounded in $[0.0, 1.0]$ and attenuates monotonically with peer dispersion.
+- [x] All weighting schemes normalize to 1.0 and preserve local monotonicity.
+
+### Issue M16.6 — Benchmark Vector Search Index Scaling (Exact KD-Tree vs ANN)
+**GitHub issue:** #181  
+**Labels:** `performance`, `benchmarking`, `search`, `project:feature-track`
+
+**Tasks**
+- [x] Profile build time, latency percentiles ($P_{50}, P_{95}, P_{99}$), peak memory, and Recall@5 from 1,000 to 20,000+ vectors.
+- [x] Compare exact partitioned KD-Trees against approximate nearest neighbor (ANN) ball trees in 53D space.
+
+**Acceptance Criteria**
+- [x] Partitioned KD-Tree sustains sub-millisecond $P_{95}$ latency ($<0.70\text{ ms}$) at operational scales.
+- [x] Recall@5 remains 1.000 across all evaluated corpus sizes.
+
+### Issue M16.7 — Continuous MLOps Coordinate & Concept Drift Auditing Pipeline
+**GitHub issue:** #182  
+**Labels:** `mlops`, `monitoring`, `statistics`, `project:feature-track`
+
+**Tasks**
+- [x] Implement two-sample Kolmogorov-Smirnov test and 1D Wasserstein distance per coordinate across 53 dimensions.
+- [x] Measure median absolute rate divergence between model quotes and realized market settlements.
+- [x] Build automated decision matrix triggering `PIPELINE_STABLE`, `DRIFT_MONITORING_ALERT`, or `RETRAIN_RECOMMENDED`.
+
+**Acceptance Criteria**
+- [x] Synthetic mean shifts are detected at significance $\alpha=0.01$.
+- [x] Retraining trigger alerts appropriately without interrupting live traffic.
+
+**Dependency Notes**
+- Non-promoting research track; builds upon M4.1, M6.2, M8.2, and M9 research protocols (#117, #121).
