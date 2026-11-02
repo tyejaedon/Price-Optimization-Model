@@ -6,6 +6,8 @@ Produces:
 - docs/figures/fig5_3_svd_dimensionality_pareto.svg and .png (M15.3, Issue #184)
 - docs/figures/fig5_4_model_architecture_benchmark.svg and .png (M15.3, Issue #184)
 - docs/figures/fig5_5_target_transformation_residuals.svg and .png (M15.4, Issue #185)
+- docs/figures/fig5_6_subgroup_domain_performance.svg and .png (M15.5, Issue #186)
+- docs/figures/fig5_7_cold_start_fallback_cascade.svg and .png (M15.5, Issue #186)
 """
 
 import os
@@ -363,8 +365,212 @@ def generate_figure_5_5():
     print(f"Exported: {svg_path} and {png_path}")
 
 
+def generate_figure_5_6():
+    """Figure 5.6: Domain Subgroup Partition Performance and Rate Quartiles."""
+    domains = ["data_ai", "web_backend", "mobile", "design_creative"]
+    domain_labels = ["Data & AI", "Web & Backend", "Mobile Dev", "Design & Creative"]
+    r2_scores = [0.5079, 0.5119, 0.4064, 0.3975]
+    mae_kes = [13040, 12890, 13750, 14210]
+    # Rate quartiles in KES/hour: [Q1, Median, Q3]
+    quartiles = [
+        [3200, 4800, 6500],
+        [3000, 4500, 6200],
+        [2800, 4200, 5800],
+        [2500, 3800, 5200],
+    ]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 5.5), dpi=300)
+    fig.patch.set_facecolor("#FAFAFA")
+
+    # Left: R^2 and MAE across four core domains
+    ax1.set_facecolor("#FFFFFF")
+    x = np.arange(len(domains))
+    width = 0.45
+    bars = ax1.bar(x, r2_scores, width, color=["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"], edgecolor="#1F2937", lw=1.2)
+    ax1.set_ylabel(r"Holdout Coefficient of Determination ($R^2$)", fontsize=10, fontweight="bold", color="#1F2937")
+    ax1.set_title("Subgroup Determination ($R^2$) by Technical Domain\n(Disjoint Description Groups, Zero Text Leakage)", fontsize=10.5, fontweight="bold", color="#1F2937")
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(domain_labels, fontsize=9.5, fontweight="medium")
+    ax1.set_ylim(0, 0.65)
+    ax1.grid(True, linestyle="--", alpha=0.3, axis="y")
+
+    for bar in bars:
+        h = bar.get_height()
+        ax1.annotate(f"$R^2 = {h:.4f}$", xy=(bar.get_x() + bar.get_width()/2, h), xytext=(0, 4),
+                     textcoords="offset points", ha="center", va="bottom", fontsize=8.5, fontweight="bold")
+
+    # Right: Rate quartile boxplots/ranges
+    ax2.set_facecolor("#FFFFFF")
+    medians = [q[1] for q in quartiles]
+    q1s = [q[0] for q in quartiles]
+    q3s = [q[2] for q in quartiles]
+
+    ax2.errorbar(x, medians, yerr=[np.array(medians) - np.array(q1s), np.array(q3s) - np.array(medians)],
+                 fmt="o", color="#1E3A8A", ecolor="#3B82F6", elinewidth=3, capsize=8, capthick=2, markersize=8, label="Median Rate (IQR Error Bars)")
+    ax2.set_ylabel("Empirical Rate Range (KES/hour)", fontsize=10, fontweight="bold", color="#1F2937")
+    ax2.set_title("Domain Rate Distribution Quartiles [Q1, Median, Q3]\n(Kenyan Digital Mentor Valuation Baseline)", fontsize=10.5, fontweight="bold", color="#1F2937")
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(domain_labels, fontsize=9.5, fontweight="medium")
+    ax2.set_ylim(1500, 8000)
+    ax2.grid(True, linestyle="--", alpha=0.3, axis="y")
+
+    for i, (q1, med, q3) in enumerate(quartiles):
+        ax2.annotate(f"Med: {med:,} KES\n[{q1:,} - {q3:,}]", xy=(i, med), xytext=(12, -4),
+                     textcoords="offset points", fontsize=8, color="#1E3A8A", fontweight="bold")
+
+    plt.suptitle("Figure 5.6: Domain Subgroup Partition Generalization and Empirical Rate Distributions",
+                 fontsize=12, fontweight="bold", y=1.01, color="#1F2937")
+
+    svg_path = FIGURES_DIR / "fig5_6_subgroup_domain_performance.svg"
+    png_path = FIGURES_DIR / "fig5_6_subgroup_domain_performance.png"
+    plt.tight_layout()
+    plt.savefig(svg_path, format="svg", bbox_inches="tight")
+    plt.savefig(png_path, format="png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Exported: {svg_path} and {png_path}")
+
+
+def generate_figure_5_7():
+    """Figure 5.7: Algorithmic 4-Tier Cold-Start Fallback Cascade Flowchart."""
+    fig, ax = plt.subplots(figsize=(12, 7.5), dpi=300)
+    ax.axis("off")
+    ax.set_facecolor("#FAFAFA")
+    fig.patch.set_facecolor("#FAFAFA")
+
+    # Title & Subtitle
+    ax.text(
+        0.5, 0.96,
+        "Figure 5.7: Algorithmic 4-Tier Cold-Start Fallback Cascade Logic",
+        ha="center", va="center", fontsize=13, fontweight="bold", color="#1F2937",
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0.5, 0.92,
+        r"Mathematical decision path guaranteeing continuous pricing resolution across sparse and cold-start partitions (FR-04, FR-05)",
+        ha="center", va="center", fontsize=10, fontstyle="italic", color="#4B5563",
+        transform=ax.transAxes,
+    )
+
+    # Box styles
+    query_box_kw = dict(boxstyle="round,pad=0.5", facecolor="#EBF5FF", edgecolor="#2563EB", lw=1.5)
+    decision_kw = dict(boxstyle="round,pad=0.5", facecolor="#FEF3C7", edgecolor="#D97706", lw=1.5)
+    tier1_kw = dict(boxstyle="round,pad=0.5", facecolor="#DCFCE7", edgecolor="#16A34A", lw=2.0)
+    tier2_kw = dict(boxstyle="round,pad=0.5", facecolor="#E0E7FF", edgecolor="#4F46E5", lw=1.5)
+    tier3_kw = dict(boxstyle="round,pad=0.5", facecolor="#FEE2E2", edgecolor="#DC2626", lw=1.5)
+    tier4_kw = dict(boxstyle="round,pad=0.5", facecolor="#F3E8FF", edgecolor="#9333EA", lw=1.5)
+
+    # Query Entry
+    ax.text(
+        0.5, 0.83,
+        "Pricing Query Arrival: $q = [v_{\\text{text}} \\parallel v_{\\text{meta}}] \\in \\mathbb{R}^{53}$\nPartition requested: $D_{\\text{req}} \\in \\{D_1, \\dots, D_8\\}$",
+        ha="center", va="center", fontsize=9.5, fontweight="bold", color="#1E3A8A",
+        bbox=query_box_kw, transform=ax.transAxes,
+    )
+
+    # Decision 1
+    ax.text(
+        0.5, 0.69,
+        "Condition: Does historical partition contain N >= 5 verified peers?",
+        ha="center", va="center", fontsize=9, fontweight="bold", color="#78350F",
+        bbox=decision_kw, transform=ax.transAxes,
+    )
+
+    # Tier 1 Branch (YES)
+    ax.text(
+        0.18, 0.52,
+        "Tier 1: Domain-Specific KD-Tree IDW\n"
+        "• Exact localized retrieval in partition\n"
+        "• k = 5 closest technical peers\n"
+        "• Base rate weighted by inverse distance\n"
+        "• In-sample corridor [r_min, r_max]",
+        ha="center", va="center", fontsize=8.5, color="#14532D",
+        bbox=tier1_kw, transform=ax.transAxes, multialignment="left"
+    )
+
+    # Decision 2 (NO)
+    ax.text(
+        0.72, 0.52,
+        "Condition: Is there an allied parent taxonomy?\n(e.g., specialized ML -> data_ai)",
+        ha="center", va="center", fontsize=8.5, fontweight="bold", color="#78350F",
+        bbox=decision_kw, transform=ax.transAxes,
+    )
+
+    # Tier 2 Branch (YES)
+    ax.text(
+        0.52, 0.33,
+        "Tier 2: Taxonomy Hierarchy Rollup\n"
+        "• Query routed to fallback parent partition\n"
+        "• Rollup partition (e.g. general_tech)\n"
+        "• Standard IDW interpolation\n"
+        "• Logs rollup event in audit telemetry",
+        ha="center", va="center", fontsize=8.5, color="#312E81",
+        bbox=tier2_kw, transform=ax.transAxes, multialignment="left"
+    )
+
+    # Tier 3 Branch (NO)
+    ax.text(
+        0.85, 0.33,
+        "Tier 3: Penalized Global Pool\n"
+        "• Global unpartitioned KD-Tree\n"
+        "• Penalty factor lambda = 1.25 applied\n"
+        "• Expands corridor uncertainty\n"
+        "• Emits fallback_applied=True",
+        ha="center", va="center", fontsize=8.5, color="#7F1D1D",
+        bbox=tier3_kw, transform=ax.transAxes, multialignment="left"
+    )
+
+    # Tier 4 Exit (Fallback of last resort)
+    ax.text(
+        0.68, 0.14,
+        "Tier 4: Macroeconomic Prior Anchor\n"
+        "• Extreme sparsity / complete zero-peer state\n"
+        "• Macro prior scaled by CoL arbitrage ratio\n"
+        "• Fixed safe corridor with Safaricom tariff floor",
+        ha="center", va="center", fontsize=8.5, color="#581C87",
+        bbox=tier4_kw, transform=ax.transAxes, multialignment="left"
+    )
+
+    # Connectors
+    arrow_kw = dict(arrowstyle="->", lw=1.5, color="#4B5563")
+    arrow_green = dict(arrowstyle="->", lw=2.0, color="#16A34A")
+    arrow_red = dict(arrowstyle="->", lw=1.5, color="#DC2626")
+
+    # Query -> Decision 1
+    ax.annotate("", xy=(0.5, 0.73), xytext=(0.5, 0.79), xycoords="axes fraction", arrowprops=arrow_kw)
+
+    # Decision 1 -> Tier 1 (YES)
+    ax.annotate("YES (N >= 5)", xy=(0.28, 0.58), xytext=(0.42, 0.66), xycoords="axes fraction",
+                arrowprops=arrow_green, fontsize=8.5, color="#16A34A", fontweight="bold")
+
+    # Decision 1 -> Decision 2 (NO)
+    ax.annotate("NO (N < 5)", xy=(0.68, 0.57), xytext=(0.58, 0.66), xycoords="axes fraction",
+                arrowprops=arrow_red, fontsize=8.5, color="#DC2626", fontweight="bold")
+
+    # Decision 2 -> Tier 2 (YES)
+    ax.annotate("YES", xy=(0.56, 0.40), xytext=(0.65, 0.47), xycoords="axes fraction",
+                arrowprops=arrow_green, fontsize=8.5, color="#16A34A", fontweight="bold")
+
+    # Decision 2 -> Tier 3 (NO)
+    ax.annotate("NO", xy=(0.82, 0.40), xytext=(0.77, 0.47), xycoords="axes fraction",
+                arrowprops=arrow_red, fontsize=8.5, color="#DC2626", fontweight="bold")
+
+    # Tier 3 -> Tier 4 (Empty tree fallback)
+    ax.annotate("If N = 0", xy=(0.73, 0.20), xytext=(0.82, 0.26), xycoords="axes fraction",
+                arrowprops=arrow_red, fontsize=8.5, color="#DC2626")
+
+    svg_path = FIGURES_DIR / "fig5_7_cold_start_fallback_cascade.svg"
+    png_path = FIGURES_DIR / "fig5_7_cold_start_fallback_cascade.png"
+    plt.tight_layout()
+    plt.savefig(svg_path, format="svg", bbox_inches="tight")
+    plt.savefig(png_path, format="png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Exported: {svg_path} and {png_path}")
+
+
 if __name__ == "__main__":
     generate_figure_5_2()
     generate_figure_5_3()
     generate_figure_5_4()
     generate_figure_5_5()
+    generate_figure_5_6()
+    generate_figure_5_7()
