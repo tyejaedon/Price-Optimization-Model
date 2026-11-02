@@ -61,70 +61,94 @@ def _resolve_paths() -> tuple[str, str]:
     return artifact_dir, tariff_csv
 
 
-def create_hosted_app():
+def create_hosted_app(
+    artifact_dir: Optional[str] = None,
+    tariff_csv: Optional[str] = None,
+    trusted_tariff_sha256: Optional[str] = None,
+    trusted_manifest_sha256: Optional[str] = None,
+    repository: Optional[Repository] = None,
+    inference: Optional[Callable[[Any], Dict[str, Any]]] = None,
+    readiness_probe: Optional[Callable[[], bool]] = None,
+    token_verifier: Optional[Callable[[str], Any]] = None,
+    cors_allowed_origins: Optional[Tuple[str, ...]] = None,
+    seed_platform_mentors: Optional[bool] = None,
+) -> FastAPI:
     """Build the hosted application instance optimized for Render deployment."""
-    artifact_dir, tariff_csv = _resolve_paths()
+    resolved_artifacts, resolved_tariff = _resolve_paths()
+    if artifact_dir is None:
+        artifact_dir = resolved_artifacts
+    if tariff_csv is None:
+        tariff_csv = resolved_tariff
 
-    tariff_sha256 = (
-        os.getenv("PRICING_TARIFF_SHA256", "").strip()
-        or DEFAULT_HOSTED_TARIFF_SHA256
-    )
-    manifest_sha256 = (
-        os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256", "").strip()
-        or DEFAULT_HOSTED_MANIFEST_SHA256
-    )
+    if trusted_tariff_sha256 is None:
+        trusted_tariff_sha256 = (
+            os.getenv("PRICING_TARIFF_SHA256", "").strip()
+            or DEFAULT_HOSTED_TARIFF_SHA256
+        )
+    if trusted_manifest_sha256 is None:
+        trusted_manifest_sha256 = (
+            os.getenv("PRICING_ARTIFACT_MANIFEST_SHA256", "").strip()
+            or DEFAULT_HOSTED_MANIFEST_SHA256
+        )
 
     firebase_project = os.getenv("FIREBASE_PROJECT_ID", "").strip()
-    repository: Repository
-    token_verifier: Optional[Callable[[str], Any]] = None
-    readiness_probe: Optional[Callable[[], bool]] = None
     firestore_enabled = False
 
-    if firebase_project:
-        try:
-            import firebase_admin
-            from firebase_admin import auth
-
+    if repository is None:
+        if firebase_project:
             try:
-                firebase_app = firebase_admin.get_app()
-            except ValueError:
-                firebase_app = firebase_admin.initialize_app(
-                    options={"projectId": firebase_project}
+                import firebase_admin
+                from firebase_admin import auth
+
+                try:
+                    firebase_app = firebase_admin.get_app()
+                except ValueError:
+                    firebase_app = firebase_admin.initialize_app(
+                        options={"projectId": firebase_project}
+                    )
+
+                database_id = configured_firestore_database_id()
+                firestore_repo = FirestoreRepository(database_id=database_id)
+                repository = firestore_repo
+                if token_verifier is None:
+                    token_verifier = lambda token: auth.verify_id_token(token, app=firebase_app)
+                if readiness_probe is None:
+                    readiness_probe = firestore_repo.probe_readiness
+                firestore_enabled = True
+                logger.info("Hosted service connected to Firestore (project=%s, db=%s)", firebase_project, database_id)
+            except Exception as exc:
+                logger.warning(
+                    "Firestore initialization failed (%s); falling back to in-memory repository",
+                    exc,
                 )
-
-            database_id = configured_firestore_database_id()
-            firestore_repo = FirestoreRepository(database_id=database_id)
-            repository = firestore_repo
-            token_verifier = lambda token: auth.verify_id_token(token, app=firebase_app)
-            readiness_probe = firestore_repo.probe_readiness
-            firestore_enabled = True
-            logger.info("Hosted service connected to Firestore (project=%s, db=%s)", firebase_project, database_id)
-        except Exception as exc:
-            logger.warning(
-                "Firestore initialization failed (%s); falling back to in-memory repository",
-                exc,
-            )
+                repository = InMemoryRepository()
+        else:
             repository = InMemoryRepository()
+            logger.info("Hosted service initialized with InMemoryRepository")
+
+    if cors_allowed_origins is None:
+        cors_env = os.getenv("PRICING_CORS_ALLOWED_ORIGINS", "").strip()
+        cors_origins = parse_cors_allowed_origins(cors_env) if cors_env else ()
     else:
-        repository = InMemoryRepository()
-        logger.info("Hosted service initialized with InMemoryRepository")
+        cors_origins = cors_allowed_origins
 
-    cors_env = os.getenv("PRICING_CORS_ALLOWED_ORIGINS", "").strip()
-    cors_origins = parse_cors_allowed_origins(cors_env) if cors_env else ()
-
-    auto_seed = os.getenv("SEED_PLATFORM_MENTORS", "true").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
+    if seed_platform_mentors is None:
+        auto_seed = os.getenv("SEED_PLATFORM_MENTORS", "true").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+    else:
+        auto_seed = seed_platform_mentors
 
     app = create_app(
         artifact_dir=artifact_dir,
         tariff_csv_path=tariff_csv,
-        trusted_tariff_sha256=tariff_sha256,
-        trusted_manifest_sha256=manifest_sha256,
+        trusted_tariff_sha256=trusted_tariff_sha256,
+        trusted_manifest_sha256=trusted_manifest_sha256,
         firestore_enabled=firestore_enabled,
         repository=repository,
+        inference=inference,
         token_verifier=token_verifier,
         readiness_probe=readiness_probe,
         cors_allowed_origins=cors_origins,
