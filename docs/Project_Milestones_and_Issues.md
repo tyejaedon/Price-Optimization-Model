@@ -622,6 +622,8 @@ Existing `industry_partition` training labels map to target `industry`/Firestore
 3. **Continuous MLOps Drift Auditing (#182):** Detects coordinate distribution drift using two-sample Kolmogorov-Smirnov tests ($p < 0.01$) and 1D Wasserstein distances alongside market rate divergence to drive automated retrain alert triggers.
 See `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md` and experiment record `docs/experiments/172_advanced_algorithmic_scaling.md`.
 
+**M14.2 mobile 3G RTT validation (#86):** `src/benchmarks/mobile_3g_rtt_validation.py` measures mobile-to-cloud round-trip latency on the full authenticated pricing journey under standardized 3G network conditions (Regular 3G: 750 kbps down, 250 kbps up, 200 ms RTT, 0.5% packet loss). Decomposing latency across token acquisition, TLS/TCP handshake, upload transmission, backend execution, download transmission, and client deserialization, warmed flows sustain P95 RTT of 272.56 ms (far below the < 3.0s Sprint 5 ceiling with 90.9% safety margin). Cold flows complete in ~885 ms, and error paths (401, 403, 422, 503, timeout) remain observable and responsive. See `docs/M14.2_Mobile_3G_RTT_Validation.md`.
+
 ---
 
 ## Milestone 11: Firestore Persistence & Asynchronous Pricing Audit
@@ -741,3 +743,30 @@ See `docs/M16_Advanced_Algorithmic_Scaling_MLOps.md` and experiment record `docs
 
 **Dependency Notes**
 - Non-promoting research track; builds upon M4.1, M6.2, M8.2, and M9 research protocols (#117, #121).
+
+---
+
+## Milestone 14: Mobile Usability & End-to-End Validation
+
+**Goal:** Validate authenticated mobile user journey, mobile-to-cloud network round-trip time under constrained cellular conditions, and System Usability Scale (SUS).
+
+**Deliverables:**
+- `src/benchmarks/mobile_3g_rtt_validation.py`
+- `tests/benchmarks/test_mobile_3g_rtt_validation.py`
+- `docs/M14.2_Mobile_3G_RTT_Validation.md`
+
+### Issue M14.2 — Validate authenticated mobile pricing RTT under simulated 3G
+**GitHub issue:** #86  
+**Labels:** `benchmarking`, `performance`, `project:feature-track`, `testing`
+
+**Tasks**
+- [x] Define 3G bandwidth, latency, packet-loss profile, representative device/emulator and API location. Include token refresh, TLS, request, inference and Firestore-related response overhead.
+- [x] Capture sample count, percentiles and failure/timeout rate for warmed flows, separately reporting backend inference and full RTT.
+- [x] Add reproducible test instructions and safe fixture/mock for CI, with documented real-environment measurements before claiming target met; record failures and remediation.
+
+**Acceptance Criteria**
+- [x] Publish measured end-to-end RTT and chosen percentile criterion for the < 3.0s target under reproducible simulated 3G (measured $P_{95} = 272.56\text{ ms} < 3000.0\text{ ms}$).
+- [x] Secure error paths (401/403/422/503/timeout) remain observable and the UI responsive during tests.
+
+**Dependency Notes**
+- Depends on #66 canonical blueprint Sprint 5, #70, #72, #76, #77, and authenticated route #83.
