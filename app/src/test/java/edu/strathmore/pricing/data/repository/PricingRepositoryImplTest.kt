@@ -153,6 +153,24 @@ class PricingRepositoryImplTest {
             assertThat(server.requestCount).isEqualTo(0)
         }
 
+    @Test
+    fun `pricing request under simulated 3G latency completes successfully within target`() =
+        runTest {
+            server.enqueue(
+                MockResponse()
+                    .setBodyDelay(250, TimeUnit.MILLISECONDS)
+                    .setBody(SUCCESS_RESPONSE),
+            )
+
+            val startTime = System.currentTimeMillis()
+            val outcome = repository.calculateOptimalRate(query)
+            val elapsed = System.currentTimeMillis() - startTime
+
+            assertThat(outcome).isInstanceOf(PricingOutcome.Success::class.java)
+            assertThat((outcome as PricingOutcome.Success).value.finalQuotedRate).isEqualTo(4757f)
+            assertThat(elapsed).isLessThan(3000L)
+        }
+
     private fun createRepository(readTimeoutMs: Long = 1000): PricingRepositoryImpl {
         val client =
             OkHttpClient
