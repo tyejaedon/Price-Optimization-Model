@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 9
+skinparam roundCorner 4
+skinparam dpi 300
+skinparam wrapWidth 200
+
+title Figure 5.1: Multi-Tier Hardware and Deployment Infrastructure Architecture
+
+node "Tier 1: Engineering Workstation (Host: Vesemir)\nWindows 11 Pro (64-bit) | AMD Ryzen 5 5625U (12 Threads) | 8.00 GB RAM" as Workstation {
+  package "Development & Build Toolchain" {
+    component "JetBrains IDE / Android Studio\nGradle Daemons & Android AVD" as Toolchain
+    component "Offline Model Training Pipeline\nOOT Splits | n-D SVD | Partitioned Trees" as Training
+    component "Deterministic Threading Constraint\nOPENBLAS=1, OMP=1, MKL=1" as ThreadControl
+  }
+}
+
+node "Tier 2: Cloud Inference Microservice (Render PaaS)\nFrankfurt Region | Linux AMD64 Container | 512 MB Memory Limit" as Cloud {
+  package "Containerized Runtime (python:3.11-slim)" {
+    component "Startup Cryptographic Integrity Gate\nSHA-256 Manifest & Tariff Pins" as CryptoGate
+    component "Stateless ASGI Inference Gateway\nFastAPI + Uvicorn (Port $PORT)" as ASGIServer
+    component "Resident In-Memory Spatial Engine\n(n+3)-D Coordinate Fusion & IDW KD-Tree" as SpatialEngine
+  }
+}
+
+node "Tier 3: Distributed Persistence & Edge Client Layer" as External {
+  package "Google Cloud Platform" {
+    database "Cloud Firestore (priceoptimizationmodel)\n/mentors | /pricing_audits | /historical_transactions" as FirestoreDB
+    component "Firebase Auth\nJWT Token Authority" as FirebaseAuth
+  }
+  package "Client Ingress & Edge Devices" {
+    component "Platform Adapter (Career Mentor OS)\nPOST /price (X-Platform-Key Header)" as PlatformClient
+    component "Android Shell (Jetpack Compose)\nAndroid 10+ (API 29+) | Kotlin Coroutines" as MobileApp
+    component "Ingress Secure Gateway\nTLS 1.3 / ngrok Tunnel for 4G Staging" as SecureTunnel
+  }
+}
+
+Training .down.> CryptoGate : Deploys Immutable Weights\n(SHA-256 Verifier)
+PlatformClient -right-> ASGIServer : Dual Ingress (Platform Key)
+MobileApp -up-> SecureTunnel
+SecureTunnel -right-> ASGIServer : Dual Ingress (Firebase Bearer)
+FirebaseAuth .down.> ASGIServer : Verifies Identity Tokens
+ASGIServer -down-> SpatialEngine : In-Memory Sub-15ms Scoring
+SpatialEngine .right.> FirestoreDB : Async Non-Blocking Telemetry
+@enduml
