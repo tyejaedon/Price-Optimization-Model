@@ -30,6 +30,22 @@ This skill enforces the official technical writing, linguistic style, and struct
 4. **Third-Person Objective Academic Register:**
    - Use third-person formal voice or objective passive voice (*"The matrix was projected into..."*). Avoid first-person singular pronouns (*"I"*, *"my"*).
 
+5. **Cross-Chapter Anti-Repetition Guardrail:**
+   - Never re-explain problem background, conceptual definitions, or theoretical justifications already established in Chapters 1–4.
+   - Use concise cross-references (*"as specified in Section 4.2.1"*, *"fulfilling FR-03"*). Focus exclusively on the new realization, concrete code artifact, or empirical measurement.
+
+6. **Page Budget & Printing-Cost Discipline:**
+   - Maintain a high information-to-ink ratio. Avoid prose bloat that needlessly expands page count for physical printing.
+   - Let compact, normalized tables (3–4 columns) and vector diagrams convey structural details, reserving prose for critical analytical interpretation.
+
+7. **Plain Technical Clarity & Thesis Communication:**
+   - Communicate the core thesis directly: how content-based instance regression over a unified coordinate space yields defensible, tariff-protected pricing under strict hardware bounds.
+   - Eliminate defensive caveats or meta-commentary about document guidelines. State technical facts, invariants, and findings authoritatively without padding.
+
+8. **Chapter 5 Empirical Isolation:**
+   - Chapter 5 is an empirical validation and system accounting chapter, not a design review.
+   - Confine Section 5.3 to data preparation specifics, Out-of-Time split verification, ablation benchmark metrics, and holdout evaluation evidence.
+
 ## 2. Evidence-First Presentation: The Narrative–Diagram–Interpretation Triad
 
 Every figure, graph, or visual model in Chapter 4 and Chapter 5 must follow the strict institutional presentation sequence:
