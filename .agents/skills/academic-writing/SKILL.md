@@ -61,3 +61,38 @@ Every figure, graph, or visual model in Chapter 4 and Chapter 5 must follow the 
 - **Inverse Distance Weighting (IDW) Kernel:** $w_k = \frac{1}{(d_k)^p + \epsilon}$ normalized as $\bar{w}_k = \frac{w_k}{\sum_{m=1}^k w_m}$.
 - **Pricing Corridor Bounds:** $[r_{\min}, r_{\max}]$ where $r_{\min} = \max(r_{\text{floor}}, \hat{r}_{\text{base}} - z \sigma_{\text{peer}})$ and $r_{\max} = \hat{r}_{\text{base}} + z \sigma_{\text{peer}}$.
 - **Final Tariff-Protected Quote:** $\hat{r}_{\text{final}} = \hat{r}_{\text{base}} + \tau(\hat{r}_{\text{base}})$.
+
+## 4. Version Control & Implementation Evidence Invariants (Section 5.4)
+
+When drafting or refining Section 5.4 (Version Control and Implementation Evidence), adhere to Strathmore University institutional guidelines:
+
+1. **Canonical 7-Subsection Structure:**
+   Section 5.4 must strictly comprise:
+   - `5.4.1 Repository Setup and Access`
+   - `5.4.2 Task Planning and Tracking`
+   - `5.4.3 Branching Strategy`
+   - `5.4.4 Commits and Development History`
+   - `5.4.5 Review and Integration`
+   - `5.4.6 Project Organisation and Reproducibility`
+   - `5.4.7 Hosting and Deployment`
+
+2. **Strict Space Budgeting (4–6 Pages Maximum):**
+   - The entire Section 5.4 must occupy between 4 and 6 pages in standard A4 formatting.
+   - Limit visual evidence to 4–6 high-value, tightly-cropped screenshots.
+   - Every screenshot with its caption must occupy less than half a report page.
+
+3. **The Four-Step Paragraph-and-Figure Evidence Pattern:**
+   Every subsection must feature:
+   - Practice justification (why the methodology suited this project).
+   - Concrete project instance (exact issue numbers, branch names, commit hashes, or PR numbers).
+   - Numbered figure callout.
+   - Evidence interpretation (what technical guarantee or workflow rigor is proved).
+
+4. **Concrete Traceability & Zero Textbook Filler:**
+   - Never define Git, branches, or CI in the abstract.
+   - Trace concrete links: Issue -> Branch -> Commit -> Pull Request -> Automated CI -> Deployment.
+
+5. **Repository Hygiene & Safe Configuration:**
+   - Document `.gitignore` rules preventing secret keys, `.env` files, build caches, and private raw data ingestion from entering version history.
+   - Cite the open-source license (MIT License) and link the repository using the exact anchor label *"Project repository"*.
+
