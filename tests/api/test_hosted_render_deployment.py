@@ -26,6 +26,7 @@ class HostedRenderDeploymentTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parents[2]
         cls.render_yaml_path = cls.repo_root / "render.yaml"
+        cls.dockerfile_path = cls.repo_root / "Dockerfile"
 
         cls.tmp_dir = tempfile.mkdtemp()
         cls.artifact_dir = os.path.join(cls.tmp_dir, "artifacts")
@@ -129,6 +130,8 @@ class HostedRenderDeploymentTests(unittest.TestCase):
 
         self.assertIn("type: web", content)
         self.assertIn("name: price-optimization-service", content)
+        self.assertIn("env: docker", content)
+        self.assertIn("dockerfilePath: ./Dockerfile", content)
         self.assertIn("healthCheckPath: /health", content)
         self.assertIn("src.api.hosted:app", content)
         self.assertIn("$PORT", content)
@@ -136,6 +139,24 @@ class HostedRenderDeploymentTests(unittest.TestCase):
         self.assertIn("SEED_PLATFORM_MENTORS", content)
         self.assertIn("PRICING_TARIFF_SHA256", content)
         self.assertIn("PRICING_ARTIFACT_MANIFEST_SHA256", content)
+
+    def test_dockerfile_render_specifications(self) -> None:
+        self.assertTrue(self.dockerfile_path.is_file(), "Dockerfile must exist at repo root")
+        content = self.dockerfile_path.read_text(encoding="utf-8")
+
+        # Render requirement: must bind to host 0.0.0.0
+        self.assertIn("--host", content)
+        self.assertIn("0.0.0.0", content)
+        # Render requirement: dynamic port binding via PORT variable (default 10000)
+        self.assertIn("PORT", content)
+        self.assertIn("10000", content)
+        self.assertIn("EXPOSE 10000", content)
+        # Non-root user execution
+        self.assertIn("USER pricing", content)
+        # Dynamic module dispatch supporting hosted on Render and deployment in CI
+        self.assertIn("APP_MODULE", content)
+        self.assertIn("src.api.hosted:app", content)
+        self.assertIn("src.api.deployment:app", content)
 
     def test_hosted_service_health_and_ready(self) -> None:
         app = create_hosted_app()
