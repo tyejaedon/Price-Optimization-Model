@@ -5,7 +5,8 @@ and 300 DPI raster (PNG) figures for inclusion in Chapter 5 of the Strathmore
 University undergraduate dissertation (Munyua, 2026).
 
 Figures Generated:
-1. Fig 5.2: Multi-Source Data Ingestion & 53-D Coordinate Fusion Pipeline
+1. Fig 5.1: Multi-Tier Hardware and Deployment Infrastructure Architecture
+2. Fig 5.2: Multi-Source Data Ingestion & 53-D Coordinate Fusion Pipeline
 2. Fig 5.3: Latent SVD Dimensionality vs Performance & Resource Pareto Frontier
 3. Fig 5.4: Multi-Model Architecture & Ensemble Benchmark Comparison
 4. Fig 5.5: Target Transformation Residual Dynamics & Asymmetric Economic Risk
@@ -226,40 +227,46 @@ def generate_fig5_6_subgroup_performance() -> None:
     x = np.arange(len(domains))
     width = 0.35
 
-    fig, ax1 = plt.subplots(figsize=(7.8, 4.4))
+    # Increased vertical height from 4.4 to 5.8 for greater visual clarity on A4 page
+    fig, ax1 = plt.subplots(figsize=(8.2, 5.8))
 
-    color_r2 = "#2b6cb0"
-    color_rate = "#2c5282"
-
-    bars = ax1.bar(x - width/2, r2_scores, width, label="Holdout $R^2$ Score", color="#3182ce", edgecolor="#1a365d")
-    ax1.set_ylabel("Determination Coefficient ($R^2$)", color="#1a365d")
+    # Bar chart for R^2 Scores with enhanced contrast and larger font
+    bars = ax1.bar(x - width/2, r2_scores, width, label="Holdout $R^2$ Score", color="#3182ce", edgecolor="#1a365d", linewidth=1.2)
+    ax1.set_ylabel("Determination Coefficient ($R^2$)", color="#1a365d", fontsize=11.5, fontweight="bold", labelpad=8)
     ax1.set_ylim(0.65, 0.95)
-    ax1.tick_params(axis="y", labelcolor="#1a365d")
+    ax1.tick_params(axis="y", labelcolor="#1a365d", labelsize=10.5)
     ax1.set_xticks(x)
-    ax1.set_xticklabels([f"{d}\n(N={n})" for d, n in zip(domains, sample_counts)])
-    ax1.grid(axis="y", linestyle="--", alpha=0.5)
+    ax1.set_xticklabels([f"{d}\n(N = {n:,})" for d, n in zip(domains, sample_counts)], fontsize=10.5, fontweight="bold")
+    ax1.grid(axis="y", linestyle="--", alpha=0.5, linewidth=0.8)
 
+    # Increased data label font size on bars
     for bar in bars:
         h = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2, h + 0.01, f"{h:.3f}", ha="center", fontsize=8.5, fontweight="bold")
+        ax1.text(bar.get_x() + bar.get_width()/2, h + 0.008, f"{h:.3f}", ha="center", va="bottom", fontsize=10.5, fontweight="bold", color="#1a365d")
 
+    # Secondary axis for Market Rate Median and IQR spread
     ax2 = ax1.twinx()
     err_low = [m - q[0] for m, q in zip(medians, q1_q3)]
     err_high = [q[1] - m for m, q in zip(medians, q1_q3)]
     pts = ax2.errorbar(
         x + width/2, medians, yerr=[err_low, err_high], fmt="s", color="#c53030",
-        ecolor="#e53e3e", elinewidth=2, capsize=5, label="Market Rate Median & IQR (KES/hr)"
+        ecolor="#e53e3e", elinewidth=2.5, capsize=7, capthick=2, markersize=8.5,
+        label="Market Rate Median & IQR (KES/hr)"
     )
-    ax2.set_ylabel("Hourly Compensation (KES/hr)", color="#c53030")
-    ax2.tick_params(axis="y", labelcolor="#c53030")
+    ax2.set_ylabel("Hourly Compensation (KES/hr)", color="#c53030", fontsize=11.5, fontweight="bold", labelpad=8)
+    ax2.tick_params(axis="y", labelcolor="#c53030", labelsize=10.5)
     ax2.set_ylim(0, 7500)
 
-    # Combined legend
-    lines = [bars, pts]
-    labels = ["Holdout $R^2$ Score", "Median & IQR Spread (KES/hr)"]
-    ax1.legend(lines, labels, loc="upper right", framealpha=0.9)
+    # Added explicit median rate callout labels above markers for immediate readability
+    for xi, m in zip(x, medians):
+        ax2.text(xi + width/2, m + 220, f"{m:,}\nKES/hr", ha="center", va="bottom", fontsize=9.5, fontweight="bold", color="#9b2c2c")
 
-    plt.title("Figure 5.6: Subgroup Performance and Generalization Across Industry Partitions")
+    # Combined legend with increased font
+    lines = [bars, pts]
+    labels = ["Holdout $R^2$ Score (Left Axis)", "Market Rate Median & IQR Spread (Right Axis)"]
+    ax1.legend(lines, labels, loc="upper right", fontsize=10.5, framealpha=0.92, edgecolor="#cbd5e0")
+
+    plt.title("Figure 5.6: Subgroup Performance and Generalization Across Industry Partitions", fontsize=12.5, fontweight="bold", pad=14)
     save_figure(fig, "fig5_6_subgroup_domain_performance")
 
 
@@ -527,8 +534,124 @@ def generate_fig5_10_drift_governance() -> None:
     save_figure(fig, "fig5_10_mlops_drift_governance")
 
 
+def generate_fig5_1_hardware_deployment_architecture():
+    """Figure 5.1: Multi-Tier Hardware and Deployment Infrastructure Architecture."""
+    fig, ax = plt.subplots(figsize=(11.5, 7.2))
+    ax.axis("off")
+    ax.set_xlim(0, 11.5)
+    ax.set_ylim(0, 7.2)
+
+    def draw_tier_container(x, y, w, h, title, subtitle="", fc="#f8fafc", ec="#cbd5e1"):
+        rect = patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.12", fc=fc, ec=ec, lw=1.5)
+        ax.add_patch(rect)
+        ax.text(x + w/2, y + h - 0.28, title, ha="center", va="center", fontsize=9.5, fontweight="bold", color="#0f172a")
+        if subtitle:
+            ax.text(x + w/2, y + h - 0.52, subtitle, ha="center", va="center", fontsize=7.2, color="#475569", style="italic")
+
+    def draw_box(x, y, w, h, text, title="", fc="#ffffff", ec="#94a3b8", lw=1.0):
+        rect = patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.06", fc=fc, ec=ec, lw=lw)
+        ax.add_patch(rect)
+        if title:
+            ax.text(x + w/2, y + h - 0.20, title, ha="center", va="center", fontsize=8.0, fontweight="bold", color="#1e293b")
+            ax.text(x + w/2, y + (h - 0.20)/2, text, ha="center", va="center", fontsize=7.0, color="#334155")
+        else:
+            ax.text(x + w/2, y + h/2, text, ha="center", va="center", fontsize=7.5, color="#1e293b")
+
+    def draw_arrow(x1, y1, x2, y2, label="", color="#334155", ls="-", lw=1.2, rad=0.0, label_offset=(0, 0.15)):
+        connectionstyle = f"arc3,rad={rad}" if rad != 0.0 else "arc3,rad=0"
+        ax.annotate(
+            "", xy=(x2, y2), xytext=(x1, y1),
+            arrowprops=dict(
+                arrowstyle="-|>",
+                color=color,
+                lw=lw,
+                ls=ls,
+                mutation_scale=11,
+                connectionstyle=connectionstyle,
+                shrinkA=3,
+                shrinkB=3,
+            )
+        )
+        if label:
+            mx, my = (x1 + x2) / 2 + label_offset[0], (y1 + y2) / 2 + label_offset[1]
+            ax.text(mx, my, label, ha="center", va="center", fontsize=6.8, fontweight="bold", color=color,
+                    bbox=dict(boxstyle="round,pad=0.15", fc="#ffffff", ec="#e2e8f0", lw=0.6, alpha=0.9))
+
+    # --- TIER 1: Engineering Workstation (Left) ---
+    draw_tier_container(0.3, 0.4, 3.2, 6.4, "Tier 1: Engineering Workstation (Host: Vesemir)", 
+                        "AMD Ryzen 5 5625U (12 Threads) | 8.00 GB RAM | Win 11 Pro", fc="#f1f5f9", ec="#94a3b8")
+    
+    draw_box(0.5, 4.7, 2.8, 1.3, "JetBrains IDE / Android Studio\nGradle Daemons & Android AVD\nKotlin 1.9 & Java 17 Toolchain",
+             title="Development & Build Toolchain", fc="#ffffff", ec="#3b82f6")
+
+    draw_box(0.5, 2.7, 2.8, 1.4, "Chronological OOT Temporal Splits\nTF-IDF & 50-D Truncated SVD\nDomain Partitioning (4 Disciplines)\nOutputs Immutable .joblib Bundles",
+             title="Offline Model Training Pipeline", fc="#eff6ff", ec="#2563eb", lw=1.2)
+
+    draw_box(0.5, 0.8, 2.8, 1.3, "Pinned Single-Core Profiles:\nOPENBLAS_NUM_THREADS=1\nOMP_NUM_THREADS=1, MKL=1\nEliminates CPU Contention",
+             title="Deterministic Threading Control", fc="#ffffff", ec="#64748b")
+
+    # --- TIER 2: Cloud Inference Microservice (Center) ---
+    draw_tier_container(4.0, 0.4, 3.4, 6.4, "Tier 2: Cloud Production Microservice",
+                        "Render PaaS (Frankfurt EU) | Linux AMD64 | 512 MB Memory Limit", fc="#f8fafc", ec="#64748b")
+
+    draw_box(4.2, 5.0, 3.0, 1.1, "Validates SHA-256 Manifest Pin\nValidates M-Pesa Tariff Pin\nAborts Startup on Divergence",
+             title="Startup Cryptographic Gate", fc="#fef2f2", ec="#dc2626", lw=1.2)
+
+    draw_box(4.2, 2.8, 3.0, 1.6, "FastAPI + Uvicorn ASGI Server\nUnprivileged System User (UID 10001)\nDual Ingress Request Routing\nPydantic v2 Contract Validation\nNon-blocking Async Event Loop",
+             title="Stateless ASGI Inference Gateway", fc="#f0fdf4", ec="#16a34a", lw=1.2)
+
+    draw_box(4.2, 0.8, 3.0, 1.4, "Resident In-Memory Coordination\n53-D Vector Space Fusion\nPartitioned KD-Trees & IDW Regression\nSub-15ms Warmed Latency",
+             title="Resident Spatial Scoring Engine", fc="#eff6ff", ec="#2563eb", lw=1.2)
+
+    # --- TIER 3: Distributed Persistence & Edge Client Layer (Right) ---
+    draw_tier_container(7.9, 0.4, 3.3, 6.4, "Tier 3: Persistence & Edge Client Layer",
+                        "Google Cloud Platform & Multi-Platform Ingress Clients", fc="#f1f5f9", ec="#94a3b8")
+
+    # Tier 3 Subgroup: GCP
+    draw_box(8.1, 5.1, 2.9, 1.1, "priceoptimizationmodel\n/mentors | /pricing_audits\n/historical_transactions",
+             title="Cloud Firestore Database", fc="#fffbeb", ec="#d97706", lw=1.1)
+
+    draw_box(8.1, 3.9, 2.9, 0.9, "Issues & Validates Bearer JWTs\nCryptographic RS256 Verification",
+             title="Firebase Auth Authority", fc="#fffbeb", ec="#d97706", lw=1.1)
+
+    # Tier 3 Subgroup: Clients
+    draw_box(8.1, 2.5, 2.9, 1.0, "Career Mentor OS Platform Adapter\nConsumes POST /price (4-Key DTO)\nX-Platform-Key Header Ingress",
+             title="Platform Client Adapter", fc="#f8fafc", ec="#475569")
+
+    draw_box(8.1, 0.7, 2.9, 1.4, "Android 10+ (API 29–35)\nJetpack Compose UI & Coroutines\nConsumes POST /api/v1/optimize-price\nVia Secure TLS 1.3 ngrok Tunnel",
+             title="Edge Mobile Client (Android)", fc="#f0f9ff", ec="#0284c7")
+
+    # --- CONNECTIONS & DATA FLOWS ---
+    # 1. Training to Crypto Gate
+    draw_arrow(3.3, 3.4, 4.2, 5.5, label="Deploys Immutable Weights\n(SHA-256 Verifier)", color="#1d4ed8", ls="--", rad=0.15, label_offset=(-0.1, 0.2))
+
+    # 2. Gate to ASGI Server
+    draw_arrow(5.7, 5.0, 5.7, 4.4, label="Integrity Passed", color="#16a34a", rad=0.0, label_offset=(0.4, 0.0))
+
+    # 3. ASGI to Spatial Engine
+    draw_arrow(5.7, 2.8, 5.7, 2.2, label="Sub-15ms Scoring", color="#2563eb", rad=0.0, label_offset=(0.48, 0.0))
+
+    # 4. Spatial Engine to Firestore (Telemetry)
+    draw_arrow(7.2, 1.5, 8.1, 5.4, label="Async Non-Blocking Telemetry", color="#d97706", ls="-", rad=-0.25, label_offset=(0.0, -0.2))
+
+    # 5. Platform Client to ASGI Gateway
+    draw_arrow(8.1, 3.0, 7.2, 3.6, label="POST /price (Platform Key)", color="#334155", rad=-0.08, label_offset=(-0.05, 0.2))
+
+    # 6. Mobile Client to ASGI Gateway
+    draw_arrow(8.1, 1.4, 7.2, 3.2, label="POST /optimize-price (JWT via TLS 1.3)", color="#0284c7", rad=0.15, label_offset=(-0.05, -0.22))
+
+    # 7. Firebase Auth to ASGI Gateway
+    draw_arrow(8.1, 4.3, 7.2, 3.9, label="Verifies JWT", color="#d97706", ls=":", rad=0.05, label_offset=(-0.1, 0.18))
+
+    fig.suptitle("Figure 5.1: Multi-Tier Hardware and Deployment Infrastructure Architecture",
+                 fontsize=11.5, fontweight="bold", y=0.98, color="#0f172a")
+
+    save_figure(fig, "fig5_1_hardware_deployment_architecture")
+
+
 def main() -> None:
     print(f"Generating publication-grade figures in: {OUTPUT_DIR}")
+    generate_fig5_1_hardware_deployment_architecture()
     generate_fig5_2_coordinate_pipeline()
     generate_fig5_3_svd_pareto()
     generate_fig5_4_architecture_benchmark()
@@ -538,7 +661,7 @@ def main() -> None:
     generate_fig5_8_pricing_corridor_mpesa()
     generate_fig5_9_latency_profile()
     generate_fig5_10_drift_governance()
-    print("Figure generation complete: All 9 figures generated.")
+    print("Figure generation complete: All 10 figures generated.")
 
 
 if __name__ == "__main__":
