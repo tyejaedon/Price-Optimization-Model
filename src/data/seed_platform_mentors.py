@@ -244,7 +244,20 @@ def load_platform_records(
     if candidate_path.endswith(".parquet"):
         import pandas as pd
         df = pd.read_parquet(candidate_path)
-        return df.to_dict(orient="records")
+        records = df.to_dict(orient="records")
+        if include_vocational and os.path.exists(os.path.join(DEFAULT_CACHE_DIR, "mentors.csv")):
+            seen_ids = {
+                str(r.get("platform_mentor_profile_id") or r.get("profile_id") or "")
+                for r in records
+            }
+            with open(os.path.join(DEFAULT_CACHE_DIR, "mentors.csv"), "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    pid = str(row.get("mentor_profile_id") or "").strip()
+                    if pid and pid not in seen_ids:
+                        records.append(dict(row))
+                        seen_ids.add(pid)
+        return records
 
     if candidate_path.endswith(".csv"):
         records: List[Dict[str, Any]] = []
@@ -252,6 +265,18 @@ def load_platform_records(
             reader = csv.DictReader(f)
             for row in reader:
                 records.append(dict(row))
+        if include_vocational and os.path.exists(os.path.join(DEFAULT_CACHE_DIR, "mentors.csv")):
+            seen_ids = {
+                str(r.get("platform_mentor_profile_id") or r.get("profile_id") or r.get("mentor_profile_id") or "")
+                for r in records
+            }
+            with open(os.path.join(DEFAULT_CACHE_DIR, "mentors.csv"), "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    pid = str(row.get("mentor_profile_id") or "").strip()
+                    if pid and pid not in seen_ids:
+                        records.append(dict(row))
+                        seen_ids.add(pid)
         return records
 
     raise ValueError(f"Unsupported corpus file type: {candidate_path}")
@@ -321,6 +346,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Do not create user_id alias profiles for mentor_profile_id",
     )
     parser.add_argument(
+        "--no-vocational",
+        action="store_true",
+        help="Exclude vocational mentors from repository seeding",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output summary as JSON",
@@ -338,6 +368,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         repo,
         source=args.corpus,
         create_user_aliases=not args.no_aliases,
+        include_vocational=not args.no_vocational,
     )
     if args.json:
         print(json.dumps(summary, indent=2))

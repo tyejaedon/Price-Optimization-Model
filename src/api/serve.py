@@ -344,7 +344,7 @@ def create_app(
     if seed_platform_mentors or os.getenv("SEED_PLATFORM_MENTORS", "").strip().lower() in {"1", "true", "yes"}:
         try:
             from src.data.seed_platform_mentors import seed_platform_mentor_profiles
-            seed_platform_mentor_profiles(dependencies.repository)
+            seed_platform_mentor_profiles(dependencies.repository, include_vocational=True)
         except Exception as exc:
             logger.warning("Auto-seeding platform mentor profiles failed: %s", exc)
 

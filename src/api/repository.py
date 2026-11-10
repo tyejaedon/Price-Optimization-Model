@@ -82,6 +82,11 @@ class Repository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Read a mentor profile by document ID without requiring caller UID ownership."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Match stored ``auth_uid`` to a caller-verified UID, or reject the read.
 
@@ -161,6 +166,12 @@ class InMemoryRepository(Repository):
     def delete_profile(self, profile_id: str) -> bool:
         """Remove a local mentor and report whether it existed; do not cascade."""
         return self._profiles.pop(profile_id, None) is not None
+
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Return a copy of a profile by ID if present, otherwise None."""
+        _document_id(profile_id, "profile_id")
+        profile = self._profiles.get(profile_id)
+        return deepcopy(profile) if profile is not None else None
 
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Return a copy only for the stored owner UID; missing mentors yield None."""
@@ -280,6 +291,15 @@ class FirestoreRepository(Repository):
         """Delete a mentor without cascading; return True even if it was absent."""
         self._timed(lambda: self._client.collection("mentors").document(profile_id).delete())
         return True
+
+    def get_profile(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Read one mentor by document ID without UID ownership restriction."""
+        _document_id(profile_id, "profile_id")
+        snapshot = self._timed(lambda: self._client.collection("mentors").document(profile_id).get())
+        if not snapshot.exists:
+            return None
+        profile = snapshot.to_dict() or {}
+        return {**deepcopy(profile), "profile_id": profile_id}
 
     def get_mentor(self, mentor_id: str, verified_uid: str) -> Optional[Dict[str, Any]]:
         """Read one mentor and enforce stored UID ownership; propagate backend failures."""
