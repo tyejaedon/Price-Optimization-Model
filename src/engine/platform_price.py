@@ -109,6 +109,10 @@ def _require_platform_key(provided: Optional[str]) -> None:
 
 def _profile_for(repository: Any, mentor_id: str) -> Dict[str, Any]:
     try:
+        if hasattr(repository, "get_profile"):
+            direct = repository.get_profile(mentor_id)
+            if direct:
+                return direct
         for profile in repository.list_profiles():
             pid = str(profile.get("profile_id", ""))
             metadata = profile.get("metadata") or {}
@@ -185,6 +189,7 @@ def _resolve_query(
     metadata = profile.get("metadata") or {}
 
     resolved = {
+        "mentor_id": request.mentor_id,
         "raw_description": request.raw_description or metadata.get("raw_description"),
         "selected_industry": request.selected_industry or metadata.get("selected_industry"),
         "mentor_country": request.mentor_country or profile.get("country_code"),
@@ -192,7 +197,7 @@ def _resolve_query(
         or metadata.get("client_country")
         or DEFAULT_CLIENT_COUNTRY,
     }
-    missing = sorted(key for key, value in resolved.items() if not value)
+    missing = sorted(key for key, value in resolved.items() if not value and key != "mentor_id")
     if missing:
         raise HTTPException(
             status_code=422,

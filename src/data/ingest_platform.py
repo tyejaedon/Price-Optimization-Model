@@ -532,6 +532,9 @@ def export_platform_records_csv(records: List[Dict[str, Any]], output_path: str)
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse fetch/offline cache, output, conversion-anchor, and summary options."""
     parser = argparse.ArgumentParser(description="Fetch the Career Mentor OS platform dataset and harmonize its mentors for pricing.")
+    parser.add_argument("--base-url", default=None, help="override platform API base URL")
+    parser.add_argument("--email", default=None, help="platform account email")
+    parser.add_argument("--password", default=None, help="platform account password")
     parser.add_argument("--cache-dir", default=DEFAULT_CACHE_DIR, help="where the raw CSVs are written and read")
     parser.add_argument("--offline", action="store_true", help="read the cache directory; do not call the platform API")
     parser.add_argument("--output-csv", default=DEFAULT_OUTPUT_CSV)
@@ -551,7 +554,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
 
     if not args.offline:
-        client = PlatformDatasetClient.from_env()
+        base_url = args.base_url or os.getenv(PLATFORM_BASE_URL_ENV, DEFAULT_PLATFORM_BASE_URL)
+        email = args.email or os.getenv(PLATFORM_EMAIL_ENV, "")
+        password = args.password or os.getenv(PLATFORM_PASSWORD_ENV, "")
+        client = PlatformDatasetClient(base_url=base_url, email=email, password=password)
         try:
             fetched = client.fetch_all(args.cache_dir)
         finally:

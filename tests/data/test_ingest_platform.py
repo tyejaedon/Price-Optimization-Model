@@ -197,6 +197,19 @@ class PlatformIngestTests(unittest.TestCase):
             self.assertEqual(summary["excluded_by_reason"]["out_of_scope_category"], 2)
             self.assertEqual(summary["median_listed_hourly_rate_kes"], 5000.0)
 
+    def test_parse_args_cli_credentials(self) -> None:
+        from src.data.ingest_platform import parse_args
+        args = parse_args([
+            "--email", "client@career-mentor-os.co.ke",
+            "--password", "Client2026!",
+            "--base-url", "https://api-career-mentor.webmasterskenya.com/api/v1",
+            "--offline",
+        ])
+        self.assertEqual(args.email, "client@career-mentor-os.co.ke")
+        self.assertEqual(args.password, "Client2026!")
+        self.assertEqual(args.base_url, "https://api-career-mentor.webmasterskenya.com/api/v1")
+        self.assertTrue(args.offline)
+
 
 if __name__ == "__main__":
     unittest.main()
