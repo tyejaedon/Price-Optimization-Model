@@ -693,3 +693,239 @@ To synthesize the empirical outcomes across the experimental evaluation phases, 
 | **Resource & Latency Containment**<br>*(Constrained Microservice Host)* | NFR-01: $P_{95} < 250\text{ ms}$<br>Render RAM limit: $512\text{ MB}$<br>MiniLM 384D: $185\text{ ms}, 420\text{ MB}$ | **$P_{95} = 7.37\text{ ms}$** (Single-threaded)<br>**Resident RAM: $18.4\text{ MB}$** ($n=50$ SVD subspace) | **Sustainable Cloud Deployment.** Operates within $<4\%$ of total latency ceiling and $3.6\%$ of container memory threshold, ensuring high concurrency without OOM crash risk. |
 
 The synthesis matrix confirms that the engineering choices adopted throughout implementation satisfy the research thesis without compromise. Although unconstrained tree ensembles and neural transformers achieve marginally higher raw predictive scores, their severe operational penalties—complete opacity in pricing justification, multi-hundred-millisecond CPU latency, and excessive memory footprints exceeding container bounds—render them impractical for deployment in emerging digital gig markets. The 53-dimensional coordinate space combined with domain-partitioned KD-Tree spatial indexing successfully operationalizes an optimal Pareto-efficient trade-off: delivering high predictive accuracy, bounded sub-15ms deterministic execution, complete instance-level peer transparency, and automated financial tariff insulation.
+
+## 5.4 Version Control and Implementation Evidence
+
+To guarantee academic rigor, full reproducibility, and engineering auditability, all software components, empirical experiment suites, and architectural documentation were managed under strict version control protocols. The complete implementation history, issue tracking ledgers, branch workflows, automated verification suites, and deployment configurations are publicly accessible in the [Project repository](https://github.com/tyejaedon/Price-Optimization-Model). This section provides comprehensive evidence of the version control practices, task tracking workflows, continuous integration pipelines, and cloud hosting infrastructure that governed the development lifecycle of the price optimization system.
+
+### 5.4.1 Repository Setup and Access
+
+The project utilized Git for local distributed version control and GitHub as the centralized cloud hosting and collaboration platform. Hosting the project on GitHub provided an immutable development ledger, streamlined branch integration, automated continuous integration pipelines, and complete visibility for academic supervision. The supervisor was granted direct access to review the codebase, commit chronology, test suites, and project milestones. The repository was configured under the permissive open-source MIT License, ensuring that all algorithmic pipelines and evaluation benchmarks remain publicly inspectable, auditable, and reusable for ongoing academic research in algorithmic wage determination.
+
+The top-level repository structure was organized to decouple source logic, documentation, test fixtures, and execution environments. As illustrated in Figure 5.11, the screenshot captures the public repository header (`tyejaedon/Price-Optimization-Model`), the open-source MIT License badge, the default `master` branch identifier, and the structured root directory layout. A comprehensive root configuration establishes standardized entry points, including a detailed setup manual (`README.md`), automated linting and continuous integration definitions (`.github/`), core algorithmic packages (`src/`), verification suites (`tests/`), and declarative infrastructure blueprints (`render.yaml`).
+
+```mermaid
+graph TD
+    subgraph Repo_Root["Project Repository Architecture: tyejaedon/Price-Optimization-Model (Public | MIT License)"]
+        D1[".github/
+Issue Templates & CI Workflows"]
+        D2["src/
+Core ML, KD-Tree, IDW & APIs"]
+        D3["tests/
+Unit, Integration & Benchmarks"]
+        D4["docs/
+Thesis Chapters, Blueprints & Figures"]
+        D5["scripts/
+Evaluation & Figure Generation"]
+        D6["config/
+Environment & Tariff Rules"]
+        M1["pyproject.toml & requirements.txt
+Pinned Deterministic Dependencies"]
+        M2["render.yaml
+Infrastructure-as-Code Deployment Blueprint"]
+        M3[".gitignore & .env.example
+Secret Elimination & Hygiene Invariants"]
+    end
+```
+
+##### Figure 5.11: Project Repository Architecture and Access Overview
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_11_repository_setup_overview.png`](figures/fig5_11_repository_setup_overview.png)).*
+
+![Figure 5.11: Project Repository Architecture and Access Overview](figures/fig5_11_repository_setup_overview.png)
+
+The repository overview confirms clean project organization, unambiguous licensing, and comprehensive documentation coverage. The root directory exposes essential project manifests including `pyproject.toml`, `requirements.txt`, `render.yaml`, and modular documentation directories. By establishing a centralized and transparent repository structure from project inception, the development lifecycle maintained complete auditability across all research deliverables, ensuring that every algorithmic refinement documented in Chapters 4 and 5 directly corresponds to committed software artifacts.
+
+### 5.4.2 Task Planning and Tracking
+
+To translate theoretical research requirements into manageable, verifiable engineering increments, implementation tasks were structured according to Feature-Driven Development (FDD) principles and tracked using GitHub Issues and GitHub Projects. The overarching dissertation goals were decomposed into sixteen discrete milestones (designated M1 through M16). Milestones M1 through M15 governed core thesis deliverables—spanning data ingestion, NLP coordinate projection, KD-tree spatial search, pricing corridor boundaries, and mobile client integration—while Milestone 16 was isolated for advanced algorithmic exploration and MLOps scaling. Implementation tasks were captured using structured YAML issue templates (`.github/ISSUE_TEMPLATE/`) that enforced standardized acceptance criteria, workstream labeling, and milestone alignment.
+
+Individual tasks were tracked across a visual GitHub Projects Kanban board containing discrete progress states: Backlog, To Do, In Progress, and Done. As illustrated in Figure 5.12, the screenshot captures the project Kanban board across active progress columns, prominently displaying milestone-tagged issue cards. Specifically, Issue #173 formalized the requirements and acceptance criteria for deploying the hosted pricing microservice on Render under Milestone M13, Issue #174 defined strict scope boundary enforcement for vocational mentor profiles under Milestone M10, and Issue #187 defined the analytical formulation of the pricing corridor geometry under Milestone M15.
+
+```mermaid
+flowchart LR
+    subgraph Kanban["GitHub Projects Kanban Board: Milestone Issue Traceability"]
+        direction TB
+        subgraph Col1["Backlog / To Do"]
+            I187["Issue #187: M15.6 Corridor Geometry
+Milestone: M15 Systems Evaluation"]
+            I188["Issue #188: Seed Platform Corpus
+Milestone: M11 Data Ingestion"]
+        end
+        subgraph Col2["In Progress"]
+            I174["Issue #174: M10.8 Scope Validation
+Milestone: M10 Core Platform API"]
+        end
+        subgraph Col3["Done"]
+            I173["Issue #173: M13.4 Render Deployment
+Milestone: M13 Cloud Hosting"]
+            I175["Issue #175: M15.1 Platform Benchmarks
+Milestone: M15 Systems Evaluation"]
+            I86["Issue #86: M14.2 3G Latency Benchmarks
+Milestone: M14 Mobile Validation"]
+        end
+    end
+```
+
+##### Figure 5.12: GitHub Projects Task Board and Milestone Tracking Matrix
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_12_task_board_milestones.png`](figures/fig5_12_task_board_milestones.png)).*
+
+![Figure 5.12: GitHub Projects Task Board and Milestone Tracking Matrix](figures/fig5_12_task_board_milestones.png)
+
+The task board evidence demonstrates systematic progression from theoretical problem formulation to verified code delivery. By organizing tasks into atomic issues with explicit acceptance criteria, scope creep was eliminated and developmental velocity remained quantifiable. The explicit segregation between core degree milestones (M1–M15) and speculative exploratory advisory investigations (M16) preserved structural isolation, ensuring that mandatory academic requirements were prioritized and completed before experimental optimizations commenced.
+
+### 5.4.3 Branching Strategy
+
+A disciplined branching model based on GitHub Flow was enforced across the entire development lifecycle. Direct commits to the primary production trunk (`master`) were prohibited, preventing unstable code or untested algorithmic experiments from degrading the baseline. Every feature, architectural refactoring, empirical test suite, or documentation update was developed within an isolated, short-lived branch branched directly from updated trunk history.
+
+Branches adhered strictly to a canonical naming convention `<type>/<issue-number>-<slug>`, programmatically linking the isolated workspace to its governing GitHub issue. As illustrated in Figure 5.13, the screenshot captures the branch network and active branch ledger, highlighting the protected `master` trunk alongside isolated working branches. Specifically, branch `refactor/168-compartmentalize-src-tests` isolated foundational structural refactoring for Issue #168—decoupling application logic in `src/` from verification suites in `tests/` without breaking runtime imports—while feature branch `feature/175-platform-mentor-corpus-benchmark` encapsulated empirical benchmarking against the 52 in-scope platform mentor profiles for Issue #175 under Milestone M15.1.
+
+```mermaid
+gitGraph
+    commit id: "init"
+    commit id: "baseline"
+    branch refactor/168-compartmentalize-src-tests
+    checkout refactor/168-compartmentalize-src-tests
+    commit id: "isolate-src"
+    commit id: "align-tests"
+    checkout master
+    merge refactor/168-compartmentalize-src-tests id: "merge-#168"
+    branch feature/175-platform-mentor-corpus-benchmark
+    checkout feature/175-platform-mentor-corpus-benchmark
+    commit id: "benchmark-52"
+    commit id: "corpus-eval"
+    checkout master
+    merge feature/175-platform-mentor-corpus-benchmark id: "merge-#194"
+    commit id: "current-trunk"
+```
+
+##### Figure 5.13: Feature Branch Lifecycle and Issue Traceability Protocol
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_13_branching_strategy.png`](figures/fig5_13_branching_strategy.png)).*
+
+![Figure 5.13: Feature Branch Lifecycle and Issue Traceability Protocol](figures/fig5_13_branching_strategy.png)
+
+The branching evidence proves rigorous separation of concerns and safe parallel development. By isolating structural reorganization within `refactor/168-compartmentalize-src-tests` and empirical evaluations within `feature/175-platform-mentor-corpus-benchmark`, developmental experiments and codebase refactoring proceeded without endangering the operational integrity of the main pipeline. Furthermore, this branching taxonomy established bidirectional traceability between academic requirements and physical code changes.
+
+### 5.4.4 Commits and Development History
+
+Code changes within each branch were recorded as atomic, focused commits conforming to the Conventional Commits specification. Rather than bundling unrelated modifications into ambiguous checkpoint saves, every commit captured a single logical change paired with an imperative, descriptive commit message. Commit headers followed the canonical syntax `<type>(<scope>): <subject> (Closes #<issue>)`, clearly communicating the intent, affected module, and linked milestone.
+
+Representative commit records demonstrate this standard across developmental phases. As illustrated in Figure 5.14, the screenshot captures the chronological commit ledger, displaying atomic Conventional Commits with explicit 7-character commit hashes, issue closure linkage, and verified author timestamps. For instance, commit `0881953` (`feat(deployment): M13.4 deploy hosted pricing service on Render with PLATFORM_PRICE_KEY (#173)`) recorded the operational deployment configuration, commit `ca95bee` (`feat(api): M10.8 handle vocational mentors as outside scope on POST /price (Closes #174)`) integrated defensive input filters, and commit `02d2636` (`test(evaluation): M15.1 benchmark pricing against 52 in-scope platform mentors (Closes #175)`) added validation test suites.
+
+```mermaid
+flowchart TD
+    subgraph Commit_Chronology["Atomic Conventional Commit History & Verification Ledger"]
+        C1["0881953: feat(deployment): M13.4 deploy hosted pricing service on Render with PLATFORM_PRICE_KEY (#173)"]
+        C2["ca95bee: feat(api): M10.8 handle vocational mentors as outside scope on POST /price (Closes #174)"]
+        C3["02d2636: test(evaluation): M15.1 benchmark pricing against 52 in-scope platform mentors (Closes #175)"]
+        C4["247c908: docs(thesis): M15.6 document pricing corridor geometry, latency, and MLOps drift (Closes #187)"]
+        C5["55e7c33: docs(thesis): normalize A4 tables, streamline Section 5.3, and add empirical synthesis matrix"]
+    end
+    C1 --> C2 --> C3 --> C4 --> C5
+```
+
+##### Figure 5.14: Atomic Conventional Commit History and Verification Ledger
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_14_commit_history.png`](figures/fig5_14_commit_history.png)).*
+
+![Figure 5.14: Atomic Conventional Commit History and Verification Ledger](figures/fig5_14_commit_history.png)
+
+The commit ledger provides an immutable, chronological audit trail of system development. The granular commit history establishes that implementation proceeded systematically from foundational coordinate space projection to spatial index optimization, tariff margin protection, and microservice hosting. The inclusion of issue closure tags within commit messages enabled automatic synchronization with the project tracking board, ensuring transparent development accounting.
+
+### 5.4.5 Review and Integration
+
+Trunk integration was governed by structured Pull Requests (PRs) combined with automated Continuous Integration (CI) verification gates. Merging any feature branch into the production trunk required opening a Pull Request populated via a mandatory PR template (`.github/pull_request_template.md`). The template required the author to declare the motivation, reference the target issue (`Closes #<id>`), outline the exact implementation changes, and verify that all automated unit, integration, and performance tests passed.
+
+Every submitted pull request automatically triggered GitHub Actions CI workflows (`.github/workflows/ci-checks.yml`, `android-ci.yml`, and `pr-governance.yml`). These automated workflows executed pytest suites across all algorithmic modules, verified model artifact hashes, enforced code style standards, checked test coverage thresholds, and verified branch naming compliance. As illustrated in Figure 5.15, the screenshot captures the Pull Request review interface (Pull Request #189 / Pull Request #202), showing the linked issue closure declaration (`Closes #173`) alongside the green status check matrix where all automated CI suites passed successfully before merging.
+
+```mermaid
+flowchart TD
+    subgraph PR_Gate["Pull Request Review & Automated CI Verification Matrix (PR #189 / PR #202)"]
+        PR["Pull Request Created
+Linked Issue: Closes #173
+Target: master ← feat/173-render-hosted-deployment"]
+        subgraph CI["Automated GitHub Actions CI Matrix"]
+            T1["ci-checks.yml
+Pytest Test Suite (100% Passed)"]
+            T2["android-ci.yml
+Android Client Build Verified"]
+            T3["pr-governance.yml
+Branch Syntax & Commit Lint Passed"]
+        end
+        PR --> CI
+        CI --> G["Branch Protection Gate
+All Status Checks Green | Zero Conflicts"]
+        G --> M["Trunk Integration
+Rebase and Merge into master"]
+    end
+```
+
+##### Figure 5.15: Pull Request Governance, Automated CI Matrix, and Integration Audit
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_15_pull_request_review.png`](figures/fig5_15_pull_request_review.png)).*
+
+![Figure 5.15: Pull Request Governance, Automated CI Matrix, and Integration Audit](figures/fig5_15_pull_request_review.png)
+
+The integration evidence confirms that code quality and system stability were maintained through automated regression testing. Automated CI gates prevented broken builds, incomplete implementations, or regressions from reaching the main trunk. Code reviews verified algorithmic alignment with theoretical formulations before integration, guaranteeing that the codebase remained production-ready and fully functional throughout the research lifecycle.
+
+### 5.4.6 Project Organisation and Reproducibility
+
+To ensure complete experimental and operational reproducibility across independent computing environments, the repository was organized into a modular, self-contained directory hierarchy. Core pricing, spatial search, and coordinate projection algorithms were encapsulated in `src/`, automated verification and regression suites were located in `tests/`, research documentation, empirical blueprints, and figures were placed in `docs/`, offline evaluation and figure generation routines were isolated in `scripts/`, and declarative configurations were housed in `config/`.
+
+Strict repository hygiene was enforced through a comprehensive `.gitignore` configuration. Temporary virtual environments (`.venv/`), compiled Python bytecode (`__pycache__/`, `*.pyc`), cached vector embeddings, and local operating system artifacts were strictly excluded from version control. To eliminate security vulnerabilities and protect data privacy, no credentials, API keys, or private access tokens were committed to the repository history. Environment variables were managed through sanitized template files (`.env.example`), requiring deployers to supply real credentials locally at runtime. Software dependencies were strictly pinned in `requirements.txt` and `pyproject.toml`, enabling turnkey reproduction of the execution runtime via standardized package managers. As illustrated in Figure 5.16, the screenshot captures the modular directory layout alongside repository hygiene manifests that safeguard reproducibility.
+
+```mermaid
+flowchart TD
+    subgraph Layout["Repository Organisation & Reproducibility Hierarchy"]
+        direction TB
+        R["Price-Optimization-Model/ (Root)"]
+        R --> S["src/
+Application Logic & 53D KD-Tree IDW Engine"]
+        R --> T["tests/
+Automated Test Suites & Empirical Assertions"]
+        R --> D["docs/
+Dissertation Chapters, Blueprints & Rendered Figures"]
+        R --> C["config/
+Declarative Configurations & Environment Templates"]
+        R --> H["Hygiene Invariants:
+.gitignore (Excludes .venv/, caches, secrets)
+.env.example (Sanitized credentials template)
+requirements.txt & pyproject.toml (Deterministic runtime)"]
+    end
+```
+
+##### Figure 5.16: Repository Directory Layout, Dependency Freezing, and Hygiene Invariants
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_16_project_organisation.png`](figures/fig5_16_project_organisation.png)).*
+
+![Figure 5.16: Repository Directory Layout, Dependency Freezing, and Hygiene Invariants](figures/fig5_16_project_organisation.png)
+
+The organizational structure guarantees that the entire software framework can be cloned, instantiated, and verified on any POSIX or Windows workstation without runtime drift. By isolating code, test fixtures, and documentation while enforcing defensive secret hygiene, the project achieves turnkey reproducibility. An evaluator can execute the complete end-to-end test suite and regenerate all empirical metrics using a single set of standardized terminal commands.
+
+### 5.4.7 Hosting and Deployment
+
+The pricing optimization framework was deployed as a containerized microservice to Render (https://render.com), providing an accessible, live cloud environment for platform integration testing. Render was selected for its native Python application support, automated Git-driven continuous deployment, robust environment secret management, and zero-downtime health checking. Deployment configuration was defined declaratively through Infrastructure-as-Code via `render.yaml`.
+
+The deployment pipeline is triggered automatically upon merging validated code into the production trunk. The build command executes dependency installation from `requirements.txt` and downloads required NLTK linguistic corpora into a persistent local cache. The service boots via Uvicorn hosting FastAPI (`uvicorn src.api.hosted:app --host 0.0.0.0 --port $PORT`), exposing dual integration channels: a Firebase-authenticated mobile client gateway and a token-authenticated platform adapter (`POST /price`) secured by `PLATFORM_PRICE_KEY`. Automated health checks continuously poll `/health` and `/readyz` to verify container liveness and coordinate index hydration. As illustrated in Figure 5.17, the screenshot captures the active Render dashboard for `price-optimization-service`, highlighting the 'Live' operational status, automated Continuous Deployment hook from `master`, and public HTTPS ingress endpoint.
+
+```mermaid
+flowchart LR
+    subgraph Cloud_Deployment["Cloud Microservice Hosting Pipeline (Render: price-optimization-service)"]
+        direction TB
+        SRC["GitHub master Trunk
+Auto-Deploy Webhook Trigger"]
+        BUILD["Build Stage
+Dependency Installation & NLTK Corpus Hydration"]
+        BOOT["ASGI Bootstrapping
+uvicorn src.api.hosted:app --host 0.0.0.0 --port $PORT"]
+        PROBE["Health & Readiness Probes
+GET /health & GET /readyz (200 OK)"]
+        LIVE["Public Live Endpoint
+https://price-optimization-model.onrender.com
+Active Contract: POST /price"]
+        SRC --> BUILD --> BOOT --> PROBE --> LIVE
+    end
+```
+
+##### Figure 5.17: Cloud Microservice Deployment and Operational Verification
+*(A high-resolution screenshot is archived in [`docs/figures/fig5_17_hosting_deployment.png`](figures/fig5_17_hosting_deployment.png)).*
+
+![Figure 5.17: Cloud Microservice Deployment and Operational Verification](figures/fig5_17_hosting_deployment.png)
+
+Cloud deployment verification demonstrates that the pricing engine operates successfully within realistic production parameters. The live hosted service demonstrates sub-15ms in-memory pricing latency, enforces 15-tier Safaricom M-Pesa tariff protection, and provides instant peer comparables under real HTTP network ingress. Automated Continuous Deployment ensures that every merged feature is instantly compiled, containerized, and deployed, closing the loop between initial task planning, version-controlled implementation, automated verification, and live cloud delivery.
