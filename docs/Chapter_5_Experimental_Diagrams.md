@@ -12,14 +12,15 @@
 
 | Figure Number | Analytical View | Mapped Requirements | Associated Artifact / Experiment |
 | :--- | :--- | :--- | :--- |
+| **Figure 5.1** | Multi-Tier Hardware & Deployment Infrastructure Architecture | Section 5.1.3, NFR-01, NFR-02 | `docs/figures/fig5_1_hardware_deployment_architecture.png` |
 | **Figure 5.2** | Multi-Source Ingestion & 53-D Coordinate Fusion Topology | FR-01, FR-02, FR-03 | `src/engine/macro_arbitrage.py` |
-| **Figure 5.3** | Latent SVD Dimensionality Pareto Frontier (Scree & Latency) | FR-02, NFR-01 | Issue #117 / Exp #170 / Table 5.7 |
+| **Figure 5.3** | Latent SVD Dimensionality Pareto Frontier (Scree & Latency) | FR-02, NFR-01 | Issue #117 / Exp #170 / Table 5.10a, Table 5.10b |
 | **Figure 5.4** | Multi-Model Architecture Benchmark Comparison | Section 5.3.3 | Issue #94 / Exp #170 / Supervisor Review |
 | **Figure 5.5** | Target Transformation Dynamics & Asymmetric Economic Risk | FR-06, Section 5.3.2 | Issue #35 / Exp #170 |
-| **Figure 5.6** | Subgroup Domain Generalization Across Partitions | Section 5.3.4 | Issue #92 / Table 5.8 |
+| **Figure 5.6** | Subgroup Domain Generalization Across Partitions | Section 5.3.4 | Issue #92 / Table 5.11a, Table 5.11b |
 | **Figure 5.7** | Algorithmic Cold-Start Fallback Cascade Decision Logic | FR-04, FR-05 | `src/engine/spatial_engine.py` |
 | **Figure 5.8** | Pricing Corridor & M-Pesa Margin Protection Geometry | FR-06, FR-07 | `src/engine/tariff_evaluator.py` |
-| **Figure 5.9** | In-Memory Inference Latency Allocation Profile | NFR-01 | Issue #93 / Table 5.1 / Microservice Profile |
+| **Figure 5.9** | In-Memory Inference Latency Allocation Profile | NFR-01 | Issue #93 / Table 5.3 / Microservice Profile |
 | **Figure 5.10** | Continuous MLOps Drift Detection & Retraining Feedback Loop | NFR-03, NFR-05 | `src/drift_monitor.py` / M16 |
 
 ---
@@ -105,17 +106,20 @@ The empirical scree analysis identifies $n=50$ as the optimal elbow of the trade
 To evaluate the trade-off between predictive accuracy and algorithmic transparency as requested in external supervisor feedback, the spatial peer-pricing engine was benchmarked against five representative model families. The candidate inventory comprises non-parametric baselines (Category Mean, Partition Mean), regularized linear estimators (Ridge Regression), unpartitioned spatial nearest neighbors (KNN Regressor), non-linear gradient-boosted decision trees (HistGradientBoostingRegressor), and the proposed Domain-Partitioned KD-Tree with Inverse Distance Weighting (IDW). Figure 5.4 compares holdout determination coefficients ($R^2$) alongside mean absolute errors across these architectures.
 
 ```mermaid
-flowchart LR
-    subgraph Benchmarks["Model Architecture Benchmark: Holdout R² & MAE"]
-        M1["Category-Mean Baseline\nR² = 0.124 | MAE = 985.20 KES/hr\n[Naive Baseline]"]
-        M2["Partition-Mean Baseline\nR² = 0.168 | MAE = 940.80 KES/hr\n[Domain Heuristic]"]
-        M3["Ridge Regression (alpha=10.0)\nR² = 0.381 | MAE = 620.50 KES/hr\n[Linear Plane]"]
-        M4["Unpartitioned KNN (k=5)\nR² = 0.655 | MAE = 560.40 KES/hr\n[Global Spatial]"]
-        M5["Domain KD-Tree + IDW (k=5)\nR² = 0.821 | MAE = 385.50 KES/hr\n[Production Selected]"]
-        M6["HistGradientBoosting\nR² = 0.844 | MAE = 348.50 KES/hr\n[Black-Box Ensemble]"]
+flowchart TD
+    subgraph Benchmarks[" Model Architecture Benchmark: Holdout R^2 & MAE "]
+        M1["Category-Mean Baseline (Global Sample Target Average)\nR^2 = 0.124 | Holdout MAE = 985.20 KES/hr | (Naive Global Baseline)"]
+        M2["Partition-Mean Baseline (Domain Segment Categorical Average)\nR^2 = 0.168 | Holdout MAE = 940.80 KES/hr | (Domain Taxonomy Heuristic)"]
+        M3["Ridge Regression (Regularized Linear Hyperplane, alpha=10.0)\nR^2 = 0.381 | Holdout MAE = 620.50 KES/hr | (Parametric Linear Baseline)"]
+        M4["Unweighted KNN (Global 53-D Coordinate Metric Space, k=5)\nR^2 = 0.655 | Holdout MAE = 560.40 KES/hr | (Unpartitioned Spatial Search)"]
+        M5["Domain KD-Tree + IDW (Local Metric Space, k=5, p=2, alpha=0.50)\nR^2 = 0.821 | Holdout MAE = 385.50 KES/hr | (Production Selected Model)"]
+        M6["HistGradientBoosting (Non-Linear Gradient-Boosted Trees)\nR^2 = 0.844 | Holdout MAE = 348.50 KES/hr | (Opaque Black-Box Benchmark)"]
     end
-
-    M1 --> M2 --> M3 --> M4 --> M5 --> M6
+    M1 --> M2
+    M2 --> M3
+    M3 --> M4
+    M4 --> M5
+    M5 --> M6
 ```
 
 ##### Figure 5.4: Multi-Model Architecture & Ensemble Benchmark Comparison
@@ -161,12 +165,15 @@ To verify that model accuracy does not degrade across specialized disciplines, h
 
 ```mermaid
 flowchart TD
-    subgraph Subgroup_Comparison["Industry Partition Subgroup Analysis (Holdout N = 2,525)"]
-        DA["Data & AI (data_ai)\nSample Count: N = 884 (35%)\nHoldout R²: 0.842 | sMAPE: 13.8%\nRate Spread: 2,600 - 3,850 - 6,500 KES/hr"]
-        WB["Web & Backend (web_backend)\nSample Count: N = 757 (30%)\nHoldout R²: 0.819 | sMAPE: 14.1%\nRate Spread: 1,950 - 3,200 - 5,200 KES/hr"]
-        MO["Mobile Development (mobile)\nSample Count: N = 505 (20%)\nHoldout R²: 0.805 | sMAPE: 14.4%\nRate Spread: 1,820 - 3,100 - 4,810 KES/hr"]
-        DC["Design & Creative (design_creative)\nSample Count: N = 379 (15%)\nHoldout R²: 0.798 | sMAPE: 14.9%\nRate Spread: 1,430 - 2,750 - 3,900 KES/hr"]
+    subgraph Subgroup_Comparison[" Industry Partition Subgroup Analysis (Holdout N = 2,525) "]
+        DA["Data & AI (data_ai)\nSample Count: N = 884 (35%)\nHoldout R^2 = 0.842 | sMAPE = 13.8%\nMarket Spread: 2,600 - 3,850 - 6,500 KES/hr"]
+        WB["Web & Backend (web_backend)\nSample Count: N = 757 (30%)\nHoldout R^2 = 0.819 | sMAPE = 14.1%\nMarket Spread: 1,950 - 3,200 - 5,200 KES/hr"]
+        MO["Mobile Development (mobile)\nSample Count: N = 505 (20%)\nHoldout R^2 = 0.805 | sMAPE = 14.4%\nMarket Spread: 1,820 - 3,100 - 4,810 KES/hr"]
+        DC["Design & Creative (design_creative)\nSample Count: N = 379 (15%)\nHoldout R^2 = 0.798 | sMAPE = 14.9%\nMarket Spread: 1,430 - 2,750 - 3,900 KES/hr"]
     end
+    DA --> WB
+    WB --> MO
+    MO --> DC
 ```
 
 ##### Figure 5.6: Subgroup Performance and Generalization Across Industry Partitions
