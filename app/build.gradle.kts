@@ -35,6 +35,7 @@ android {
         val liveBackendValue =
             providers
                 .gradleProperty("useLiveBackend")
+                .orElse(providers.environmentVariable("USE_LIVE_BACKEND"))
                 .orElse("false")
                 .get()
         require(liveBackendValue == "true" || liveBackendValue == "false") {
