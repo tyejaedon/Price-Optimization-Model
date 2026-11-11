@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 .env
-.env.*
+.env.*  
 !.env.example
 *credentials*.json
 
@@ -34,3 +34,6 @@ build/
 google-services.json
 gradle/wrapper/gradle-wrapper.jar
 
+
+docs/Report_Draft/
+docs/*.pdf

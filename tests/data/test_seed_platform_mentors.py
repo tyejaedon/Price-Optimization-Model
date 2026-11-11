@@ -281,6 +281,51 @@ class SeedPlatformMentorsTests(unittest.TestCase):
                 self.assertEqual(alias_resp.json()["min"], 0.0)
                 self.assertIn("Culinary & Hospitality", alias_resp.json()["reason"])
 
+    def test_repository_get_profile_direct_lookup(self) -> None:
+        repo = InMemoryRepository()
+        seed_platform_mentor_profiles(repo, source=self.fixtures_dir)
+        # Direct lookup by profile_id
+        prof_p1 = repo.get_profile("p1")
+        self.assertIsNotNone(prof_p1)
+        self.assertEqual(prof_p1["profile_id"], "p1")
+        # Direct lookup by user_id alias
+        prof_u1 = repo.get_profile("u1")
+        self.assertIsNotNone(prof_u1)
+        self.assertEqual(prof_u1["profile_id"], "u1")
+        # Non-existent profile
+        self.assertIsNone(repo.get_profile("non_existent_999"))
+
+    def test_firestore_repository_get_profile(self) -> None:
+        from unittest.mock import MagicMock
+        from src.api.repository import FirestoreRepository
+
+        mock_client = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.id = "p1"
+        mock_doc.to_dict.return_value = {"full_name": "Test Mentor", "country_code": "KE"}
+        mock_client.collection.return_value.document.return_value.get.return_value = mock_doc
+
+        repo = FirestoreRepository(client=mock_client)
+        prof = repo.get_profile("p1")
+        self.assertIsNotNone(prof)
+        self.assertEqual(prof["profile_id"], "p1")
+        self.assertEqual(prof["full_name"], "Test Mentor")
+
+        # Missing document
+        missing_doc = MagicMock()
+        missing_doc.exists = False
+        mock_client.collection.return_value.document.return_value.get.return_value = missing_doc
+        self.assertIsNone(repo.get_profile("missing_id"))
+
+    def test_cli_seed_platform_mentors_args(self) -> None:
+        from src.data.seed_platform_mentors import parse_args
+        args = parse_args(["--corpus", "data/raw/test", "--no-aliases", "--no-vocational", "--json"])
+        self.assertEqual(args.corpus, "data/raw/test")
+        self.assertTrue(args.no_aliases)
+        self.assertTrue(args.no_vocational)
+        self.assertTrue(args.json)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -117,6 +117,7 @@ class HostedRenderDeploymentTests(unittest.TestCase):
                 "PRICING_TARIFF_CSV": self.tariff_csv_path,
                 "PRICING_ARTIFACT_MANIFEST_SHA256": self.manifest_sha256,
                 "PRICING_TARIFF_SHA256": self.tariff_sha256,
+                "PLATFORM_MENTOR_CORPUS_PATH": str(self.repo_root / "tests" / "fixtures" / "platform"),
             },
         )
         self.env_patcher.start()

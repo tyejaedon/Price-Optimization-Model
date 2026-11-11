@@ -13,10 +13,10 @@ This empirical report provides the first rigorous assessment of the production p
 
 | Evaluation Benchmark | Sample Size ($N$) | MAE (KES) | MedAE (KES) | RMSE (KES) | sMAPE (%) | MAPE (%) | $R^2$ Score | Mean Bias (KES) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Benchmark A: Listed Rates** | 52 | 1,166.65 | 1,040.95 | 1,431.54 | 28.88% | 28.42% | -1.7696 | -221.26 |
-| **Benchmark B: Realised Rates** | 39 | 1,085.11 | 883.72 | 1,394.86 | 25.80% | 27.36% | -1.1040 | +45.74 |
+| **Benchmark A: Listed Rates** | 92 | 2,132.80 | 1,721.18 | 2,682.38 | 49.54% | 45.21% | -0.7000 | -1,416.77 |
+| **Benchmark B: Realised Rates** | 85 | 2,336.84 | 1,782.44 | 2,956.64 | 53.39% | 49.50% | -0.7013 | -1,527.02 |
 
-- **Corridor Containment:** **98.1%** (51 / 52 mentors' actual asking rates fall safely within the model's recommended [min_quoted, max_quoted] corridor).
+- **Corridor Containment:** **46.7%** (43 / 92 mentors' actual asking rates fall safely within the model's recommended [min_quoted, max_quoted] corridor).
 - **Realised vs. Listed Spread:** Realised earnings closely mirror asking rates, with model quotes exhibiting tight alignment with actual completed booking payouts.
 
 ---
@@ -25,13 +25,10 @@ This empirical report provides the first rigorous assessment of the production p
 
 | Industry Partition | $N$ | MAE (KES) | MedAE (KES) | RMSE (KES) | sMAPE (%) | $R^2$ Score | Mean Bias |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `data_ai` | 16 | 1,029.71 | 993.49 | 1,198.13 | 26.03% | -1.1241 | -151.27 |
-| `devops_cloud` | 9 | 685.10 | 614.10 | 795.56 | 14.23% | -1.7237 | -311.69 |
-| `digital_marketing` | 6 | 2,299.04 | 2,299.04 | 2,510.78 | 54.41% | -19.3247 | +972.08 |
-| `general_tech` | 3 | 439.15 | 481.45 | 491.76 | 7.80% | -0.0014 | -18.55 |
-| `mobile` | 9 | 1,736.89 | 1,572.29 | 1,866.13 | 50.47% | -6.2704 | -1,736.89 |
-| `product_management` | 6 | 904.64 | 904.64 | 1,011.59 | 16.81% | -3.9768 | +904.64 |
-| `web_backend` | 3 | 617.62 | 449.62 | 789.26 | 17.50% | -1.5796 | -617.62 |
+| `data_ai` | 39 | 2,254.60 | 2,244.96 | 2,761.53 | 52.79% | -0.5982 | -1,739.82 |
+| `digital_marketing` | 30 | 2,329.45 | 1,254.09 | 2,948.68 | 57.43% | -0.9905 | -1,980.35 |
+| `general_tech` | 1 | 883.09 | 883.09 | 883.09 | 30.42% | 0.0000 | -883.09 |
+| `product_management` | 22 | 1,705.51 | 1,537.68 | 2,162.91 | 33.86% | -0.7240 | -99.82 |
 
 ---
 
@@ -40,13 +37,13 @@ This empirical report provides the first rigorous assessment of the production p
 In marketplace rate optimization, error directionality has distinct economic consequences:
 
 1. **Over-Pricing (Booking Churn Risk):**
-   - **Frequency:** 44.23% (23 mentors)
-   - **Mean Excess:** +1,068.69 KES/hour
+   - **Frequency:** 31.52% (29 mentors)
+   - **Mean Excess:** +1,135.77 KES/hour
    - **Economic Impact:** High quotes may introduce booking conversion friction if client willingness-to-pay is exceeded.
 
 2. **Under-Pricing (Mentor Margin Erosion Risk):**
-   - **Frequency:** 55.77% (29 mentors)
-   - **Mean Deficit:** -1,244.33 KES/hour
+   - **Frequency:** 68.48% (63 mentors)
+   - **Mean Deficit:** -2,591.75 KES/hour
    - **Economic Impact:** Low quotes risk under-valuing senior talent; mitigated by mentor reservation rate floors (`base_rate_floor`).
 
 ---
