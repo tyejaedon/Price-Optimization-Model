@@ -97,6 +97,28 @@ app/
         └── auth/                     # IAuthTokenProvider, FirebaseAuthManager (shape only; real impl is #75)
 ```
 
+## Connecting to the Render Docker Instance
+
+To connect the native Android client to the live containerized backend running on Render:
+
+1. **Enable Live Backend Mode**:
+   Set `useLiveBackend=true` either in `gradle.properties`, as a command-line Gradle property (`-PuseLiveBackend=true`), or via the environment variable `USE_LIVE_BACKEND=true`.
+2. **Configure Base URL**:
+   Supply the public URL of the Render web service (must end with a slash `/`), e.g.:
+   ```properties
+   pricingApiBaseUrl=https://price-optimization-service.onrender.com/
+   ```
+   Or via the environment variable `PRICING_API_BASE_URL="https://price-optimization-service.onrender.com/"`.
+   When testing against a local Docker container running on your machine:
+   ```properties
+   pricingApiBaseUrl=http://10.0.2.2:10000/
+   ```
+   (Cleartext traffic is enabled in debug builds via `app/src/debug/AndroidManifest.xml`).
+3. **Firebase Authentication Configuration**:
+   When live mode is enabled, the Android app acquires ID tokens via `FirebaseAuthManager` and passes them as `Authorization: Bearer <token>` to `POST /api/v1/optimize-price`. Ensure that `firebaseProjectId`, `firebaseApiKey`, and `firebaseApplicationId` are configured to match the Firebase project configured on the Render deployment (`FIREBASE_PROJECT_ID`).
+4. **Cold-Start Resilience**:
+   Render Free compute tier containers spin down during inactivity and require 30–50 seconds to resume. The Android client's `OkHttpClient` in `AppContainer.kt` uses a 30s connection timeout and 60s call timeout to accommodate Render container wake-up latency without triggering spurious timeout errors.
+
 ## Why a fake repository ships by default
 
 `AppContainer.pricingRepository` resolves to `FakePricingRepository` while
