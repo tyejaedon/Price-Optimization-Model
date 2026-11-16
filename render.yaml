@@ -1,11 +1,12 @@
 services:
   - type: web
     name: price-optimization-service
-    env: python
+    env: docker
     region: oregon
     plan: starter
-    buildCommand: pip install --no-cache-dir -r requirements.txt && python -m nltk.downloader -q -d /opt/render/project/nltk_data stopwords wordnet
-    startCommand: uvicorn src.api.hosted:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: uvicorn src.api.hosted:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -14,7 +15,7 @@ services:
       - key: PYTHONDONTWRITEBYTECODE
         value: "1"
       - key: NLTK_DATA
-        value: /opt/render/project/nltk_data
+        value: /usr/local/nltk_data
       - key: PRICING_ARTIFACT_DIR
         value: artifacts
       - key: PRICING_TARIFF_CSV
@@ -29,3 +30,5 @@ services:
         sync: false
       - key: MLOPS_ADMIN_TOKEN
         generateValue: true
+      - key: APP_MODULE
+        value: src.api.hosted:app
