@@ -46,6 +46,22 @@ class AuthViewModel(
         }
     }
 
+    fun sendPasswordReset(email: String) {
+        if (email.isBlank()) {
+            _uiState.value = AuthUiState.Error("Enter your email address first.")
+            return
+        }
+        _uiState.value = AuthUiState.SigningIn
+        viewModelScope.launch {
+            try {
+                authTokenProvider.sendPasswordReset(email)
+                _uiState.value = AuthUiState.PasswordResetSent(email.trim())
+            } catch (error: AuthSessionException) {
+                _uiState.value = AuthUiState.Error(error.message ?: "Unable to send reset email.")
+            }
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch {
             authTokenProvider.signOut()

@@ -43,8 +43,13 @@ class PricingViewModel(
     fun loadMetadata() {
         viewModelScope.launch {
             val outcome = repository.fetchMetadata()
-            if (outcome is PricingOutcome.Success && outcome.value.industries.isNotEmpty()) {
-                _workspaceState.update { it.copy(industries = outcome.value.industries) }
+            if (outcome is PricingOutcome.Success) {
+                _workspaceState.update {
+                    it.copy(
+                        modelsLoaded = outcome.value.modelsLoaded,
+                        industries = outcome.value.industries.ifEmpty { it.industries },
+                    )
+                }
             }
         }
     }
@@ -256,7 +261,18 @@ class PricingViewModel(
     }
 
     fun clearForm() {
-        _uiState.update { PricingUiState.Idle() }
+        val currentForm = _uiState.value.form
+        val readyProfile = (_profileState.value as? ProfileUiState.Ready)?.profile
+        val preservedMentorId = readyProfile?.profileId ?: currentForm.mentorId
+        val preservedMentorCountry = readyProfile?.countryCode?.uppercase().orEmpty()
+        _uiState.update {
+            PricingUiState.Idle(
+                PricingFormState(
+                    mentorId = preservedMentorId,
+                    mentorCountry = preservedMentorCountry,
+                ),
+            )
+        }
     }
 
     private fun constructQueryPayload(form: PricingFormState): PricingQueryDTO =

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -129,14 +130,43 @@ private fun MlopsTab(
     state: AdminDashboardUiState,
     viewModel: AdminViewModel,
 ) {
+    var kNeighborsInput by remember(state.tuning) { mutableStateOf(state.tuning.kNeighbors.joinToString(", ")) }
     var textWeight by remember(state.tuning) { mutableStateOf(state.tuning.textWeight.toString()) }
     var metadataWeight by remember(state.tuning) { mutableStateOf(state.tuning.metadataWeight.toString()) }
     var allowFallback by remember(state.tuning) { mutableStateOf(state.tuning.allowFallback) }
+    var confirmRetrain by remember { mutableStateOf(false) }
+
+    if (confirmRetrain) {
+        AlertDialog(
+            onDismissRequest = { confirmRetrain = false },
+            title = { Text("Trigger model retraining?") },
+            text = { Text("This starts an asynchronous retraining job on the server.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmRetrain = false
+                        viewModel.triggerRetrain()
+                    },
+                ) {
+                    Text("Start Retrain")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRetrain = false }) { Text("Cancel") }
+            },
+        )
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Grid Search Hyperparameters", style = MaterialTheme.typography.titleMedium)
-            Text("kNeighbors: ${state.tuning.kNeighbors.joinToString(", ")}")
+            OutlinedTextField(
+                value = kNeighborsInput,
+                onValueChange = { kNeighborsInput = it },
+                label = { Text("kNeighbors (comma-separated)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             OutlinedTextField(
                 value = textWeight,
                 onValueChange = { textWeight = it },
@@ -157,10 +187,19 @@ private fun MlopsTab(
             }
             Button(
                 onClick = {
+                    val parsedK =
+                        kNeighborsInput
+                            .split(",")
+                            .mapNotNull { it.trim().toIntOrNull() }
+                            .filter { it in 1..500 }
+                            .distinct()
+                            .sorted()
+                            .ifEmpty { state.tuning.kNeighbors }
                     val tw = textWeight.toFloatOrNull() ?: state.tuning.textWeight
                     val mw = metadataWeight.toFloatOrNull() ?: state.tuning.metadataWeight
                     viewModel.updateTuning(
                         state.tuning.copy(
+                            kNeighbors = parsedK,
                             textWeight = tw,
                             metadataWeight = mw,
                             allowFallback = allowFallback,
@@ -182,7 +221,7 @@ private fun MlopsTab(
                 it.artifactVersion?.let { ver -> Text("Artifact: $ver") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = viewModel::triggerRetrain, modifier = Modifier.weight(1f)) {
+                Button(onClick = { confirmRetrain = true }, modifier = Modifier.weight(1f)) {
                     Text("Trigger Retrain")
                 }
                 OutlinedButton(
@@ -228,13 +267,52 @@ private fun ProfilesTab(
     state: AdminDashboardUiState,
     viewModel: AdminViewModel,
 ) {
-    Button(onClick = viewModel::seedPlatformMentors, modifier = Modifier.fillMaxWidth()) {
+    var confirmSeed by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    if (confirmSeed) {
+        AlertDialog(
+            onDismissRequest = { confirmSeed = false },
+            title = { Text("Seed platform mentors?") },
+            text = { Text("This will upsert platform mentor profiles from the corpus into the repository.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmSeed = false
+                        viewModel.seedPlatformMentors()
+                    },
+                ) {
+                    Text("Seed Mentors")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSeed = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    Button(onClick = { confirmSeed = true }, modifier = Modifier.fillMaxWidth()) {
         Text("Seed Platform Mentors")
     }
+    OutlinedTextField(
+        value = searchQuery,
+        onValueChange = { searchQuery = it },
+        label = { Text("Filter profiles by name, ID, or country") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    val filteredProfiles =
+        state.profiles.filter { profile ->
+            val q = searchQuery.trim()
+            q.isBlank() ||
+                profile.fullName.contains(q, ignoreCase = true) ||
+                profile.profileId.contains(q, ignoreCase = true) ||
+                profile.countryCode.contains(q, ignoreCase = true)
+        }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Mentor Profiles (${state.profiles.size})", style = MaterialTheme.typography.titleMedium)
-            state.profiles.forEach { profile ->
+            Text("Mentor Profiles (${filteredProfiles.size})", style = MaterialTheme.typography.titleMedium)
+            filteredProfiles.forEach { profile ->
                 Text("${profile.fullName} (${profile.profileId}) — ${profile.countryCode}")
             }
         }

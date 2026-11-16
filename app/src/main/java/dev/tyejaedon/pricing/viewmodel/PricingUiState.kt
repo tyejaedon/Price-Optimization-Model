@@ -101,6 +101,7 @@ enum class MentorTab(
 
 data class MentorWorkspaceState(
     val selectedTab: MentorTab = MentorTab.QUOTE,
+    val modelsLoaded: Boolean = true,
     val industries: List<String> = SupportedIndustries,
     val listings: List<SelfListingDTO> = emptyList(),
     val history: List<QuoteHistoryItemDTO> = emptyList(),

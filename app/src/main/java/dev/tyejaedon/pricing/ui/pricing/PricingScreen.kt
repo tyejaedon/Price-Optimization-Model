@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,8 +40,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.tyejaedon.pricing.ui.components.InlineErrorText
 import dev.tyejaedon.pricing.ui.components.PrimaryActionButton
 import dev.tyejaedon.pricing.ui.pricing.components.CapabilityInputForm
+import dev.tyejaedon.pricing.ui.pricing.components.CountryDropdown
+import dev.tyejaedon.pricing.ui.pricing.components.IndustryDropdown
 import dev.tyejaedon.pricing.ui.pricing.components.PricingResultCard
 import dev.tyejaedon.pricing.ui.pricing.components.SaturationSlider
+import dev.tyejaedon.pricing.ui.pricing.components.formatIndustryLabel
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
 import dev.tyejaedon.pricing.viewmodel.MentorTab
 import dev.tyejaedon.pricing.viewmodel.MentorWorkspaceState
@@ -147,6 +151,13 @@ fun PricingScreen(
             if (workspaceState.isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
+            if (!workspaceState.modelsLoaded) {
+                Text(
+                    text = "Warming up pricing engine… Quotes may take a few extra seconds.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             workspaceState.statusMessage?.let {
                 Text(text = it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             }
@@ -194,13 +205,24 @@ fun PricingScreen(
                         is PricingUiState.Idle -> Unit
                     }
 
-                    PrimaryActionButton(
-                        text = "Calculate rate",
-                        onClick = viewModel::submitPriceOptimization,
-                        enabled = state !is PricingUiState.Loading,
-                        contentDescription = "Calculate recommended hourly rate",
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+                    ) {
+                        OutlinedButton(
+                            onClick = viewModel::clearForm,
+                            enabled = state !is PricingUiState.Loading,
+                        ) {
+                            Text("Clear")
+                        }
+                        PrimaryActionButton(
+                            text = "Calculate rate",
+                            onClick = viewModel::submitPriceOptimization,
+                            enabled = state !is PricingUiState.Loading,
+                            contentDescription = "Calculate recommended hourly rate",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 MentorTab.LISTINGS -> ListingsTab(workspaceState = workspaceState, viewModel = viewModel)
                 MentorTab.HISTORY -> HistoryTab(workspaceState = workspaceState, viewModel = viewModel)
@@ -274,12 +296,11 @@ private fun MentorOnboardingForm(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
-    OutlinedTextField(
-        value = countryCode,
-        onValueChange = { countryCode = it.take(2).uppercase() },
-        label = { Text("Your country (ISO-2)") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+    CountryDropdown(
+        label = "Your country",
+        selectedCode = countryCode,
+        onCountrySelected = { countryCode = it },
+        contentDescriptionText = "Your country ISO 2-letter code",
     )
     PrimaryActionButton(
         text = "Save mentor profile",
@@ -306,7 +327,10 @@ private fun ListingsTab(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(PricingSpacing.Medium), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(text = listing.title, style = MaterialTheme.typography.titleSmall)
-                Text(text = "${listing.industryId} • ${listing.verifiedRate} KES/hour", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "${formatIndustryLabel(listing.industryId)} • ${listing.verifiedRate} KES/hour",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Text(text = listing.rawText, style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { viewModel.applyListingToQuote(listing) }) {
                     Text("Use in Quote")
@@ -323,12 +347,10 @@ private fun ListingsTab(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
-    OutlinedTextField(
-        value = industryId,
-        onValueChange = { industryId = it },
-        label = { Text("Industry partition") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+    IndustryDropdown(
+        selectedIndustry = industryId,
+        onIndustrySelected = { industryId = it },
+        industries = workspaceState.industries,
     )
     OutlinedTextField(
         value = rawText,
@@ -368,6 +390,56 @@ private fun HistoryTab(
     workspaceState: MentorWorkspaceState,
     viewModel: PricingViewModel,
 ) {
+    var adjustingTxId by remember { mutableStateOf<String?>(null) }
+    var adjustedRateInput by remember { mutableStateOf("") }
+    var adjustedNotesInput by remember { mutableStateOf("") }
+
+    adjustingTxId?.let { txId ->
+        AlertDialog(
+            onDismissRequest = { adjustingTxId = null },
+            title = { Text("Report adjusted rate") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
+                    OutlinedTextField(
+                        value = adjustedRateInput,
+                        onValueChange = { adjustedRateInput = it },
+                        label = { Text("Actual rate agreed (KES/hour)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = adjustedNotesInput,
+                        onValueChange = { adjustedNotesInput = it },
+                        label = { Text("Notes (optional)") },
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.submitFeedback(
+                            transactionId = txId,
+                            outcomeValue = "adjusted",
+                            actualRate = adjustedRateInput.toFloatOrNull(),
+                            notes = adjustedNotesInput.trim().takeIf { it.isNotBlank() },
+                        )
+                        adjustingTxId = null
+                        adjustedRateInput = ""
+                        adjustedNotesInput = ""
+                    },
+                ) {
+                    Text("Submit")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { adjustingTxId = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     Text(text = "Quote history (${workspaceState.history.size})", style = MaterialTheme.typography.titleMedium)
     if (workspaceState.history.isEmpty()) {
         Text(text = "No past quotes recorded yet.", style = MaterialTheme.typography.bodyMedium)
@@ -378,11 +450,12 @@ private fun HistoryTab(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(PricingSpacing.Medium), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text = "${item.selectedIndustry ?: "general"} • ${item.finalQuotedRate ?: 0f} KES/hour",
+                    text = "${formatIndustryLabel(item.selectedIndustry ?: "general")} • ${item.finalQuotedRate ?: 0f} KES/hour",
                     style = MaterialTheme.typography.titleSmall,
                 )
+                val dateLabel = item.executedAt?.take(10)?.let { " • $it" }.orEmpty()
                 Text(
-                    text = "Corridor: ${item.mentorCountryCode ?: "?"} -> ${item.clientCountryCode ?: "?"}",
+                    text = "Corridor: ${item.mentorCountryCode ?: "?"} -> ${item.clientCountryCode ?: "?"}$dateLabel",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (recordedOutcome != null) {
@@ -392,7 +465,7 @@ private fun HistoryTab(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(PricingSpacing.ExtraSmall)) {
                         OutlinedButton(onClick = { viewModel.submitFeedback(item.transactionId, "accepted") }) {
                             Text("Accepted")
                         }
@@ -406,6 +479,14 @@ private fun HistoryTab(
                             },
                         ) {
                             Text("Booked")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                adjustedRateInput = item.finalQuotedRate?.toInt()?.toString().orEmpty()
+                                adjustingTxId = item.transactionId
+                            },
+                        ) {
+                            Text("Adjusted")
                         }
                         OutlinedButton(onClick = { viewModel.submitFeedback(item.transactionId, "declined") }) {
                             Text("Declined")

@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
+import java.util.Locale
 
 /** Supported industry partitions, kept in sync with `SUPPORTED_INDUSTRY_PARTITIONS` server-side. */
 val SupportedIndustries =
@@ -33,6 +34,25 @@ val SupportedIndustries =
         "digital_marketing",
         "general_tech",
     )
+
+fun formatIndustryLabel(key: String): String =
+    when (key) {
+        "data_ai" -> "Data & AI"
+        "web_backend" -> "Web & Backend"
+        "mobile" -> "Mobile Development"
+        "devops_cloud" -> "DevOps & Cloud"
+        "design_creative" -> "Design & Creative"
+        "product_management" -> "Product Management"
+        "digital_marketing" -> "Digital Marketing"
+        "general_tech" -> "General Tech"
+        else ->
+            key
+                .split("_")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { part ->
+                    part.replaceFirstChar { ch -> ch.uppercase(Locale.getDefault()) }
+                }
+    }
 
 /**
  * `CapabilityInputForm` from the canonical Sprint 4 acceptance (issue #74): raw description,
@@ -79,28 +99,20 @@ fun CapabilityInputForm(
 
         Spacer(modifier = Modifier.height(PricingSpacing.Medium))
 
-        OutlinedTextField(
-            value = mentorCountry,
-            onValueChange = { onMentorCountryChanged(it.take(2)) },
-            label = { Text("Your country (ISO-2)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Your country ISO 2-letter code" },
+        CountryDropdown(
+            label = "Your country",
+            selectedCode = mentorCountry,
+            onCountrySelected = onMentorCountryChanged,
+            contentDescriptionText = "Your country ISO 2-letter code",
         )
 
         Spacer(modifier = Modifier.height(PricingSpacing.Small))
 
-        OutlinedTextField(
-            value = clientCountry,
-            onValueChange = { onClientCountryChanged(it.take(2)) },
-            label = { Text("Client country (ISO-2)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Client country ISO 2-letter code" },
+        CountryDropdown(
+            label = "Client country",
+            selectedCode = clientCountry,
+            onCountrySelected = onClientCountryChanged,
+            contentDescriptionText = "Client country ISO 2-letter code",
         )
 
         Spacer(modifier = Modifier.height(PricingSpacing.Small))
@@ -119,15 +131,16 @@ fun CapabilityInputForm(
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun IndustryDropdown(
+fun IndustryDropdown(
     selectedIndustry: String,
     onIndustrySelected: (String) -> Unit,
     industries: List<String>,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
         OutlinedTextField(
-            value = selectedIndustry,
+            value = if (selectedIndustry.isBlank()) "" else formatIndustryLabel(selectedIndustry),
             onValueChange = {},
             readOnly = true,
             label = { Text("Industry") },
@@ -141,9 +154,70 @@ private fun IndustryDropdown(
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             industries.forEach { industry ->
                 DropdownMenuItem(
-                    text = { Text(industry) },
+                    text = { Text(formatIndustryLabel(industry)) },
                     onClick = {
                         onIndustrySelected(industry)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private val PinnedCountryCodes = listOf("KE", "UG", "TZ", "NG", "ZA", "US", "GB", "CA", "DE")
+
+private fun buildCountryOptions(): List<Pair<String, String>> {
+    val locale = Locale.getDefault()
+    val all =
+        Locale
+            .getISOCountries()
+            .map { code -> code to Locale("", code).getDisplayCountry(locale).ifBlank { code } }
+            .sortedBy { it.second }
+    val pinned = PinnedCountryCodes.mapNotNull { code -> all.firstOrNull { it.first == code } }
+    val rest = all.filterNot { it.first in PinnedCountryCodes }
+    return pinned + rest
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun CountryDropdown(
+    label: String,
+    selectedCode: String,
+    onCountrySelected: (String) -> Unit,
+    contentDescriptionText: String,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val countries = remember { buildCountryOptions() }
+    val displayValue =
+        if (selectedCode.isBlank()) {
+            ""
+        } else {
+            countries.firstOrNull { it.first.equals(selectedCode, ignoreCase = true) }
+                ?.let { "${it.second} (${it.first})" }
+                ?: selectedCode.uppercase()
+        }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = displayValue,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+                    .semantics { contentDescription = contentDescriptionText },
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            countries.forEach { (code, name) ->
+                DropdownMenuItem(
+                    text = { Text("$name ($code)") },
+                    onClick = {
+                        onCountrySelected(code)
                         expanded = false
                     },
                 )

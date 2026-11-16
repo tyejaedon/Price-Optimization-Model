@@ -84,6 +84,19 @@ class AuthViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @Test
+    fun `password reset sends email and surfaces confirmation`() =
+        runTest(dispatcher) {
+            val viewModel = AuthViewModel(authProvider)
+            viewModel.uiState.test {
+                assertThat(awaitItem()).isEqualTo(AuthUiState.SignedOut)
+                viewModel.sendPasswordReset("mentor@example.test")
+                assertThat(awaitItem()).isEqualTo(AuthUiState.SigningIn)
+                assertThat(awaitItem()).isEqualTo(AuthUiState.PasswordResetSent("mentor@example.test"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }
 
 private class FakeAuthTokenProvider : IAuthTokenProvider {

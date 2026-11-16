@@ -57,6 +57,20 @@ class FirebaseAuthManager private constructor(
         }
     }
 
+    override suspend fun sendPasswordReset(email: String) {
+        val auth = requireAuth()
+        if (email.isBlank()) {
+            throw AuthSessionException("Enter your email address first.")
+        }
+        try {
+            auth.sendPasswordResetEmail(email.trim()).await()
+        } catch (error: FirebaseAuthException) {
+            throw AuthSessionException(authErrorMessage(error), error)
+        } catch (error: FirebaseException) {
+            throw AuthSessionException("Unable to send reset email. Check your connection.", error)
+        }
+    }
+
     override suspend fun getActiveBearerToken(): String {
         val user = requireAuth().currentUser ?: throw AuthSessionException("Sign in to request a quote.")
         return try {

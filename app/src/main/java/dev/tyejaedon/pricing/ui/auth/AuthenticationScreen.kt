@@ -92,6 +92,12 @@ fun AuthenticationScreen(viewModel: AuthViewModel) {
                 AuthUiState.SigningIn -> CircularProgressIndicator()
                 is AuthUiState.SignedIn -> Unit
                 is AuthUiState.Error -> InlineErrorText(state.message)
+                is AuthUiState.PasswordResetSent ->
+                    Text(
+                        text = "Password reset email sent to ${state.email}.",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
             }
             PrimaryActionButton(
                 text = if (isSignUpMode) "Create account" else "Sign in",
@@ -105,6 +111,15 @@ fun AuthenticationScreen(viewModel: AuthViewModel) {
                 enabled = email.isNotBlank() && password.isNotBlank() && uiState !is AuthUiState.SigningIn,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (!isSignUpMode) {
+                TextButton(
+                    onClick = { viewModel.sendPasswordReset(email) },
+                    enabled = uiState !is AuthUiState.SigningIn,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Forgot password?")
+                }
+            }
             TextButton(
                 onClick = { isSignUpMode = !isSignUpMode },
                 modifier = Modifier.fillMaxWidth(),

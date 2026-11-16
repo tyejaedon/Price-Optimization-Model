@@ -12,6 +12,8 @@ interface IAuthTokenProvider {
         password: String,
     ): String = signIn(email, password)
 
+    suspend fun sendPasswordReset(email: String) = Unit
+
     /** Returns a valid ID token (cached or refreshed). Throws if signed out or refresh fails. */
     suspend fun getActiveBearerToken(): String
 
