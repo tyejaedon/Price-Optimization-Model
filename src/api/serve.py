@@ -17,7 +17,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Literal, Optional, cast
+from typing import Any, Callable, Dict, List, Literal, Optional, cast
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response, status
@@ -28,16 +28,25 @@ from starlette.middleware.cors import CORSMiddleware
 from src.core.artifact_contract import ARTIFACT_FILES, MANIFEST_NAME, verify_manifest
 from src.engine.platform_price import register_platform_price
 from src.api.api_contracts import (
+    ArtifactStatusDTO,
     CanonicalPredictionResultDTO,
     CanonicalPricingQueryDTO,
+    DriftSummaryDTO,
     GridSearchConfigDTO,
     HealthResponseDTO,
     HealthStatusDTO,
+    MetadataResponseDTO,
     MetricsResponseDTO,
     PredictionResultDTO,
     PricingQueryDTO,
     ProfileDTO,
+    QuoteFeedbackDTO,
+    QuoteFeedbackRequestDTO,
     RetrainResponseDTO,
+    SelfListingDTO,
+    SelfListingUpsertDTO,
+    SelfProfileDTO,
+    SelfProfileUpsertDTO,
 )
 from src.engine.interval_synthesizer import FloorExceedsCeilingError, synthesize_corridor
 from src.api.mlops_service import MLOpsService
@@ -443,6 +452,197 @@ def create_app(
             raise HTTPException(status_code=503, detail="pricing repository unavailable")
         return uid
 
+    @app.get("/api/v1/metadata", response_model=MetadataResponseDTO)
+    async def metadata() -> MetadataResponseDTO:
+        state = current_health()
+        return MetadataResponseDTO(
+            industries=list(SUPPORTED_INDUSTRY_PARTITIONS),
+            modelsLoaded=state.models_loaded,
+        )
+
+    @app.get("/api/v1/me", response_model=SelfProfileDTO)
+    async def get_my_profile(uid: Optional[str] = Depends(require_pricing_token)) -> SelfProfileDTO:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            mentor = dependencies.repository.get_mentor_by_auth_uid(uid)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        if mentor is None:
+            raise HTTPException(status_code=404, detail="mentor profile not found")
+        return SelfProfileDTO(
+            profileId=mentor["profile_id"],
+            fullName=mentor["full_name"],
+            email=mentor["email"],
+            countryCode=mentor["country_code"],
+            accountStatus=mentor.get("account_status", "active"),
+            rawText=mentor.get("raw_description"),
+        )
+
+    @app.put("/api/v1/me", response_model=SelfProfileDTO)
+    async def upsert_my_profile(
+        payload: SelfProfileUpsertDTO,
+        uid: Optional[str] = Depends(require_pricing_token),
+    ) -> SelfProfileDTO:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            existing = dependencies.repository.get_mentor_by_auth_uid(uid)
+            profile_id = existing["profile_id"] if existing is not None else f"mentor-{uid}"
+            profile_doc = {
+                "profile_id": profile_id,
+                "auth_uid": uid,
+                "full_name": payload.full_name,
+                "email": payload.email,
+                "country_code": payload.country_code,
+                "account_status": (existing or {}).get("account_status", "active"),
+            }
+            if payload.raw_description is not None:
+                profile_doc["raw_description"] = payload.raw_description
+            stored = dependencies.repository.upsert_profile(profile_id, profile_doc)
+        except (RepositoryError, ValidationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        return SelfProfileDTO(
+            profileId=stored["profile_id"],
+            fullName=stored["full_name"],
+            email=stored["email"],
+            countryCode=stored["country_code"],
+            accountStatus=stored.get("account_status", "active"),
+            rawText=stored.get("raw_description"),
+        )
+
+    @app.get("/api/v1/me/history")
+    async def get_my_history(
+        limit: int = 50,
+        uid: Optional[str] = Depends(require_pricing_token),
+    ) -> Any:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            with resolved_metrics.timer("database.list_my_transactions"):
+                return dependencies.repository.list_transactions_for_uid(uid, limit=limit)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+
+    @app.get("/api/v1/me/listings", response_model=List[SelfListingDTO])
+    async def get_my_listings(uid: Optional[str] = Depends(require_pricing_token)) -> List[SelfListingDTO]:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            mentor = dependencies.repository.get_mentor_by_auth_uid(uid)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        if mentor is None:
+            raise HTTPException(status_code=404, detail="mentor profile not found")
+        listings = dependencies.repository.list_listings_for_mentor(mentor["profile_id"])
+        return [
+            SelfListingDTO(
+                listingId=item["listing_id"],
+                mentorId=item["mentor_id"],
+                industryId=item["industry_id"],
+                title=item["title"],
+                rawText=item["raw_description"],
+                verifiedRate=item["verified_rate"],
+                isActive=item.get("is_active", True),
+                marketCompetitiveness=item.get("market_competitiveness"),
+                baseRateFloor=item.get("base_rate_floor"),
+            )
+            for item in listings
+        ]
+
+    @app.put("/api/v1/me/listings/{listing_id}", response_model=SelfListingDTO)
+    async def upsert_my_listing(
+        listing_id: str,
+        payload: SelfListingUpsertDTO,
+        uid: Optional[str] = Depends(require_pricing_token),
+    ) -> SelfListingDTO:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            mentor = dependencies.repository.get_mentor_by_auth_uid(uid)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        if mentor is None:
+            raise HTTPException(status_code=404, detail="mentor profile not found")
+        if runtime_inference and runtime.models_loaded and runtime.reducer is not None:
+            vector = [float(x) for x in ensure_text_dimensions(runtime.reducer.transform([payload.raw_description]))[0]]
+        else:
+            vector = [0.0] * 50
+        listing_doc = {
+            "listing_id": listing_id,
+            "mentor_id": mentor["profile_id"],
+            "industry_id": payload.industry_id,
+            "title": payload.title,
+            "raw_description": payload.raw_description,
+            "latent_svd_vector": vector,
+            "verified_rate": payload.verified_rate,
+            "is_active": payload.is_active,
+            "market_competitiveness": payload.market_competitiveness,
+            "base_rate_floor": payload.base_rate_floor,
+        }
+        try:
+            stored = dependencies.repository.upsert_listing(listing_id, listing_doc)
+        except (RepositoryError, ValidationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        return SelfListingDTO(
+            listingId=stored["listing_id"],
+            mentorId=stored["mentor_id"],
+            industryId=stored["industry_id"],
+            title=stored["title"],
+            rawText=stored["raw_description"],
+            verifiedRate=stored["verified_rate"],
+            isActive=stored.get("is_active", True),
+            marketCompetitiveness=stored.get("market_competitiveness"),
+            baseRateFloor=stored.get("base_rate_floor"),
+        )
+
+    @app.post("/api/v1/quotes/{transaction_id}/feedback", response_model=QuoteFeedbackDTO)
+    async def submit_quote_feedback(
+        transaction_id: str,
+        payload: QuoteFeedbackRequestDTO,
+        uid: Optional[str] = Depends(require_pricing_token),
+    ) -> QuoteFeedbackDTO:
+        if uid is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        try:
+            tx = dependencies.repository.get_transaction(transaction_id)
+        except RepositoryError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        if tx is None:
+            raise HTTPException(status_code=404, detail="quote transaction not found")
+        if tx.get("auth_uid") != uid:
+            raise HTTPException(status_code=403, detail="transaction authorization required")
+        submitted_at = datetime.now(timezone.utc)
+        feedback_doc = {
+            "feedback_id": f"fb-{uuid4().hex}",
+            "transaction_id": transaction_id,
+            "mentor_id": tx.get("mentor_id"),
+            "auth_uid": uid,
+            "outcome": payload.outcome,
+            "actual_rate": payload.actual_rate,
+            "notes": payload.notes,
+            "submitted_at": submitted_at.isoformat(),
+        }
+        try:
+            stored = dependencies.repository.append_feedback(feedback_doc)
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="pricing repository unavailable") from exc
+        return QuoteFeedbackDTO(
+            feedbackId=stored["feedback_id"],
+            transactionId=stored["transaction_id"],
+            mentorId=stored.get("mentor_id"),
+            outcome=stored["outcome"],
+            actualRate=stored.get("actual_rate"),
+            notes=stored.get("notes"),
+            submittedAt=submitted_at,
+        )
+
     @app.post(
         "/api/v1/optimize-price", response_model=CanonicalPredictionResultDTO | PredictionResultDTO,
         description="CamelCase canonical request/response in KES/hour. The snake_case PricingQueryDTO/PredictionResultDTO "
@@ -719,6 +919,53 @@ def create_app(
         with resolved_metrics.timer("database.seed_platform_mentors"):
             from src.data.seed_platform_mentors import seed_platform_mentor_profiles
             return seed_platform_mentor_profiles(dependencies.repository, source=corpus_path)
+
+    @app.get("/api/v1/admin/drift", response_model=DriftSummaryDTO)
+    async def admin_drift(
+        limit: int = 500,
+        _: ServiceDependencies = Depends(require_admin),
+    ) -> DriftSummaryDTO:
+        transactions = dependencies.repository.list_transactions(limit=limit)
+        by_industry: Dict[str, int] = {}
+        by_corridor: Dict[str, int] = {}
+        rates: List[float] = []
+        for tx in transactions:
+            ind = str(tx.get("selected_industry") or "unknown")
+            by_industry[ind] = by_industry.get(ind, 0) + 1
+            mentor_c = str(tx.get("mentor_country_code") or "??")
+            client_c = str(tx.get("client_country_code") or "??")
+            corridor = f"{mentor_c}->{client_c}"
+            by_corridor[corridor] = by_corridor.get(corridor, 0) + 1
+            rate = tx.get("final_quoted_rate")
+            if isinstance(rate, (int, float)) and math.isfinite(rate):
+                rates.append(float(rate))
+        avg_rate = round(sum(rates) / len(rates), 2) if rates else None
+        return DriftSummaryDTO(
+            totalTransactions=len(transactions),
+            byIndustry=by_industry,
+            byCorridor=by_corridor,
+            averageFinalRate=avg_rate,
+        )
+
+    @app.get("/api/v1/admin/feedback")
+    async def admin_feedback(
+        limit: int = 100,
+        _: ServiceDependencies = Depends(require_admin),
+    ) -> Any:
+        with resolved_metrics.timer("database.list_feedback"):
+            return dependencies.repository.list_feedback(limit=limit)
+
+    @app.get("/api/v1/admin/artifacts", response_model=ArtifactStatusDTO)
+    async def admin_artifacts(_: ServiceDependencies = Depends(require_admin)) -> ArtifactStatusDTO:
+        state = current_health()
+        return ArtifactStatusDTO(
+            modelsLoaded=state.models_loaded,
+            artifactVersion=state.artifact_version,
+            datasetVersion=state.dataset_version,
+            sourceType=state.source_type,
+            validationStatus=state.validation_status,
+            loadError=state.readiness_reason,
+        )
 
     return app
 

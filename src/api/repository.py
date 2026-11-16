@@ -96,6 +96,11 @@ class Repository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_mentor_by_auth_uid(self, verified_uid: str) -> Optional[Dict[str, Any]]:
+        """Look up the mentor profile owned by ``verified_uid``, or return None."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_listing(self, listing_id: str) -> Optional[Dict[str, Any]]:
         """Read a root listing by its stable document ID (trusted service only)."""
         raise NotImplementedError
@@ -129,6 +134,26 @@ class Repository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_transactions_for_uid(self, verified_uid: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Read quote audits belonging to ``verified_uid``, clamped to 1..200."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
+        """Read one quote audit by transaction_id, or None if missing."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def append_feedback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Persist mentor quote-outcome feedback."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_feedback(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """List persisted quote-outcome feedback records, clamped to 1..1000."""
+        raise NotImplementedError
+
+    @abstractmethod
     def health(self) -> str:
         """Return the adapter label, not proof of live backend connectivity."""
         raise NotImplementedError
@@ -147,6 +172,8 @@ class InMemoryRepository(Repository):
         self._transactions: List[Dict[str, Any]] = []
         self._transaction_ids: set[str] = set()
         self._transaction_lock = threading.Lock()
+        self._feedback: List[Dict[str, Any]] = []
+        self._feedback_lock = threading.Lock()
 
     def list_profiles(self) -> List[Dict[str, Any]]:
         """Return detached copies of all locally stored mentor profiles."""
@@ -181,6 +208,14 @@ class InMemoryRepository(Repository):
         if profile is not None and profile.get("auth_uid") != verified_uid:
             raise RepositoryError("mentor authorization required")
         return deepcopy(profile)
+
+    def get_mentor_by_auth_uid(self, verified_uid: str) -> Optional[Dict[str, Any]]:
+        """Return the first mentor profile whose ``auth_uid`` matches ``verified_uid``."""
+        _document_id(verified_uid, "verified_uid", 128)
+        for profile in self._profiles.values():
+            if profile.get("auth_uid") == verified_uid:
+                return deepcopy(profile)
+        return None
 
     def get_listing(self, listing_id: str) -> Optional[Dict[str, Any]]:
         """Read a detached root listing by validated ID, or None if absent."""
@@ -223,6 +258,38 @@ class InMemoryRepository(Repository):
             self._transactions.append(stored)
             self._transaction_ids.add(transaction_id)
         return deepcopy(stored)
+
+    def list_transactions_for_uid(self, verified_uid: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Return copies of quote audits owned by ``verified_uid``."""
+        _document_id(verified_uid, "verified_uid", 128)
+        clamped = max(1, min(int(limit), 200))
+        with self._transaction_lock:
+            owned = [tx for tx in self._transactions if tx.get("auth_uid") == verified_uid]
+            return deepcopy(owned[-clamped:])
+
+    def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
+        """Return a copy of the transaction matching ``transaction_id``, or None."""
+        _document_id(transaction_id, "transaction_id")
+        with self._transaction_lock:
+            for tx in self._transactions:
+                if tx.get("transaction_id") == transaction_id:
+                    return deepcopy(tx)
+        return None
+
+    def append_feedback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Append copied quote-outcome feedback."""
+        stored = deepcopy(payload)
+        feedback_id = stored.get("feedback_id")
+        if not isinstance(feedback_id, str) or not feedback_id or "/" in feedback_id:
+            raise RepositoryError("valid feedback_id is required")
+        with self._feedback_lock:
+            self._feedback.append(stored)
+        return deepcopy(stored)
+
+    def list_feedback(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Return copies of the latest quote-outcome feedback records."""
+        with self._feedback_lock:
+            return deepcopy(self._feedback[-max(1, min(int(limit), 1000)) :])
 
     def health(self) -> str:
         """Report ``memory`` without implying durable persistence."""
@@ -313,6 +380,18 @@ class FirestoreRepository(Repository):
             raise RepositoryError("mentor authorization required")
         return {**deepcopy(profile), "profile_id": mentor_id}
 
+    def get_mentor_by_auth_uid(self, verified_uid: str) -> Optional[Dict[str, Any]]:
+        """Query Firestore for the mentor profile owned by ``verified_uid``."""
+        _document_id(verified_uid, "verified_uid", 128)
+        snapshots = self._timed(
+            lambda: list(self._client.collection("mentors").where("auth_uid", "==", verified_uid).limit(1).stream()),
+        )
+        if not snapshots:
+            return None
+        snapshot = snapshots[0]
+        profile = snapshot.to_dict() or {}
+        return {**deepcopy(profile), "profile_id": snapshot.id}
+
     def get_listing(self, listing_id: str) -> Optional[Dict[str, Any]]:
         """Validate one root listing on read; return None only for a missing document."""
         _document_id(listing_id, "listing_id")
@@ -358,6 +437,37 @@ class FirestoreRepository(Repository):
         # create(), unlike set(), cannot overwrite an earlier audit on retry.
         self._timed(lambda: self._client.collection("historical_transactions").document(transaction_id).create(payload))
         return deepcopy(payload)
+
+    def list_transactions_for_uid(self, verified_uid: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Read quote audits owned by ``verified_uid``."""
+        _document_id(verified_uid, "verified_uid", 128)
+        query = (
+            self._client.collection("historical_transactions")
+            .where("auth_uid", "==", verified_uid)
+            .limit(max(1, min(int(limit), 200)))
+        )
+        return self._timed(lambda: [{"transaction_id": doc.id, **(doc.to_dict() or {})} for doc in query.stream()])
+
+    def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
+        """Read one quote audit by transaction_id, or None if missing."""
+        _document_id(transaction_id, "transaction_id")
+        snapshot = self._timed(lambda: self._client.collection("historical_transactions").document(transaction_id).get())
+        if not snapshot.exists:
+            return None
+        return {"transaction_id": snapshot.id, **(snapshot.to_dict() or {})}
+
+    def append_feedback(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Persist quote-outcome feedback into ``quote_feedback``."""
+        feedback_id = payload.get("feedback_id")
+        if not isinstance(feedback_id, str) or not feedback_id or "/" in feedback_id:
+            raise RepositoryError("valid feedback_id is required")
+        self._timed(lambda: self._client.collection("quote_feedback").document(feedback_id).create(payload))
+        return deepcopy(payload)
+
+    def list_feedback(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Read up to the clamped feedback limit."""
+        query = self._client.collection("quote_feedback").limit(max(1, min(int(limit), 1000)))
+        return self._timed(lambda: [{"feedback_id": doc.id, **(doc.to_dict() or {})} for doc in query.stream()])
 
     def health(self) -> str:
         """Report ``firestore``; use probe_readiness for a live connectivity check."""

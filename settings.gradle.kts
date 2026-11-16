@@ -5,6 +5,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -18,4 +21,4 @@ dependencyResolutionManagement {
 // Kept alongside the Python backend per docs/architecture_blueprint (1).md section 2; this file does
 // not replace or move any existing src/ Python module.
 rootProject.name = "price-optimization-model-android"
-include(":app")
+include(":app", ":admin-app")

@@ -1,0 +1,58 @@
+package dev.tyejaedon.pricing.di
+
+import android.content.Context
+import com.google.gson.GsonBuilder
+import dev.tyejaedon.pricing.BuildConfig
+import dev.tyejaedon.pricing.data.auth.FirebaseAuthManager
+import dev.tyejaedon.pricing.data.auth.IAuthTokenProvider
+import dev.tyejaedon.pricing.data.network.PricingApiService
+import dev.tyejaedon.pricing.data.repository.FakePricingRepository
+import dev.tyejaedon.pricing.data.repository.PricingRepositoryImpl
+import dev.tyejaedon.pricing.domain.IPricingRepository
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
+
+/**
+ * Minimal manual dependency container (no Hilt/Koin). [pricingRepository] selects the live protected
+ * API only when `useLiveBackend=true` is supplied at build time; offline builds use the fake repo.
+ */
+class AppContainer(
+    private val context: Context,
+) {
+    val authManager: IAuthTokenProvider by lazy { FirebaseAuthManager.create(context) }
+
+    private val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient
+            .Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(60, TimeUnit.SECONDS)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+                }
+            }.build()
+    }
+
+    private val apiService: PricingApiService by lazy {
+        Retrofit
+            .Builder()
+            .baseUrl(BuildConfig.PRICING_API_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
+            .build()
+            .create(PricingApiService::class.java)
+    }
+
+    val pricingRepository: IPricingRepository by lazy {
+        if (BuildConfig.USE_LIVE_BACKEND) {
+            PricingRepositoryImpl(apiService, authManager)
+        } else {
+            FakePricingRepository()
+        }
+    }
+}
