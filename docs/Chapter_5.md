@@ -325,7 +325,7 @@ The continuous MLOps loop establishes a secure, automated mechanism for monitori
 
 ### 5.2.6 Architectural Deviations from Baseline Design
 
-During the translation of the Chapter 4 analytical specification into concrete operational software, three material deviations from the baseline design were adopted to satisfy deployment constraints, partner backward compatibility, and empirical validation realities. To maintain readability within standard document margins, this architectural evolution is presented across two normalized sub-tables. Table 5.7a establishes the baseline design specifications established in Chapter 4, while Table 5.7b details the concrete operational implementations alongside their engineering justifications and trade-offs.
+During the translation of the Chapter 4 analytical specification into concrete operational software, eight material architectural deviations and evolutionary refinements were adopted to satisfy deployment constraints, partner backward compatibility, and empirical validation realities. To maintain readability within standard document margins, this architectural evolution is presented across two normalized sub-tables. Table 5.7a establishes the baseline design specifications established in Chapter 4, while Table 5.7b details the concrete operational implementations alongside their engineering justifications and trade-offs.
 
 ##### Table 5.7a: Baseline Architectural Specifications from Chapter 4
 
@@ -334,6 +334,11 @@ During the translation of the Chapter 4 analytical specification into concrete o
 | **Ingress Contract Architecture** | API Gateway & Ingress Routing | Decommission legacy endpoint; expose single unified pricing API. |
 | **Model Quality Gate Threshold** | CI/CD Automated Governance | Enforce blocking Out-of-Time deployment gate ($R^2 \ge 0.75$) at build time. |
 | **Semantic Representation & Retrieval** | Feature Extraction & Indexing | Dense contextual transformer (MiniLM-384D) and graph-based ANN (HNSW). |
+| **Industry Partition Taxonomy** | Spatial Index Organization | Eight discrete categorical partitions with static fallback to `general_tech`. |
+| **Continuous Metadata Features** | Macroeconomic Vector Fusion | 3-D vector combining bilateral PPP factor, domestic living cost, and saturation. |
+| **Training Corpus Scale** | Dataset Engineering & Provenance | 5,000 secondary marketplace freelance service listings. |
+| **Persistence & Audit Topology** | Telemetry & Audit Logging | Single `/historical_transactions` Firestore collection for audits and retraining. |
+| **Payment Tariff Schedule** | Statutory Margin Protection | 12-tier Safaricom M-Pesa B2C and C2B commercial disbursement schedule. |
 
 ##### Table 5.7b: Operational Implementations, Architectural Deviations, and Engineering Trade-Offs
 
@@ -342,6 +347,11 @@ During the translation of the Chapter 4 analytical specification into concrete o
 | **Ingress Contract Architecture** | Dual-ingress gateway: preserved `POST /price` (4-key payload) alongside `POST /api/v1/optimize-price` (11-key payload). | Maintained backward compatibility with Career Mentor OS platform adapters (`X-Platform-Key`) without restricting mobile clients from receiving rich corridor and tariff analytics. |
 | **Model Quality Gate Threshold** | Relaxed blocking gate; deployed with explicit exploratory provenance metadata (`exploratory_not_empirically_approved: true`). | Training corpus utilizes proxy marketplace data rather than verified settlement transactions (Issue #91); hard gating on proxy targets would project false financial precision. |
 | **Semantic Representation & Retrieval** | 50-D Truncated SVD projection and domain-partitioned KD-Trees with IDW kernel. | Constrained by local host memory (7.35 GB usable) and cloud container threshold (512 MB on Render); delivers exact instance peer explainability and sub-15ms deterministic queries. |
+| **Industry Partition Taxonomy** | Consolidated into 4 high-density technical domains (`data_ai`, `web_backend`, `mobile`, `design_creative`) with a 4-tier fallback cascade. | Eliminates extreme sparsity in non-technical categories; Tier 3 global semantic routing applies cross-domain penalty $\lambda_{\text{industry}} = 1.25$ before macroeconomic priors. |
+| **Continuous Metadata Features** | Substituted living cost with localized industry partition density ($\tilde{\rho}$) alongside PPP factor ($\tilde{\beta}_{ij}$) and market saturation ($\tilde{s}$). | Reflects localized engineering talent supply-and-demand dynamics directly within the spatial metric space, avoiding collinearity with sovereign PPP ratios. |
+| **Training Corpus Scale** | Expanded to 25,248 cleaned international software engineering listings augmented by 52 verified internal platform mentor profiles. | Enhances latent semantic vocabulary coverage and stabilizes KD-Tree neighborhood density across all four core technical partitions. |
+| **Persistence & Audit Topology** | Separated runtime telemetry into `/pricing_audits`, preserving `/historical_transactions` for reference drift distributions. | Prevents high-frequency write contention and index lock degradation on reference training collections, enabling non-blocking async telemetry dispatch. |
+| **Payment Tariff Schedule** | Evaluated authentic 15-tier Safaricom M-Pesa Peer-to-Peer (P2P) schedule (`mpesa_p2p_users_2026-08-04.csv`, KES 1.00 to KES 250,000.00). | Matches authentic informal and freelance peer-to-peer mobile transfer practices; applies strictly when $\text{mentorCountry} == \text{'KE'} \land \text{clientCountry} == \text{'KE'}$. |
 
 ### 5.2.7 Critical Algorithmic Implementation Extracts
 
