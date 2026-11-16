@@ -453,7 +453,11 @@ private fun HistoryTab(
                     text = "${formatIndustryLabel(item.selectedIndustry ?: "general")} • ${item.finalQuotedRate ?: 0f} KES/hour",
                     style = MaterialTheme.typography.titleSmall,
                 )
-                val dateLabel = item.executedAt?.take(10)?.let { " • $it" }.orEmpty()
+                val dateLabel =
+                    item.executedAt
+                        ?.take(10)
+                        ?.let { " • $it" }
+                        .orEmpty()
                 Text(
                     text = "Corridor: ${item.mentorCountryCode ?: "?"} -> ${item.clientCountryCode ?: "?"}$dateLabel",
                     style = MaterialTheme.typography.bodySmall,
@@ -482,7 +486,11 @@ private fun HistoryTab(
                         }
                         OutlinedButton(
                             onClick = {
-                                adjustedRateInput = item.finalQuotedRate?.toInt()?.toString().orEmpty()
+                                adjustedRateInput =
+                                    item.finalQuotedRate
+                                        ?.toInt()
+                                        ?.toString()
+                                        .orEmpty()
                                 adjustingTxId = item.transactionId
                             },
                         ) {

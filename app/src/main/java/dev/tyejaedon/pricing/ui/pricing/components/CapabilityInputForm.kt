@@ -194,7 +194,8 @@ fun CountryDropdown(
         if (selectedCode.isBlank()) {
             ""
         } else {
-            countries.firstOrNull { it.first.equals(selectedCode, ignoreCase = true) }
+            countries
+                .firstOrNull { it.first.equals(selectedCode, ignoreCase = true) }
                 ?.let { "${it.second} (${it.first})" }
                 ?: selectedCode.uppercase()
         }
