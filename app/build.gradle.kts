@@ -19,11 +19,11 @@ fun buildConfigValue(
 }
 
 android {
-    namespace = "edu.strathmore.pricing"
+    namespace = "dev.tyejaedon.pricing"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "edu.strathmore.pricing"
+        applicationId = "dev.tyejaedon.pricing"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -47,6 +47,15 @@ android {
                 .ifBlank { "http://10.0.2.2:8000/" }
         require(pricingApiBaseUrl.endsWith("/")) {
             "pricingApiBaseUrl must end with a slash."
+        }
+        val isLocalCleartextUrl =
+            pricingApiBaseUrl.startsWith("http://10.0.2.2") ||
+                pricingApiBaseUrl.startsWith("http://localhost") ||
+                pricingApiBaseUrl.startsWith("http://127.0.0.1")
+        if (liveBackendValue == "true" && !isLocalCleartextUrl) {
+            require(pricingApiBaseUrl.startsWith("https://")) {
+                "Remote live backend URLs must use https://."
+            }
         }
         buildConfigField(
             "String",

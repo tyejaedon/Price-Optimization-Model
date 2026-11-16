@@ -1,6 +1,6 @@
 # Keep DTO field names stable for Gson reflection-based (de)serialization.
--keepclassmembers class edu.strathmore.pricing.data.network.dto.** {
+-keepclassmembers class dev.tyejaedon.pricing.data.network.dto.** {
     <fields>;
 }
--keep class edu.strathmore.pricing.data.network.dto.** { *; }
+-keep class dev.tyejaedon.pricing.data.network.dto.** { *; }
 

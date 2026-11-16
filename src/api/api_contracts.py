@@ -351,6 +351,117 @@ class RetrainResponseDTO(StrictModel):
     result: Optional[Dict[str, Any]] = None
 
 
+class SelfProfileUpsertDTO(StrictModel):
+    """Self-service onboarding/update payload for the authenticated mentor (`PUT /api/v1/me`)."""
+
+    full_name: str = Field(alias="fullName", min_length=1, max_length=200)
+    email: str = Field(min_length=3, max_length=320)
+    country_code: str = Field(alias="countryCode", min_length=2, max_length=2)
+    raw_description: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000)
+
+    @field_validator("country_code")
+    @classmethod
+    def normalize_self_country(cls, value: str) -> str:
+        if re.fullmatch(r"[A-Za-z]{2}", value) is None:
+            raise ValueError("countryCode must be two ASCII letters")
+        return value.upper()
+
+
+class SelfProfileDTO(StrictModel):
+    """Canonical camelCase mentor profile returned by `/api/v1/me`."""
+
+    profile_id: str = Field(alias="profileId", min_length=1, max_length=200)
+    full_name: str = Field(alias="fullName", min_length=1, max_length=200)
+    email: str = Field(min_length=3, max_length=320)
+    country_code: str = Field(alias="countryCode", min_length=2, max_length=2)
+    account_status: str = Field(default="active", alias="accountStatus", max_length=50)
+    raw_description: Optional[str] = Field(default=None, alias="rawText", min_length=20, max_length=2000)
+
+
+class MetadataResponseDTO(StrictModel):
+    """Shared client metadata for supported industry partitions and runtime version."""
+
+    industries: List[str]
+    unit: Literal["KES/hour"] = "KES/hour"
+    version: str = "1.0.0"
+    models_loaded: bool = Field(alias="modelsLoaded")
+
+
+class SelfListingUpsertDTO(StrictModel):
+    """Mentor-owned service listing create/update payload (`PUT /api/v1/me/listings/{listing_id}`)."""
+
+    title: str = Field(min_length=1, max_length=200)
+    industry_id: str = Field(alias="industryId")
+    raw_description: str = Field(alias="rawText", min_length=20, max_length=2000)
+    verified_rate: float = Field(default=1.0, alias="verifiedRate", gt=0.0, allow_inf_nan=False)
+    is_active: bool = Field(default=True, alias="isActive")
+    market_competitiveness: Optional[float] = Field(default=None, alias="marketCompetitiveness", ge=0.0, le=1.0, allow_inf_nan=False)
+    base_rate_floor: Optional[float] = Field(default=None, alias="baseRateFloor", ge=0.0, allow_inf_nan=False)
+
+    @field_validator("industry_id")
+    @classmethod
+    def valid_self_industry(cls, value: str) -> str:
+        from src.data.ingest_multisource import SUPPORTED_INDUSTRY_PARTITIONS
+
+        if value not in SUPPORTED_INDUSTRY_PARTITIONS:
+            raise ValueError("industryId must be a supported partition")
+        return value
+
+
+class SelfListingDTO(StrictModel):
+    """Canonical camelCase service listing returned by `/api/v1/me/listings`."""
+
+    listing_id: str = Field(alias="listingId", min_length=1, max_length=200)
+    mentor_id: str = Field(alias="mentorId", min_length=1, max_length=200)
+    industry_id: str = Field(alias="industryId")
+    title: str = Field(min_length=1, max_length=200)
+    raw_description: str = Field(alias="rawText", min_length=20, max_length=2000)
+    verified_rate: float = Field(alias="verifiedRate", gt=0.0, allow_inf_nan=False)
+    is_active: bool = Field(default=True, alias="isActive")
+    market_competitiveness: Optional[float] = Field(default=None, alias="marketCompetitiveness", ge=0.0, le=1.0, allow_inf_nan=False)
+    base_rate_floor: Optional[float] = Field(default=None, alias="baseRateFloor", ge=0.0, allow_inf_nan=False)
+
+
+class QuoteFeedbackRequestDTO(StrictModel):
+    """Mentor feedback on a previously issued quote (`POST /api/v1/quotes/{transaction_id}/feedback`)."""
+
+    outcome: Literal["accepted", "adjusted", "booked", "declined"]
+    actual_rate: Optional[float] = Field(default=None, alias="actualRate", ge=0.0, allow_inf_nan=False)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class QuoteFeedbackDTO(StrictModel):
+    """Persisted quote-outcome feedback record."""
+
+    feedback_id: str = Field(alias="feedbackId")
+    transaction_id: str = Field(alias="transactionId")
+    mentor_id: Optional[str] = Field(default=None, alias="mentorId")
+    outcome: Literal["accepted", "adjusted", "booked", "declined"]
+    actual_rate: Optional[float] = Field(default=None, alias="actualRate")
+    notes: Optional[str] = None
+    submitted_at: datetime = Field(alias="submittedAt")
+
+
+class DriftSummaryDTO(StrictModel):
+    """Admin/MLOps distribution summary of recent pricing transactions."""
+
+    total_transactions: int = Field(alias="totalTransactions")
+    by_industry: Dict[str, int] = Field(default_factory=dict, alias="byIndustry")
+    by_corridor: Dict[str, int] = Field(default_factory=dict, alias="byCorridor")
+    average_final_rate: Optional[float] = Field(default=None, alias="averageFinalRate")
+
+
+class ArtifactStatusDTO(StrictModel):
+    """Admin/MLOps runtime artifact provenance and load status."""
+
+    models_loaded: bool = Field(alias="modelsLoaded")
+    artifact_version: Optional[str] = Field(default=None, alias="artifactVersion")
+    dataset_version: Optional[str] = Field(default=None, alias="datasetVersion")
+    source_type: Optional[str] = Field(default=None, alias="sourceType")
+    validation_status: Optional[str] = Field(default=None, alias="validationStatus")
+    load_error: Optional[str] = Field(default=None, alias="loadError")
+
+
 class MetricsResponseDTO(StrictModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metrics: Dict[str, Any] = Field(default_factory=dict)

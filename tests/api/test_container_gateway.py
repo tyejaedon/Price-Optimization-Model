@@ -237,6 +237,34 @@ class ContainerGatewayTests(unittest.TestCase):
                     self.assertEqual(repository.list_transactions()[0]["tariff_schedule_sha256"], file_sha256(tariff_path))
                 repository_factory.assert_called_with(database_id="priceoptimizationmodel")
 
+    def test_self_service_profile_onboarding_and_lookup(self):
+        repository = FakeFirestore()
+
+        def verifier(token):
+            if token != "new-user-token":
+                raise ValueError("invalid token")
+            return {"uid": "brand-new-uid"}
+
+        app = create_app(repository=repository, token_verifier=verifier, admin_token="admin-secret")
+        headers = {"Authorization": "Bearer new-user-token"}
+        with TestClient(app) as client:
+            self.assertEqual(client.get("/api/v1/me").status_code, 401)
+            self.assertEqual(client.get("/api/v1/me", headers=headers).status_code, 404)
+
+            upsert = client.put(
+                "/api/v1/me",
+                json={"fullName": "Jane Mentor", "email": "jane@example.test", "countryCode": "ke"},
+                headers=headers,
+            )
+            self.assertEqual(upsert.status_code, 200, upsert.text)
+            body = upsert.json()
+            self.assertEqual(body["profileId"], "mentor-brand-new-uid")
+            self.assertEqual(body["countryCode"], "KE")
+
+            fetched = client.get("/api/v1/me", headers=headers)
+            self.assertEqual(fetched.status_code, 200, fetched.text)
+            self.assertEqual(fetched.json()["profileId"], "mentor-brand-new-uid")
+
 
 if __name__ == "__main__":
     unittest.main()

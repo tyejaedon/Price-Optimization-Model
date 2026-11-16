@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - "app/**"
+      - "admin-app/**"
   workflow_dispatch:
 
 # Android build/lint/style/unit-test quality gate (issue #141, Milestone 13), run alongside the
@@ -13,7 +14,7 @@ on:
 # pr-governance.yml. Does not require committing the Gradle wrapper jar: gradle/actions/setup-gradle
 # provisions a pinned Gradle distribution and invokes `gradle` directly.
 jobs:
-  android-build-and-test:
+  android-static-and-unit:
     name: Gradle build, lint, ktlint and unit tests
     runs-on: ubuntu-latest
     steps:
@@ -31,32 +32,61 @@ jobs:
           gradle-version: "8.9"
 
       - name: Ktlint style check
-        run: gradle :app:ktlintCheck --console=plain
+        run: gradle :app:ktlintCheck :admin-app:ktlintCheck --console=plain
 
-      - name: Assemble debug APK
-        run: gradle :app:assembleDebug --console=plain
+      - name: Assemble debug APKs
+        run: gradle :app:assembleDebug :admin-app:assembleDebug --console=plain
 
       - name: Android Lint
-        run: gradle :app:lintDebug --console=plain
+        run: gradle :app:lintDebug :admin-app:lintDebug --console=plain
 
       - name: Unit tests (ViewModel/state + repository)
-        run: gradle :app:testDebugUnitTest --console=plain
+        run: gradle :app:testDebugUnitTest :admin-app:testDebugUnitTest --console=plain
+
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-static-reports
+          path: |
+            app/build/reports/
+            admin-app/build/reports/
+          retention-days: 7
+
+  android-ui-tests:
+    name: Compose UI tests
+    needs: android-static-and-unit
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Compose UI tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           target: google_apis
-          arch: x86_64
+          arch: arm64
           profile: pixel_2
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --console=plain
+          script: gradle :app:connectedDebugAndroidTest :admin-app:connectedDebugAndroidTest --console=plain
 
       - name: Upload failure reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: android-ci-reports
+          name: android-ui-reports
           path: |
             app/build/reports/
+            admin-app/build/reports/
           retention-days: 7
