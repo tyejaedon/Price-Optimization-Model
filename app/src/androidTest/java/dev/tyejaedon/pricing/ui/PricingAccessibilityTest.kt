@@ -43,7 +43,7 @@ class PricingAccessibilityTest {
 
         val interactiveNodes =
             composeRule
-                .onAllNodes(hasClickAction(), useUnmergedTree = true)
+                .onAllNodes(hasClickAction(), useUnmergedTree = false)
                 .fetchSemanticsNodes()
         assertTrue(interactiveNodes.isNotEmpty())
         interactiveNodes.forEach { node ->
