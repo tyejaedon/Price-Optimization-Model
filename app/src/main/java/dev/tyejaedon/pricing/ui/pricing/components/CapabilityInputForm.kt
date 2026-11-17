@@ -1,14 +1,17 @@
 package dev.tyejaedon.pricing.ui.pricing.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,7 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
+import dev.tyejaedon.pricing.ui.theme.PricingTheme
 import java.util.Locale
 
 /** Supported industry partitions, kept in sync with `SUPPORTED_INDUSTRY_PARTITIONS` server-side. */
@@ -223,6 +229,54 @@ fun CountryDropdown(
                     },
                 )
             }
+        }
+    }
+}
+
+@Preview(name = "CapabilityInputForm - Light", showBackground = true)
+@Composable
+private fun CapabilityInputFormLightPreview() {
+    PricingTheme(darkTheme = false) {
+        Surface {
+            CapabilityInputForm(
+                rawDescription = "Senior Android & Kotlin Multiplatform mentorship and architecture reviews",
+                onDescriptionChanged = {},
+                mentorId = "mentor_001",
+                onMentorIdChanged = {},
+                selectedIndustry = "mobile",
+                onIndustrySelected = {},
+                mentorCountry = "KE",
+                onMentorCountryChanged = {},
+                clientCountry = "US",
+                onClientCountryChanged = {},
+                baseRateFloor = "2000",
+                onBaseRateFloorChanged = {},
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+@Preview(name = "CapabilityInputForm - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+private fun CapabilityInputFormDarkPreview() {
+    PricingTheme(darkTheme = true) {
+        Surface {
+            CapabilityInputForm(
+                rawDescription = "",
+                onDescriptionChanged = {},
+                mentorId = "",
+                onMentorIdChanged = {},
+                selectedIndustry = "data_ai",
+                onIndustrySelected = {},
+                mentorCountry = "KE",
+                onMentorCountryChanged = {},
+                clientCountry = "GB",
+                onClientCountryChanged = {},
+                baseRateFloor = "",
+                onBaseRateFloorChanged = {},
+                modifier = Modifier.padding(16.dp),
+            )
         }
     }
 }

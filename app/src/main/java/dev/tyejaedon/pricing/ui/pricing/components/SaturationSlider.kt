@@ -1,14 +1,20 @@
 package dev.tyejaedon.pricing.ui.pricing.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import dev.tyejaedon.pricing.ui.theme.PricingTheme
 import kotlin.math.roundToInt
 
 /**
@@ -37,5 +43,33 @@ fun SaturationSlider(
                     .fillMaxWidth()
                     .semantics { contentDescription = "Niche competitiveness slider, $percent percent" },
         )
+    }
+}
+
+@Preview(name = "SaturationSlider - Light", showBackground = true)
+@Composable
+private fun SaturationSliderLightPreview() {
+    PricingTheme(darkTheme = false) {
+        Surface {
+            SaturationSlider(
+                score = 0.65f,
+                onScoreChanged = {},
+                modifier = Modifier.padding(16.dp),
+            )
+        }
+    }
+}
+
+@Preview(name = "SaturationSlider - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+private fun SaturationSliderDarkPreview() {
+    PricingTheme(darkTheme = true) {
+        Surface {
+            SaturationSlider(
+                score = 0.35f,
+                onScoreChanged = {},
+                modifier = Modifier.padding(16.dp),
+            )
+        }
     }
 }
