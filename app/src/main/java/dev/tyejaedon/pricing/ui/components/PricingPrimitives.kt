@@ -1,36 +1,41 @@
 package dev.tyejaedon.pricing.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.tyejaedon.pricing.ui.theme.MinTouchTarget
+import dev.tyejaedon.pricing.designsystem.GlassCard
+import dev.tyejaedon.pricing.designsystem.GlassPrimaryButton
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiAmbientCanvas
+import dev.tyejaedon.pricing.designsystem.OneUiShapes
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
 import dev.tyejaedon.pricing.ui.theme.PricingTheme
 
 /**
- * Shared Material 3 primitives (issue #140) so feature screens compose from one vocabulary of
- * reusable widgets instead of redefining paddings/colors ad hoc.
+ * Shared One UI Glassmorphic primitives (issue #140) so feature screens compose from one
+ * cohesive vocabulary of translucent cards, pill buttons, and high-contrast error pills.
  */
 
 @Composable
@@ -41,16 +46,13 @@ fun PrimaryActionButton(
     enabled: Boolean = true,
     contentDescription: String? = null,
 ) {
-    androidx.compose.material3.Button(
+    GlassPrimaryButton(
+        text = text,
         onClick = onClick,
+        modifier = modifier,
         enabled = enabled,
-        modifier =
-            modifier
-                .defaultMinSize(minHeight = MinTouchTarget)
-                .semantics { if (contentDescription != null) this.contentDescription = contentDescription },
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
-    }
+        contentDescription = contentDescription,
+    )
 }
 
 @Composable
@@ -58,15 +60,12 @@ fun SectionCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Card(
+    GlassCard(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = OneUiShapes.OuterContainer,
+        contentPadding = PaddingValues(PricingSpacing.CardPadding),
     ) {
-        Box(modifier = Modifier.padding(PaddingValues(PricingSpacing.Medium))) {
-            content()
-        }
+        content()
     }
 }
 
@@ -75,18 +74,30 @@ fun InlineErrorText(
     message: String,
     modifier: Modifier = Modifier,
 ) {
+    val glass = LocalOneUiGlassColors.current
+    val pillShape = RoundedCornerShape(16.dp)
     Row(
-        modifier = modifier.semantics { contentDescription = "Error: $message" },
+        modifier =
+            modifier
+                .clip(pillShape)
+                .background(glass.errorTint.copy(alpha = 0.14f), pillShape)
+                .border(BorderStroke(1.dp, glass.errorTint.copy(alpha = 0.28f)), pillShape)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .semantics { contentDescription = "Error: $message" },
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
     ) {
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
+            tint = glass.errorTint,
+            modifier = Modifier.size(18.dp),
         )
-        Box(modifier = Modifier.padding(start = PricingSpacing.ExtraSmall)) {
-            Text(text = message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-        }
+        Text(
+            text = message,
+            color = glass.errorTint,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -94,13 +105,13 @@ fun InlineErrorText(
 @Composable
 private fun PricingPrimitivesLightPreview() {
     PricingTheme(darkTheme = false) {
-        Surface {
+        OneUiAmbientCanvas {
             Column(
                 modifier = Modifier.padding(PricingSpacing.Medium),
                 verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
             ) {
                 SectionCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Sample Section Card", style = MaterialTheme.typography.titleSmall)
+                    Text("Sample Section Card", style = MaterialTheme.typography.titleMedium)
                 }
                 PrimaryActionButton(
                     text = "Calculate rate",
@@ -117,13 +128,13 @@ private fun PricingPrimitivesLightPreview() {
 @Composable
 private fun PricingPrimitivesDarkPreview() {
     PricingTheme(darkTheme = true) {
-        Surface {
+        OneUiAmbientCanvas {
             Column(
                 modifier = Modifier.padding(PricingSpacing.Medium),
                 verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
             ) {
                 SectionCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Sample Section Card", style = MaterialTheme.typography.titleSmall)
+                    Text("Sample Section Card", style = MaterialTheme.typography.titleMedium)
                 }
                 PrimaryActionButton(
                     text = "Disabled action",

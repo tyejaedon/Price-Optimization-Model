@@ -31,6 +31,10 @@ class PricingViewModel(
     private val _workspaceState = MutableStateFlow(MentorWorkspaceState())
     val workspaceState: StateFlow<MentorWorkspaceState> = _workspaceState.asStateFlow()
 
+    fun setQuoteStep(step: Int) {
+        _workspaceState.update { it.copy(quoteStep = step.coerceIn(0, 2)) }
+    }
+
     fun selectTab(tab: MentorTab) {
         _workspaceState.update { it.copy(selectedTab = tab, statusMessage = null, errorMessage = null) }
         when (tab) {
@@ -107,7 +111,11 @@ class PricingViewModel(
             )
         }
         _workspaceState.update {
-            it.copy(selectedTab = MentorTab.QUOTE, statusMessage = "Loaded \"${listing.title}\" into quote.")
+            it.copy(
+                selectedTab = MentorTab.QUOTE,
+                quoteStep = 1,
+                statusMessage = "Loaded \"${listing.title}\" — confirm your countries to calculate.",
+            )
         }
     }
 
@@ -265,6 +273,7 @@ class PricingViewModel(
         val readyProfile = (_profileState.value as? ProfileUiState.Ready)?.profile
         val preservedMentorId = readyProfile?.profileId ?: currentForm.mentorId
         val preservedMentorCountry = readyProfile?.countryCode?.uppercase().orEmpty()
+        _workspaceState.update { it.copy(quoteStep = 0, statusMessage = null, errorMessage = null) }
         _uiState.update {
             PricingUiState.Idle(
                 PricingFormState(

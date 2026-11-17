@@ -41,7 +41,8 @@ class AdminDemoFlowTest {
 
         // 4. Profiles & Audit: filter profiles
         composeRule.onNodeWithText("Profiles & Audit").performClick()
-        composeRule.onNodeWithText("Filter profiles by name, ID, or country")
+        composeRule
+            .onNodeWithText("Filter profiles by name, ID, or country")
             .performTextInput("Alice")
         composeRule.onNodeWithText("Alice Mentor (mentor-001) — KE").assertExists()
     }

@@ -106,6 +106,7 @@ class PricingResultCardTest {
             viewModel.onIndustrySelected("mobile")
             viewModel.onMentorCountrySelected("KE")
             viewModel.onClientCountrySelected("US")
+            viewModel.setQuoteStep(2)
         }
         composeRule.waitForIdle()
     }

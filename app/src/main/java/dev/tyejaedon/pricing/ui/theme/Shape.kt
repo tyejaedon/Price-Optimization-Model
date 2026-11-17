@@ -1,23 +1,16 @@
 package dev.tyejaedon.pricing.ui.theme
 
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
+import dev.tyejaedon.pricing.designsystem.OneUiShapes
 
-val PricingShapes =
-    Shapes(
-        extraSmall = RoundedCornerShape(4.dp),
-        small = RoundedCornerShape(8.dp),
-        medium = RoundedCornerShape(12.dp),
-        large = RoundedCornerShape(16.dp),
-        extraLarge = RoundedCornerShape(28.dp),
-    )
+val PricingShapes = OneUiShapes.Material
 
 /** Spacing tokens so screens never hardcode raw `dp` literals (issue #140). */
 object PricingSpacing {
     val ExtraSmall = 4.dp
     val Small = 8.dp
     val Medium = 16.dp
+    val CardPadding = 20.dp
     val Large = 24.dp
     val ExtraLarge = 32.dp
     val RangeIndicatorHeight = 10.dp

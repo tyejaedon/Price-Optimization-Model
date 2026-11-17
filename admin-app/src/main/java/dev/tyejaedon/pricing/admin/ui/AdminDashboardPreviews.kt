@@ -1,8 +1,6 @@
 package dev.tyejaedon.pricing.admin.ui
 
 import android.content.res.Configuration
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.tyejaedon.pricing.admin.data.network.dto.AdminProfileDTO
@@ -15,6 +13,7 @@ import dev.tyejaedon.pricing.admin.data.network.dto.RetrainResponseDTO
 import dev.tyejaedon.pricing.admin.data.network.dto.TransactionAuditDTO
 import dev.tyejaedon.pricing.admin.viewmodel.AdminDashboardUiState
 import dev.tyejaedon.pricing.admin.viewmodel.AdminTab
+import dev.tyejaedon.pricing.designsystem.OneUiGlassTheme
 
 private val previewBaseState =
     AdminDashboardUiState(
@@ -102,7 +101,7 @@ private val previewBaseState =
 @Preview(name = "Overview - Light", showBackground = true)
 @Composable
 private fun AdminDashboardOverviewLightPreview() {
-    MaterialTheme {
+    OneUiGlassTheme(darkTheme = false) {
         AdminDashboardScreenContent(
             state = previewBaseState.copy(selectedTab = AdminTab.OVERVIEW),
         )
@@ -112,7 +111,7 @@ private fun AdminDashboardOverviewLightPreview() {
 @Preview(name = "Overview - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
 private fun AdminDashboardOverviewDarkPreview() {
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    OneUiGlassTheme(darkTheme = true) {
         AdminDashboardScreenContent(
             state = previewBaseState.copy(selectedTab = AdminTab.OVERVIEW),
         )
@@ -122,7 +121,7 @@ private fun AdminDashboardOverviewDarkPreview() {
 @Preview(name = "MLOps Tab", showBackground = true)
 @Composable
 private fun AdminDashboardMlopsPreview() {
-    MaterialTheme {
+    OneUiGlassTheme(darkTheme = false) {
         AdminDashboardScreenContent(
             state =
                 previewBaseState.copy(
@@ -136,7 +135,7 @@ private fun AdminDashboardMlopsPreview() {
 @Preview(name = "Drift & Feedback Tab", showBackground = true)
 @Composable
 private fun AdminDashboardDriftPreview() {
-    MaterialTheme {
+    OneUiGlassTheme(darkTheme = false) {
         AdminDashboardScreenContent(
             state = previewBaseState.copy(selectedTab = AdminTab.DRIFT),
         )
@@ -146,7 +145,7 @@ private fun AdminDashboardDriftPreview() {
 @Preview(name = "Profiles & Audit Tab", showBackground = true)
 @Composable
 private fun AdminDashboardProfilesPreview() {
-    MaterialTheme {
+    OneUiGlassTheme(darkTheme = false) {
         AdminDashboardScreenContent(
             state = previewBaseState.copy(selectedTab = AdminTab.PROFILES),
         )

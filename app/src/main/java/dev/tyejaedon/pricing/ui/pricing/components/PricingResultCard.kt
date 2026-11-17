@@ -2,28 +2,32 @@ package dev.tyejaedon.pricing.ui.pricing.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import dev.tyejaedon.pricing.data.network.dto.PredictionResultDTO
+import dev.tyejaedon.pricing.designsystem.GlassInsetDivider
+import dev.tyejaedon.pricing.designsystem.GlassStatusBadge
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiShapes
+import dev.tyejaedon.pricing.designsystem.recessedGlassWell
 import dev.tyejaedon.pricing.ui.components.SectionCard
 import dev.tyejaedon.pricing.ui.pricing.formatting.formatKesRate
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
-import dev.tyejaedon.pricing.ui.theme.WarningAmber
-import dev.tyejaedon.pricing.ui.theme.WarningAmberDark
 
 /**
  * Pricing result presentation (issue #142). Keeps corridor, M-Pesa surcharge and the uncalibrated
@@ -37,8 +41,8 @@ fun PricingResultCard(
     modifier: Modifier = Modifier,
 ) {
     val reduceMotion = isReduceMotionEnabled()
-    val warningColor =
-        if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) WarningAmberDark else WarningAmber
+    val glass = LocalOneUiGlassColors.current
+    val warningColor = glass.warningTint
     val animatedRate by animateFloatAsState(
         targetValue = result.finalQuotedRate,
         animationSpec = if (reduceMotion) tween(durationMillis = 0) else tween(durationMillis = 600),
@@ -46,30 +50,39 @@ fun PricingResultCard(
     )
 
     SectionCard(modifier = modifier) {
-        Column {
-            Text(
-                text = "Recommended rate",
-                style = MaterialTheme.typography.labelLarge,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Recommended rate",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = glass.textSecondary,
+                )
+                GlassStatusBadge(
+                    text = "${(result.confidenceScore * 100).toInt()}% confidence",
+                    tint = glass.primaryAccent,
+                )
+            }
             Text(
                 text = "${formatKesRate(animatedRate)} KES/hour",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.displayLarge,
+                color = glass.textPrimary,
                 modifier =
                     Modifier.semantics {
                         contentDescription = "Final quoted rate ${formatKesRate(result.finalQuotedRate)} KES per hour"
                     },
             )
 
-            Spacer(modifier = Modifier.height(PricingSpacing.Small))
             BilateralCorridorSelector(
                 minRate = result.minQuotedRate,
                 maxRate = result.maxQuotedRate,
                 finalRate = result.basePredictedRate,
             )
 
-            Spacer(modifier = Modifier.height(PricingSpacing.Medium))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(PricingSpacing.Small))
+            GlassInsetDivider(startIndent = 0.dp)
 
             LineItem(label = "M-Pesa transfer fee", value = "+${formatKesRate(result.mpesaTariffSurcharge)} KES/hour")
             LineItem(
@@ -79,12 +92,20 @@ fun PricingResultCard(
                 captionColor = warningColor,
             )
 
-            Spacer(modifier = Modifier.height(PricingSpacing.Medium))
-            Text(text = "Comparable peers", style = MaterialTheme.typography.labelLarge)
+            GlassInsetDivider(startIndent = 0.dp)
+
+            Text(
+                text = "Comparable peers",
+                style = MaterialTheme.typography.titleMedium,
+                color = glass.textPrimary,
+            )
             ComparablesList(result = result)
 
-            Spacer(modifier = Modifier.height(PricingSpacing.Small))
-            Text(text = result.reason, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = result.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = glass.textMuted,
+            )
         }
     }
 }
@@ -94,12 +115,22 @@ private fun LineItem(
     label: String,
     value: String,
     caption: String? = null,
-    captionColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    captionColor: Color = LocalOneUiGlassColors.current.textPrimary,
 ) {
-    Column {
+    val glass = LocalOneUiGlassColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text(text = value, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textPrimary,
+            )
         }
         if (caption != null) {
             Text(text = caption, style = MaterialTheme.typography.bodySmall, color = captionColor)
@@ -109,10 +140,12 @@ private fun LineItem(
 
 @Composable
 private fun ComparablesList(result: PredictionResultDTO) {
+    val glass = LocalOneUiGlassColors.current
     if (result.comparables.isEmpty()) {
         Text(
             text = "No listing-backed comparables are available for this quote yet.",
             style = MaterialTheme.typography.bodySmall,
+            color = glass.textMuted,
         )
         return
     }
@@ -122,31 +155,48 @@ private fun ComparablesList(result: PredictionResultDTO) {
                 "Showing ${result.comparables.size} of ${result.kNeighborsUsed} indexed peers; " +
                     "some listings lack public provenance.",
             style = MaterialTheme.typography.bodySmall,
+            color = glass.textMuted,
         )
     }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        result.comparables.forEach { peer ->
-            Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .recessedGlassWell(shape = OneUiShapes.InnerCard)
+                .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+    ) {
+        result.comparables.forEachIndexed { index, peer ->
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = peer.jobTitle?.takeIf(String::isNotBlank) ?: "Untitled listing",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = glass.textPrimary,
                         modifier = Modifier.weight(1f),
                     )
-                    Text(text = "${formatKesRate(peer.verifiedRate)} KES/hour", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "${formatKesRate(peer.verifiedRate)} KES/hour",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = glass.secondaryAccent,
+                    )
                 }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Listing ID: ${peer.listingId}",
                         style = MaterialTheme.typography.bodySmall,
+                        color = glass.textMuted,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
                         text = "Similarity: ${formatSimilarity(peer.similarityScore)}",
                         style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary,
                     )
                 }
-                Spacer(modifier = Modifier.height(PricingSpacing.ExtraSmall))
+            }
+            if (index < result.comparables.lastIndex) {
+                GlassInsetDivider(startIndent = 0.dp)
             }
         }
     }

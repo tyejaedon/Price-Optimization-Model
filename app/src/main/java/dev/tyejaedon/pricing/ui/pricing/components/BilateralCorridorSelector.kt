@@ -1,23 +1,28 @@
 package dev.tyejaedon.pricing.ui.pricing.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiAmbientCanvas
+import dev.tyejaedon.pricing.designsystem.recessedGlassWell
 import dev.tyejaedon.pricing.ui.pricing.formatting.formatKesRate
-import dev.tyejaedon.pricing.ui.theme.AccentMint
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
 import dev.tyejaedon.pricing.ui.theme.PricingTheme
 
@@ -36,7 +41,8 @@ fun BilateralCorridorSelector(
     modifier: Modifier = Modifier,
 ) {
     val range = (maxRate - minRate).coerceAtLeast(1f)
-    val progress = ((finalRate - minRate) / range).coerceIn(0f, 1f)
+    val progress = ((finalRate - minRate) / range).coerceIn(0.06f, 1f)
+    val glass = LocalOneUiGlassColors.current
 
     Column(
         modifier =
@@ -51,20 +57,34 @@ fun BilateralCorridorSelector(
         Text(
             text = "${formatKesRate(minRate)} - ${formatKesRate(maxRate)} $currencyUnit",
             style = MaterialTheme.typography.titleMedium,
+            color = glass.textPrimary,
         )
-        Box(modifier = Modifier.fillMaxWidth().padding(top = PricingSpacing.ExtraSmall)) {
-            LinearProgressIndicator(
-                progress = { progress },
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = PricingSpacing.Small)
+                    .height(PricingSpacing.RangeIndicatorHeight)
+                    .recessedGlassWell(shape = CircleShape),
+        ) {
+            Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .height(PricingSpacing.RangeIndicatorHeight),
-                color = AccentMint,
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(
+                            brush =
+                                Brush.horizontalGradient(
+                                    listOf(glass.primaryAccent, glass.secondaryAccent),
+                                ),
+                        ),
             )
         }
         Text(
             text = "Base rate (excl. M-Pesa): ${formatKesRate(finalRate)} $currencyUnit",
             style = MaterialTheme.typography.bodyMedium,
+            color = glass.textSecondary,
         )
     }
 }
@@ -73,7 +93,7 @@ fun BilateralCorridorSelector(
 @Composable
 private fun BilateralCorridorSelectorLightPreview() {
     PricingTheme(darkTheme = false) {
-        Surface {
+        OneUiAmbientCanvas {
             BilateralCorridorSelector(
                 minRate = 2125f,
                 maxRate = 3375f,
@@ -88,7 +108,7 @@ private fun BilateralCorridorSelectorLightPreview() {
 @Composable
 private fun BilateralCorridorSelectorDarkPreview() {
     PricingTheme(darkTheme = true) {
-        Surface {
+        OneUiAmbientCanvas {
             BilateralCorridorSelector(
                 minRate = 2125f,
                 maxRate = 3375f,

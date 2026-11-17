@@ -1,17 +1,12 @@
 package dev.tyejaedon.pricing.ui.pricing.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +19,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.tyejaedon.pricing.designsystem.GlassDropdownField
+import dev.tyejaedon.pricing.designsystem.GlassDropdownItem
+import dev.tyejaedon.pricing.designsystem.GlassTextField
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiAmbientCanvas
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
 import dev.tyejaedon.pricing.ui.theme.PricingTheme
 import java.util.Locale
@@ -66,6 +66,115 @@ fun formatIndustryLabel(key: String): String =
  * (single source of truth); this composable only renders them.
  */
 @Composable
+fun CapabilityServiceStep(
+    rawDescription: String,
+    onDescriptionChanged: (String) -> Unit,
+    selectedIndustry: String,
+    onIndustrySelected: (String) -> Unit,
+    industries: List<String> = SupportedIndustries,
+    modifier: Modifier = Modifier,
+) {
+    val trimmedLength = rawDescription.trim().length
+    val descriptionHelper =
+        if (trimmedLength < 20) {
+            "Add at least ${20 - trimmedLength} more characters ($trimmedLength/20) for accurate peer matching."
+        } else {
+            "Ready for peer matching ($trimmedLength characters)."
+        }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
+    ) {
+        GlassTextField(
+            value = rawDescription,
+            onValueChange = onDescriptionChanged,
+            label = "Describe your service",
+            supportingText = descriptionHelper,
+            singleLine = false,
+            minLines = 3,
+            textFieldModifier = Modifier.semantics { contentDescription = "Service description input" },
+        )
+
+        IndustryDropdown(
+            selectedIndustry = selectedIndustry,
+            onIndustrySelected = onIndustrySelected,
+            industries = industries,
+        )
+    }
+}
+
+@Composable
+fun CapabilityCorridorStep(
+    mentorCountry: String,
+    onMentorCountryChanged: (String) -> Unit,
+    clientCountry: String,
+    onClientCountryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val glass = LocalOneUiGlassColors.current
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
+    ) {
+        CountryDropdown(
+            label = "Your country",
+            selectedCode = mentorCountry,
+            onCountrySelected = onMentorCountryChanged,
+            contentDescriptionText = "Your country ISO 2-letter code",
+        )
+
+        CountryDropdown(
+            label = "Client country",
+            selectedCode = clientCountry,
+            onCountrySelected = onClientCountryChanged,
+            contentDescriptionText = "Client country ISO 2-letter code",
+        )
+
+        Text(
+            text = "Cross-border quotes automatically factor in local purchasing power and M-Pesa transfer fees.",
+            style = MaterialTheme.typography.bodySmall,
+            color = glass.textMuted,
+        )
+    }
+}
+
+@Composable
+fun CapabilityPositioningStep(
+    baseRateFloor: String,
+    onBaseRateFloorChanged: (String) -> Unit,
+    competitivenessScore: Float,
+    onCompetitivenessScoreChanged: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val glass = LocalOneUiGlassColors.current
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
+    ) {
+        GlassTextField(
+            value = baseRateFloor,
+            onValueChange = onBaseRateFloorChanged,
+            label = "Minimum base rate (KES/hour, optional)",
+            supportingText = "Your personal floor before M-Pesa fees are added.",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+        )
+
+        SaturationSlider(
+            score = competitivenessScore,
+            onScoreChanged = onCompetitivenessScoreChanged,
+        )
+
+        Text(
+            text = "Higher competitiveness reflects a more crowded niche; lower scores indicate specialized demand.",
+            style = MaterialTheme.typography.bodySmall,
+            color = glass.textMuted,
+        )
+    }
+}
+
+@Composable
 fun CapabilityInputForm(
     rawDescription: String,
     onDescriptionChanged: (String) -> Unit,
@@ -82,60 +191,36 @@ fun CapabilityInputForm(
     onBaseRateFloorChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = rawDescription,
-            onValueChange = onDescriptionChanged,
-            label = { Text("Describe your service") },
-            supportingText = { Text("Min 20 characters. Used only to compute a peer-matched rate.") },
-            minLines = 3,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Service description input" },
-        )
-
-        Spacer(modifier = Modifier.height(PricingSpacing.Medium))
-
-        IndustryDropdown(
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
+    ) {
+        CapabilityServiceStep(
+            rawDescription = rawDescription,
+            onDescriptionChanged = onDescriptionChanged,
             selectedIndustry = selectedIndustry,
             onIndustrySelected = onIndustrySelected,
             industries = industries,
         )
 
-        Spacer(modifier = Modifier.height(PricingSpacing.Medium))
-
-        CountryDropdown(
-            label = "Your country",
-            selectedCode = mentorCountry,
-            onCountrySelected = onMentorCountryChanged,
-            contentDescriptionText = "Your country ISO 2-letter code",
+        CapabilityCorridorStep(
+            mentorCountry = mentorCountry,
+            onMentorCountryChanged = onMentorCountryChanged,
+            clientCountry = clientCountry,
+            onClientCountryChanged = onClientCountryChanged,
         )
 
-        Spacer(modifier = Modifier.height(PricingSpacing.Small))
-
-        CountryDropdown(
-            label = "Client country",
-            selectedCode = clientCountry,
-            onCountrySelected = onClientCountryChanged,
-            contentDescriptionText = "Client country ISO 2-letter code",
-        )
-
-        Spacer(modifier = Modifier.height(PricingSpacing.Small))
-
-        OutlinedTextField(
+        GlassTextField(
             value = baseRateFloor,
             onValueChange = onBaseRateFloorChanged,
-            label = { Text("Minimum base rate (KES/hour, optional)") },
-            supportingText = { Text("Does not include the M-Pesa fee.") },
+            label = "Minimum base rate (KES/hour, optional)",
+            supportingText = "Your personal floor before M-Pesa fees are added.",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun IndustryDropdown(
     selectedIndustry: String,
@@ -144,29 +229,22 @@ fun IndustryDropdown(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
-        OutlinedTextField(
-            value = if (selectedIndustry.isBlank()) "" else formatIndustryLabel(selectedIndustry),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Industry") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-                    .semantics { contentDescription = "Industry selector, currently $selectedIndustry" },
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            industries.forEach { industry ->
-                DropdownMenuItem(
-                    text = { Text(formatIndustryLabel(industry)) },
-                    onClick = {
-                        onIndustrySelected(industry)
-                        expanded = false
-                    },
-                )
-            }
+    GlassDropdownField(
+        label = "Industry",
+        displayValue = if (selectedIndustry.isBlank()) "" else formatIndustryLabel(selectedIndustry),
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+        anchorSemanticsDescription = "Industry selector, currently $selectedIndustry",
+    ) {
+        industries.forEach { industry ->
+            GlassDropdownItem(
+                text = formatIndustryLabel(industry),
+                onClick = {
+                    onIndustrySelected(industry)
+                    expanded = false
+                },
+            )
         }
     }
 }
@@ -206,29 +284,22 @@ fun CountryDropdown(
                 ?: selectedCode.uppercase()
         }
 
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
-        OutlinedTextField(
-            value = displayValue,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-                    .semantics { contentDescription = contentDescriptionText },
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            countries.forEach { (code, name) ->
-                DropdownMenuItem(
-                    text = { Text("$name ($code)") },
-                    onClick = {
-                        onCountrySelected(code)
-                        expanded = false
-                    },
-                )
-            }
+    GlassDropdownField(
+        label = label,
+        displayValue = displayValue,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier,
+        anchorSemanticsDescription = contentDescriptionText,
+    ) {
+        countries.forEach { (code, name) ->
+            GlassDropdownItem(
+                text = "$name ($code)",
+                onClick = {
+                    onCountrySelected(code)
+                    expanded = false
+                },
+            )
         }
     }
 }
@@ -237,7 +308,7 @@ fun CountryDropdown(
 @Composable
 private fun CapabilityInputFormLightPreview() {
     PricingTheme(darkTheme = false) {
-        Surface {
+        OneUiAmbientCanvas {
             CapabilityInputForm(
                 rawDescription = "Senior Android & Kotlin Multiplatform mentorship and architecture reviews",
                 onDescriptionChanged = {},
@@ -261,7 +332,7 @@ private fun CapabilityInputFormLightPreview() {
 @Composable
 private fun CapabilityInputFormDarkPreview() {
     PricingTheme(darkTheme = true) {
-        Surface {
+        OneUiAmbientCanvas {
             CapabilityInputForm(
                 rawDescription = "",
                 onDescriptionChanged = {},

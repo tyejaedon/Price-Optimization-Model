@@ -3,6 +3,7 @@ name: Android CI
 on:
   pull_request:
     paths:
+      - "design-system/**"
       - "app/**"
       - "admin-app/**"
       - "build.gradle.kts"
@@ -11,6 +12,7 @@ on:
   push:
     branches: [master]
     paths:
+      - "design-system/**"
       - "app/**"
       - "admin-app/**"
   workflow_dispatch:
@@ -34,13 +36,13 @@ jobs:
           gradle-version: "8.9"
 
       - name: Ktlint style check
-        run: gradle :app:ktlintCheck :admin-app:ktlintCheck --console=plain
+        run: gradle :design-system:ktlintCheck :app:ktlintCheck :admin-app:ktlintCheck --console=plain
 
       - name: Assemble debug APKs
         run: gradle :app:assembleDebug :admin-app:assembleDebug --console=plain
 
       - name: Android Lint
-        run: gradle :app:lintDebug :admin-app:lintDebug --console=plain
+        run: gradle :design-system:lintDebug :app:lintDebug :admin-app:lintDebug --console=plain
 
       - name: Unit tests (ViewModel/state + repository)
         run: gradle :app:testDebugUnitTest :admin-app:testDebugUnitTest --console=plain
