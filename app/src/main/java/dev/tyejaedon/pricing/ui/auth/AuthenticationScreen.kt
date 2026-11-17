@@ -1,5 +1,6 @@
 package dev.tyejaedon.pricing.ui.auth
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,20 +32,39 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.tyejaedon.pricing.ui.components.InlineErrorText
 import dev.tyejaedon.pricing.ui.components.PrimaryActionButton
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
+import dev.tyejaedon.pricing.ui.theme.PricingTheme
 import dev.tyejaedon.pricing.viewmodel.AuthUiState
 import dev.tyejaedon.pricing.viewmodel.AuthViewModel
 
 @Composable
 fun AuthenticationScreen(viewModel: AuthViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var email by remember { mutableStateOf("") }
+    AuthenticationScreenContent(
+        uiState = uiState,
+        onSignIn = viewModel::signIn,
+        onSignUp = viewModel::signUp,
+        onSendPasswordReset = viewModel::sendPasswordReset,
+    )
+}
+
+@Composable
+fun AuthenticationScreenContent(
+    uiState: AuthUiState,
+    onSignIn: (email: String, password: String) -> Unit = { _, _ -> },
+    onSignUp: (email: String, password: String) -> Unit = { _, _ -> },
+    onSendPasswordReset: (email: String) -> Unit = {},
+    initialEmail: String = "",
+    initialSignUpMode: Boolean = false,
+) {
+    var email by remember { mutableStateOf(initialEmail) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isSignUpMode by remember { mutableStateOf(false) }
+    var isSignUpMode by remember { mutableStateOf(initialSignUpMode) }
 
     Scaffold { padding ->
         Column(
@@ -103,9 +123,9 @@ fun AuthenticationScreen(viewModel: AuthViewModel) {
                 text = if (isSignUpMode) "Create account" else "Sign in",
                 onClick = {
                     if (isSignUpMode) {
-                        viewModel.signUp(email, password)
+                        onSignUp(email, password)
                     } else {
-                        viewModel.signIn(email, password)
+                        onSignIn(email, password)
                     }
                 },
                 enabled = email.isNotBlank() && password.isNotBlank() && uiState !is AuthUiState.SigningIn,
@@ -113,7 +133,7 @@ fun AuthenticationScreen(viewModel: AuthViewModel) {
             )
             if (!isSignUpMode) {
                 TextButton(
-                    onClick = { viewModel.sendPasswordReset(email) },
+                    onClick = { onSendPasswordReset(email) },
                     enabled = uiState !is AuthUiState.SigningIn,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -134,5 +154,49 @@ fun AuthenticationScreen(viewModel: AuthViewModel) {
                 )
             }
         }
+    }
+}
+
+@Preview(name = "Sign In - Light", showBackground = true)
+@Composable
+private fun AuthenticationScreenSignInLightPreview() {
+    PricingTheme(darkTheme = false) {
+        AuthenticationScreenContent(
+            uiState = AuthUiState.SignedOut,
+            initialEmail = "mentor@strathmore.edu",
+        )
+    }
+}
+
+@Preview(name = "Sign Up - Light", showBackground = true)
+@Composable
+private fun AuthenticationScreenSignUpPreview() {
+    PricingTheme(darkTheme = false) {
+        AuthenticationScreenContent(
+            uiState = AuthUiState.SignedOut,
+            initialSignUpMode = true,
+        )
+    }
+}
+
+@Preview(name = "Signing In", showBackground = true)
+@Composable
+private fun AuthenticationScreenSigningInPreview() {
+    PricingTheme(darkTheme = false) {
+        AuthenticationScreenContent(
+            uiState = AuthUiState.SigningIn,
+            initialEmail = "mentor@strathmore.edu",
+        )
+    }
+}
+
+@Preview(name = "Error - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+private fun AuthenticationScreenErrorDarkPreview() {
+    PricingTheme(darkTheme = true) {
+        AuthenticationScreenContent(
+            uiState = AuthUiState.Error("Invalid email or password."),
+            initialEmail = "mentor@strathmore.edu",
+        )
     }
 }

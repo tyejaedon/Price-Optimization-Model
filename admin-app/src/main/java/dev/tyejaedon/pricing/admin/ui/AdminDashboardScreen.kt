@@ -33,11 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.tyejaedon.pricing.admin.data.network.dto.GridSearchConfigDTO
 import dev.tyejaedon.pricing.admin.viewmodel.AdminDashboardUiState
 import dev.tyejaedon.pricing.admin.viewmodel.AdminTab
 import dev.tyejaedon.pricing.admin.viewmodel.AdminViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
     viewModel: AdminViewModel,
@@ -51,14 +51,40 @@ fun AdminDashboardScreen(
         }
     }
 
+    AdminDashboardScreenContent(
+        state = state,
+        demoMode = demoMode,
+        onRefreshAll = viewModel::refreshAll,
+        onLock = viewModel::lock,
+        onSelectTab = viewModel::selectTab,
+        onUpdateTuning = viewModel::updateTuning,
+        onTriggerRetrain = viewModel::triggerRetrain,
+        onPollRetrainStatus = viewModel::pollRetrainStatus,
+        onSeedPlatformMentors = viewModel::seedPlatformMentors,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdminDashboardScreenContent(
+    state: AdminDashboardUiState,
+    demoMode: Boolean = false,
+    onRefreshAll: () -> Unit = {},
+    onLock: () -> Unit = {},
+    onSelectTab: (AdminTab) -> Unit = {},
+    onUpdateTuning: (GridSearchConfigDTO) -> Unit = {},
+    onTriggerRetrain: () -> Unit = {},
+    onPollRetrainStatus: () -> Unit = {},
+    onSeedPlatformMentors: () -> Unit = {},
+) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Pricing MLOps Console") },
                 actions = {
-                    TextButton(onClick = viewModel::refreshAll) { Text("Refresh") }
+                    TextButton(onClick = onRefreshAll) { Text("Refresh") }
                     if (!demoMode) {
-                        TextButton(onClick = viewModel::lock) { Text("Lock") }
+                        TextButton(onClick = onLock) { Text("Lock") }
                     }
                 },
             )
@@ -77,7 +103,7 @@ fun AdminDashboardScreen(
                 AdminTab.entries.forEach { tab ->
                     Tab(
                         selected = state.selectedTab == tab,
-                        onClick = { viewModel.selectTab(tab) },
+                        onClick = { onSelectTab(tab) },
                         text = { Text(tab.label, maxLines = 1) },
                     )
                 }
@@ -95,9 +121,19 @@ fun AdminDashboardScreen(
 
                 when (state.selectedTab) {
                     AdminTab.OVERVIEW -> OverviewTab(state)
-                    AdminTab.MLOPS -> MlopsTab(state, viewModel)
+                    AdminTab.MLOPS ->
+                        MlopsTab(
+                            state = state,
+                            onUpdateTuning = onUpdateTuning,
+                            onTriggerRetrain = onTriggerRetrain,
+                            onPollRetrainStatus = onPollRetrainStatus,
+                        )
                     AdminTab.DRIFT -> DriftTab(state)
-                    AdminTab.PROFILES -> ProfilesTab(state, viewModel)
+                    AdminTab.PROFILES ->
+                        ProfilesTab(
+                            state = state,
+                            onSeedPlatformMentors = onSeedPlatformMentors,
+                        )
                 }
             }
         }
@@ -128,7 +164,9 @@ private fun OverviewTab(state: AdminDashboardUiState) {
 @Composable
 private fun MlopsTab(
     state: AdminDashboardUiState,
-    viewModel: AdminViewModel,
+    onUpdateTuning: (GridSearchConfigDTO) -> Unit,
+    onTriggerRetrain: () -> Unit,
+    onPollRetrainStatus: () -> Unit,
 ) {
     var kNeighborsInput by remember(state.tuning) { mutableStateOf(state.tuning.kNeighbors.joinToString(", ")) }
     var textWeight by remember(state.tuning) { mutableStateOf(state.tuning.textWeight.toString()) }
@@ -145,7 +183,7 @@ private fun MlopsTab(
                 TextButton(
                     onClick = {
                         confirmRetrain = false
-                        viewModel.triggerRetrain()
+                        onTriggerRetrain()
                     },
                 ) {
                     Text("Start Retrain")
@@ -197,7 +235,7 @@ private fun MlopsTab(
                             .ifEmpty { state.tuning.kNeighbors }
                     val tw = textWeight.toFloatOrNull() ?: state.tuning.textWeight
                     val mw = metadataWeight.toFloatOrNull() ?: state.tuning.metadataWeight
-                    viewModel.updateTuning(
+                    onUpdateTuning(
                         state.tuning.copy(
                             kNeighbors = parsedK,
                             textWeight = tw,
@@ -225,7 +263,7 @@ private fun MlopsTab(
                     Text("Trigger Retrain")
                 }
                 OutlinedButton(
-                    onClick = viewModel::pollRetrainStatus,
+                    onClick = onPollRetrainStatus,
                     enabled = state.retrainStatus != null,
                     modifier = Modifier.weight(1f),
                 ) {
@@ -265,7 +303,7 @@ private fun DriftTab(state: AdminDashboardUiState) {
 @Composable
 private fun ProfilesTab(
     state: AdminDashboardUiState,
-    viewModel: AdminViewModel,
+    onSeedPlatformMentors: () -> Unit,
 ) {
     var confirmSeed by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -279,7 +317,7 @@ private fun ProfilesTab(
                 TextButton(
                     onClick = {
                         confirmSeed = false
-                        viewModel.seedPlatformMentors()
+                        onSeedPlatformMentors()
                     },
                 ) {
                     Text("Seed Mentors")

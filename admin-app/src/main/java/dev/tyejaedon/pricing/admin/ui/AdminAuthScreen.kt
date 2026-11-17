@@ -1,5 +1,6 @@
 package dev.tyejaedon.pricing.admin.ui
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.tyejaedon.pricing.admin.viewmodel.AdminSessionState
@@ -27,7 +30,19 @@ import dev.tyejaedon.pricing.admin.viewmodel.AdminViewModel
 @Composable
 fun AdminAuthScreen(viewModel: AdminViewModel) {
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
-    var adminToken by remember { mutableStateOf("") }
+    AdminAuthScreenContent(
+        sessionState = sessionState,
+        onUnlock = viewModel::unlock,
+    )
+}
+
+@Composable
+fun AdminAuthScreenContent(
+    sessionState: AdminSessionState,
+    onUnlock: (String) -> Unit = {},
+    initialToken: String = "",
+) {
+    var adminToken by remember { mutableStateOf(initialToken) }
 
     Scaffold { padding ->
         Column(
@@ -59,12 +74,45 @@ fun AdminAuthScreen(viewModel: AdminViewModel) {
                     Text(text = state.message, color = MaterialTheme.colorScheme.error)
             }
             Button(
-                onClick = { viewModel.unlock(adminToken) },
+                onClick = { onUnlock(adminToken) },
                 enabled = adminToken.isNotBlank() && sessionState !is AdminSessionState.Unlocking,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Unlock Console")
             }
         }
+    }
+}
+
+@Preview(name = "Locked - Light", showBackground = true)
+@Composable
+private fun AdminAuthScreenLockedLightPreview() {
+    MaterialTheme {
+        AdminAuthScreenContent(
+            sessionState = AdminSessionState.Locked,
+            initialToken = "adm_secret_token",
+        )
+    }
+}
+
+@Preview(name = "Unlocking", showBackground = true)
+@Composable
+private fun AdminAuthScreenUnlockingPreview() {
+    MaterialTheme {
+        AdminAuthScreenContent(
+            sessionState = AdminSessionState.Unlocking,
+            initialToken = "adm_secret_token",
+        )
+    }
+}
+
+@Preview(name = "Error - Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+private fun AdminAuthScreenErrorDarkPreview() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        AdminAuthScreenContent(
+            sessionState = AdminSessionState.Error("Invalid administrator token."),
+            initialToken = "bad_token",
+        )
     }
 }

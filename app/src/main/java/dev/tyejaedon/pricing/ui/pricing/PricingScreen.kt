@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.tyejaedon.pricing.data.network.dto.SelfListingDTO
 import dev.tyejaedon.pricing.ui.components.InlineErrorText
 import dev.tyejaedon.pricing.ui.components.PrimaryActionButton
 import dev.tyejaedon.pricing.ui.pricing.components.CapabilityInputForm
@@ -57,7 +58,6 @@ import dev.tyejaedon.pricing.viewmodel.ProfileUiState
  * events to [PricingViewModel]. Covers the Idle/Loading/Success/Error states required by issue
  * #74's canonical Sprint 4 acceptance.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PricingScreen(
     viewModel: PricingViewModel,
@@ -69,16 +69,82 @@ fun PricingScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val profileState by viewModel.profileState.collectAsStateWithLifecycle()
     val workspaceState by viewModel.workspaceState.collectAsStateWithLifecycle()
-    val state = uiState
 
     LaunchedEffect(demoMode, autoLoadProfile) {
         viewModel.loadMetadata()
-        if (demoMode && state.form.mentorId.isBlank()) {
+        if (demoMode && uiState.form.mentorId.isBlank()) {
             viewModel.onMentorIdChanged("demo-mentor")
         } else if (!demoMode && autoLoadProfile) {
             viewModel.loadMyProfile()
         }
     }
+
+    PricingScreenContent(
+        uiState = uiState,
+        profileState = profileState,
+        workspaceState = workspaceState,
+        onSignOut = onSignOut,
+        demoMode = demoMode,
+        userEmail = userEmail,
+        autoLoadProfile = autoLoadProfile,
+        onLoadMyProfile = viewModel::loadMyProfile,
+        onSaveMyProfile = viewModel::saveMyProfile,
+        onSelectTab = viewModel::selectTab,
+        onDescriptionChanged = viewModel::onDescriptionChanged,
+        onMentorIdChanged = viewModel::onMentorIdChanged,
+        onIndustrySelected = viewModel::onIndustrySelected,
+        onMentorCountrySelected = viewModel::onMentorCountrySelected,
+        onClientCountrySelected = viewModel::onClientCountrySelected,
+        onBaseRateFloorChanged = viewModel::onBaseRateFloorChanged,
+        onCompetitivenessScoreChanged = viewModel::onCompetitivenessScoreChanged,
+        onRetryOptimization = viewModel::retryOptimization,
+        onClearForm = viewModel::clearForm,
+        onSubmitPriceOptimization = viewModel::submitPriceOptimization,
+        onApplyListingToQuote = viewModel::applyListingToQuote,
+        onSaveListing = viewModel::saveListing,
+        onSubmitFeedback = viewModel::submitFeedback,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PricingScreenContent(
+    uiState: PricingUiState,
+    profileState: ProfileUiState = ProfileUiState.Loading,
+    workspaceState: MentorWorkspaceState = MentorWorkspaceState(),
+    onSignOut: () -> Unit = {},
+    demoMode: Boolean = false,
+    userEmail: String = "",
+    autoLoadProfile: Boolean = false,
+    onLoadMyProfile: () -> Unit = {},
+    onSaveMyProfile: (fullName: String, email: String, countryCode: String) -> Unit = { _, _, _ -> },
+    onSelectTab: (MentorTab) -> Unit = {},
+    onDescriptionChanged: (String) -> Unit = {},
+    onMentorIdChanged: (String) -> Unit = {},
+    onIndustrySelected: (String) -> Unit = {},
+    onMentorCountrySelected: (String) -> Unit = {},
+    onClientCountrySelected: (String) -> Unit = {},
+    onBaseRateFloorChanged: (String) -> Unit = {},
+    onCompetitivenessScoreChanged: (Float) -> Unit = {},
+    onRetryOptimization: () -> Unit = {},
+    onClearForm: () -> Unit = {},
+    onSubmitPriceOptimization: () -> Unit = {},
+    onApplyListingToQuote: (SelfListingDTO) -> Unit = {},
+    onSaveListing: (
+        listingId: String,
+        title: String,
+        industryId: String,
+        rawText: String,
+        verifiedRate: Float,
+    ) -> Unit = { _, _, _, _, _ -> },
+    onSubmitFeedback: (
+        transactionId: String,
+        outcomeValue: String,
+        actualRate: Float?,
+        notes: String?,
+    ) -> Unit = { _, _, _, _ -> },
+) {
+    val state = uiState
 
     Scaffold(
         topBar = {
@@ -112,18 +178,18 @@ fun PricingScreen(
                     ProfileUiState.NeedsOnboarding -> {
                         MentorOnboardingForm(
                             defaultEmail = userEmail,
-                            onSave = viewModel::saveMyProfile,
+                            onSave = onSaveMyProfile,
                         )
                         return@Column
                     }
                     is ProfileUiState.Error -> {
                         ErrorSection(
                             message = profile.message,
-                            onRetry = viewModel::loadMyProfile,
+                            onRetry = onLoadMyProfile,
                         )
                         MentorOnboardingForm(
                             defaultEmail = userEmail,
-                            onSave = viewModel::saveMyProfile,
+                            onSave = onSaveMyProfile,
                         )
                         return@Column
                     }
@@ -142,7 +208,7 @@ fun PricingScreen(
                 MentorTab.entries.forEach { tab ->
                     Tab(
                         selected = workspaceState.selectedTab == tab,
-                        onClick = { viewModel.selectTab(tab) },
+                        onClick = { onSelectTab(tab) },
                         text = { Text(tab.label, maxLines = 1) },
                     )
                 }
@@ -173,23 +239,23 @@ fun PricingScreen(
                     val form = state.form
                     CapabilityInputForm(
                         rawDescription = form.rawDescription,
-                        onDescriptionChanged = viewModel::onDescriptionChanged,
+                        onDescriptionChanged = onDescriptionChanged,
                         mentorId = form.mentorId,
-                        onMentorIdChanged = viewModel::onMentorIdChanged,
+                        onMentorIdChanged = onMentorIdChanged,
                         selectedIndustry = form.selectedIndustry,
-                        onIndustrySelected = viewModel::onIndustrySelected,
+                        onIndustrySelected = onIndustrySelected,
                         industries = workspaceState.industries,
                         mentorCountry = form.mentorCountry,
-                        onMentorCountryChanged = viewModel::onMentorCountrySelected,
+                        onMentorCountryChanged = onMentorCountrySelected,
                         clientCountry = form.clientCountry,
-                        onClientCountryChanged = viewModel::onClientCountrySelected,
+                        onClientCountryChanged = onClientCountrySelected,
                         baseRateFloor = form.baseRateFloor,
-                        onBaseRateFloorChanged = viewModel::onBaseRateFloorChanged,
+                        onBaseRateFloorChanged = onBaseRateFloorChanged,
                     )
 
                     SaturationSlider(
                         score = form.competitivenessScore,
-                        onScoreChanged = viewModel::onCompetitivenessScoreChanged,
+                        onScoreChanged = onCompetitivenessScoreChanged,
                     )
 
                     form.validationError?.let { InlineErrorText(message = it) }
@@ -199,7 +265,7 @@ fun PricingScreen(
                         is PricingUiState.Error ->
                             ErrorSection(
                                 message = state.message,
-                                onRetry = viewModel::retryOptimization,
+                                onRetry = onRetryOptimization,
                             )
                         is PricingUiState.Success -> PricingResultCard(result = state.result)
                         is PricingUiState.Idle -> Unit
@@ -210,22 +276,31 @@ fun PricingScreen(
                         horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
                     ) {
                         OutlinedButton(
-                            onClick = viewModel::clearForm,
+                            onClick = onClearForm,
                             enabled = state !is PricingUiState.Loading,
                         ) {
                             Text("Clear")
                         }
                         PrimaryActionButton(
                             text = "Calculate rate",
-                            onClick = viewModel::submitPriceOptimization,
+                            onClick = onSubmitPriceOptimization,
                             enabled = state !is PricingUiState.Loading,
                             contentDescription = "Calculate recommended hourly rate",
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
-                MentorTab.LISTINGS -> ListingsTab(workspaceState = workspaceState, viewModel = viewModel)
-                MentorTab.HISTORY -> HistoryTab(workspaceState = workspaceState, viewModel = viewModel)
+                MentorTab.LISTINGS ->
+                    ListingsTab(
+                        workspaceState = workspaceState,
+                        onApplyListingToQuote = onApplyListingToQuote,
+                        onSaveListing = onSaveListing,
+                    )
+                MentorTab.HISTORY ->
+                    HistoryTab(
+                        workspaceState = workspaceState,
+                        onSubmitFeedback = onSubmitFeedback,
+                    )
             }
         }
     }
@@ -313,7 +388,8 @@ private fun MentorOnboardingForm(
 @Composable
 private fun ListingsTab(
     workspaceState: MentorWorkspaceState,
-    viewModel: PricingViewModel,
+    onApplyListingToQuote: (SelfListingDTO) -> Unit,
+    onSaveListing: (listingId: String, title: String, industryId: String, rawText: String, verifiedRate: Float) -> Unit,
 ) {
     var title by remember { mutableStateOf("") }
     var industryId by remember(workspaceState.industries) {
@@ -332,7 +408,7 @@ private fun ListingsTab(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(text = listing.rawText, style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(onClick = { viewModel.applyListingToQuote(listing) }) {
+                OutlinedButton(onClick = { onApplyListingToQuote(listing) }) {
                     Text("Use in Quote")
                 }
             }
@@ -370,12 +446,12 @@ private fun ListingsTab(
     PrimaryActionButton(
         text = "Save listing",
         onClick = {
-            viewModel.saveListing(
-                listingId = "",
-                title = title,
-                industryId = industryId,
-                rawText = rawText,
-                verifiedRate = verifiedRate.toFloatOrNull() ?: 1f,
+            onSaveListing(
+                "",
+                title,
+                industryId,
+                rawText,
+                verifiedRate.toFloatOrNull() ?: 1f,
             )
             title = ""
             rawText = ""
@@ -388,7 +464,7 @@ private fun ListingsTab(
 @Composable
 private fun HistoryTab(
     workspaceState: MentorWorkspaceState,
-    viewModel: PricingViewModel,
+    onSubmitFeedback: (transactionId: String, outcomeValue: String, actualRate: Float?, notes: String?) -> Unit,
 ) {
     var adjustingTxId by remember { mutableStateOf<String?>(null) }
     var adjustedRateInput by remember { mutableStateOf("") }
@@ -418,11 +494,11 @@ private fun HistoryTab(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.submitFeedback(
-                            transactionId = txId,
-                            outcomeValue = "adjusted",
-                            actualRate = adjustedRateInput.toFloatOrNull(),
-                            notes = adjustedNotesInput.trim().takeIf { it.isNotBlank() },
+                        onSubmitFeedback(
+                            txId,
+                            "adjusted",
+                            adjustedRateInput.toFloatOrNull(),
+                            adjustedNotesInput.trim().takeIf { it.isNotBlank() },
                         )
                         adjustingTxId = null
                         adjustedRateInput = ""
@@ -470,15 +546,16 @@ private fun HistoryTab(
                     )
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(PricingSpacing.ExtraSmall)) {
-                        OutlinedButton(onClick = { viewModel.submitFeedback(item.transactionId, "accepted") }) {
+                        OutlinedButton(onClick = { onSubmitFeedback(item.transactionId, "accepted", null, null) }) {
                             Text("Accepted")
                         }
                         OutlinedButton(
                             onClick = {
-                                viewModel.submitFeedback(
-                                    transactionId = item.transactionId,
-                                    outcomeValue = "booked",
-                                    actualRate = item.finalQuotedRate,
+                                onSubmitFeedback(
+                                    item.transactionId,
+                                    "booked",
+                                    item.finalQuotedRate,
+                                    null,
                                 )
                             },
                         ) {
@@ -496,7 +573,7 @@ private fun HistoryTab(
                         ) {
                             Text("Adjusted")
                         }
-                        OutlinedButton(onClick = { viewModel.submitFeedback(item.transactionId, "declined") }) {
+                        OutlinedButton(onClick = { onSubmitFeedback(item.transactionId, "declined", null, null) }) {
                             Text("Declined")
                         }
                     }
