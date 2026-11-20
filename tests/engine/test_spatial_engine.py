@@ -6,6 +6,7 @@ import unittest
 import joblib
 import numpy as np
 
+from src.engine.interval_synthesizer import synthesize_corridor
 from src.engine.macro_arbitrage import HYBRID_VECTOR_DIMENSIONS
 from src.engine.spatial_engine import DomainPartitionedKDTreeIndexer
 
@@ -237,6 +238,55 @@ class DomainPartitionedKDTreeIndexerTests(unittest.TestCase):
         self.assertEqual(result["k_neighbors_used"], 5)
         with self.assertRaisesRegex(KeyError, "No partition"):
             indexer.predict_base_rate(vectors[0], requested_partition="data_ai", k=7)
+
+    def test_distance_weighting_kernels_and_numerical_stability(self) -> None:
+        distances = [0.2, 0.8, 1.5, 3.0]
+        w_lin = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="idw_linear")
+        w_quad = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="idw_quadratic")
+        w_cub = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="idw_cubic")
+        w_quart = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="idw_quartic")
+        w_exp = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="exponential", gamma=1.0)
+        w_rbf_adapt = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="gaussian_rbf")
+        w_rbf_fixed = DomainPartitionedKDTreeIndexer.compute_distance_weights(distances, kernel="gaussian_rbf", sigma=0.5)
+
+        for weights in (w_lin, w_quad, w_cub, w_quart, w_exp, w_rbf_adapt, w_rbf_fixed):
+            self.assertTrue(np.all(np.isfinite(weights)))
+            self.assertTrue(np.all(weights >= 0.0))
+            self.assertAlmostEqual(float(np.sum(weights)), 1.0, places=9)
+
+        # Higher IDW power concentrates more weight on the closest neighbor.
+        self.assertLess(w_lin[0], w_quad[0])
+        self.assertLess(w_quad[0], w_cub[0])
+        self.assertLess(w_cub[0], w_quart[0])
+
+        # Edge cases: all zeros, duplicate exact match, and distant outliers (d >> 1).
+        for extreme in ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 5.0], [100.0, 500.0, 1e4, 1e100]):
+            for kernel in ("idw_linear", "idw_quadratic", "idw_cubic", "idw_quartic", "exponential", "gaussian_rbf"):
+                w_ext = DomainPartitionedKDTreeIndexer.compute_distance_weights(extreme, kernel=kernel)
+                self.assertTrue(np.all(np.isfinite(w_ext)), msg=f"{kernel} non-finite on {extreme}")
+                self.assertTrue(np.all(w_ext >= 0.0))
+                self.assertAlmostEqual(float(np.sum(w_ext)), 1.0, places=9)
+
+    def test_distance_weighting_kernel_parameter_validation(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Unsupported weighting kernel"):
+            DomainPartitionedKDTreeIndexer.compute_distance_weights([1.0, 2.0], kernel="unknown_kernel")
+        with self.assertRaisesRegex(ValueError, "gamma"):
+            DomainPartitionedKDTreeIndexer.compute_distance_weights([1.0, 2.0], kernel="exponential", gamma=0.0)
+        with self.assertRaisesRegex(ValueError, "sigma"):
+            DomainPartitionedKDTreeIndexer.compute_distance_weights([1.0, 2.0], kernel="gaussian_rbf", sigma=-1.0)
+        with self.assertRaisesRegex(ValueError, "power"):
+            DomainPartitionedKDTreeIndexer.compute_distance_weights([1.0, 2.0], kernel="idw", power=0.0)
+
+    def test_predict_base_rate_with_alternative_kernels_preserves_corridor_invariants(self) -> None:
+        indexer = DomainPartitionedKDTreeIndexer(minimum_partition_size=2)
+        indexer.fit(self.hybrid_vectors, self.partitions, verified_rates=self.verified_rates)
+        for kernel in ("idw_linear", "idw_quadratic", "idw_cubic", "exponential", "gaussian_rbf"):
+            result = indexer.predict_base_rate(self.hybrid_vectors[4], requested_partition="web_backend", k=3, kernel=kernel)
+            self.assertGreaterEqual(result["base_predicted_rate"], 0.0)
+            self.assertGreaterEqual(result["peer_stddev"], 0.0)
+            bounds = synthesize_corridor(result["base_predicted_rate"], result["peer_stddev"], 1.0)
+            self.assertGreaterEqual(bounds["min_quoted_rate"], 0.0)
+            self.assertGreaterEqual(bounds["max_quoted_rate"], bounds["min_quoted_rate"])
 
 
 if __name__ == "__main__":
