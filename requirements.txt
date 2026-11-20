@@ -14,6 +14,8 @@ kagglehub>=0.3.7
 
 numpy
 matplotlib>=3.8.0
+xgboost>=2.1.0
+shap>=0.46.0
 pydantic>=2.7.0
 fastapi>=0.115.0
 uvicorn>=0.30.0

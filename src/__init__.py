@@ -34,6 +34,7 @@ _LEGACY_MAP = {
     "validation_diagnostics": "src.training.validation_diagnostics",
     "experiment_reporting": "src.training.experiment_reporting",
     "inference_safe_benchmark": "src.benchmarks.inference_safe_benchmark",
+    "ensemble_benchmark": "src.benchmarks.ensemble_benchmark",
     "alpha_sensitivity_benchmark": "src.benchmarks.alpha_sensitivity_benchmark",
     "knn_sensitivity_benchmark": "src.benchmarks.knn_sensitivity_benchmark",
     "text_sensitivity_benchmark": "src.benchmarks.text_sensitivity_benchmark",
