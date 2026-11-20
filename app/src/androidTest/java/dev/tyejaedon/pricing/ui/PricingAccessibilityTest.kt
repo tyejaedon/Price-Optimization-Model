@@ -22,24 +22,36 @@ class PricingAccessibilityTest {
 
     @Test
     fun pricingControlsHaveAccessibleNamesAndActionTargets() {
+        val viewModel = PricingViewModel(FakePricingRepository(simulatedLatencyMs = 0))
         composeRule.setContent {
             PricingTheme {
-                PricingScreen(viewModel = PricingViewModel(FakePricingRepository(simulatedLatencyMs = 0)))
+                PricingScreen(viewModel = viewModel)
             }
         }
 
-        val descriptions =
-            listOf(
-                "Service description input",
-                "Industry selector, currently ",
-                "Your country ISO 2-letter code",
-                "Client country ISO 2-letter code",
-                "Niche competitiveness slider, 50 percent",
-                "Calculate recommended hourly rate",
-            )
-        descriptions.forEach { description ->
-            composeRule.onNodeWithContentDescription(description).assertExists()
-        }
+        // Step 1
+        listOf(
+            "Service description input",
+            "Industry selector, currently ",
+            "Continue to next step",
+        ).forEach { composeRule.onNodeWithContentDescription(it).assertExists() }
+
+        // Step 2
+        composeRule.runOnIdle { viewModel.setQuoteStep(1) }
+        composeRule.waitForIdle()
+        listOf(
+            "Your country ISO 2-letter code",
+            "Client country ISO 2-letter code",
+            "Back to previous step",
+        ).forEach { composeRule.onNodeWithContentDescription(it).assertExists() }
+
+        // Step 3
+        composeRule.runOnIdle { viewModel.setQuoteStep(2) }
+        composeRule.waitForIdle()
+        listOf(
+            "Niche competitiveness slider, 50 percent",
+            "Calculate recommended hourly rate",
+        ).forEach { composeRule.onNodeWithContentDescription(it).assertExists() }
 
         val interactiveNodes =
             composeRule
@@ -76,7 +88,7 @@ class PricingAccessibilityTest {
         }
 
         composeRule.onNodeWithContentDescription("Service description input").assertExists()
-        composeRule.onNodeWithContentDescription("Calculate recommended hourly rate").assertExists()
+        composeRule.onNodeWithContentDescription("Continue to next step").assertExists()
     }
 
     @Test
@@ -87,7 +99,7 @@ class PricingAccessibilityTest {
             }
         }
 
-        val target = composeRule.onNodeWithContentDescription("Calculate recommended hourly rate").fetchSemanticsNode()
+        val target = composeRule.onNodeWithContentDescription("Continue to next step").fetchSemanticsNode()
         val minimumHeightPx = with(composeRule.density) { MinTouchTarget.toPx() }
         assertTrue(target.boundsInRoot.height >= minimumHeightPx)
     }

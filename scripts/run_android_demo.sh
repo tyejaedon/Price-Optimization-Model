@@ -64,13 +64,18 @@ if [[ "$MODE" == "live" ]]; then
   PYTHONPATH="$ROOT_DIR" "$PYTHON_BIN" -m uvicorn src.api.hosted:app --host 127.0.0.1 --port 8000 > "$OUT_DIR/backend.log" 2>&1 &
   BACKEND_PID=$!
 
-  for i in $(seq 1 30); do
+  for i in $(seq 1 90); do
     if curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then
       echo "Backend healthy at http://127.0.0.1:8000/health"
       break
     fi
-    if [[ "$i" -eq 30 ]]; then
-      echo "ERROR: Backend failed to start. See $OUT_DIR/backend.log" >&2
+    if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+      echo "ERROR: Backend process exited unexpectedly. See $OUT_DIR/backend.log" >&2
+      tail -n 30 "$OUT_DIR/backend.log" >&2
+      exit 1
+    fi
+    if [[ "$i" -eq 90 ]]; then
+      echo "ERROR: Backend failed to start within 90s. See $OUT_DIR/backend.log" >&2
       tail -n 30 "$OUT_DIR/backend.log" >&2
       exit 1
     fi
@@ -197,25 +202,31 @@ if find_node "Complete your mentor profile" "contains" >/dev/null 2>&1; then
   sleep 3
 fi
 
-snap "01_mentor_quote_idle.png"
+snap "01_mentor_quote_step1.png"
 type_into_node "Service description input" "Senior Android Kotlin Compose architecture mentoring" "desc" || true
 hide_keyboard
 tap_node "Industry selector" "contains" || true
 tap_node "Mobile Development" "text" || true
-tap_node "Your country" "contains" || true
-tap_node "Kenya (KE)" "text" || true
-tap_node "Client country" "contains" || true
-tap_node "United States (US)" "text" || true
+tap_node "Continue to next step" "desc" || tap_node "Continue" "text" || true
+sleep 1
 
-# Scroll down to Calculate rate button if needed
+snap "01b_mentor_quote_step2.png"
+tap_node "Your country ISO 2-letter code" "desc" || tap_node "Your country" "contains" || true
+tap_node "Kenya (KE)" "text" || true
+sleep 1
+tap_node "Client country ISO 2-letter code" "desc" || tap_node "Client country" "contains" || true
+tap_node "United States (US)" "text" || true
+sleep 1
+tap_node "Continue to next step" "desc" || tap_node "Continue" "text" || true
+sleep 1
+
+snap "01c_mentor_quote_step3.png"
+tap_node "Calculate recommended hourly rate" "desc" || tap_node "Get Recommended Rate" "text" || true
+sleep 3
 adb shell input swipe 500 1600 500 800 300
 sleep 1
-tap_node "Calculate recommended hourly rate" "desc" || tap_node "Calculate rate" "text" || true
-sleep 3
 snap "02_mentor_quote_result.png"
 
-adb shell input swipe 500 800 500 1600 300
-sleep 1
 tap_node "Listings" "text" || true
 sleep 2
 snap "03_mentor_listings.png"
@@ -231,7 +242,7 @@ adb shell am force-stop dev.tyejaedon.pricing.admin
 adb shell am start -n dev.tyejaedon.pricing.admin/.AdminActivity
 sleep 3
 
-if [[ "$MODE" == "live" ]] && find_node "MLOps & Admin Console" "contains" >/dev/null 2>&1; then
+if [[ "$MODE" == "live" ]] && find_node "Administrator Token" "contains" >/dev/null 2>&1; then
   type_into_node "Administrator Token" "${MLOPS_ADMIN_TOKEN:-demo-admin-token}" "text" || true
   hide_keyboard
   tap_node "Unlock Console" "text" || true

@@ -2,27 +2,25 @@ package dev.tyejaedon.pricing.ui.pricing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,16 +33,27 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.tyejaedon.pricing.data.network.dto.SelfListingDTO
+import dev.tyejaedon.pricing.designsystem.GlassCard
+import dev.tyejaedon.pricing.designsystem.GlassFloatingNavDock
+import dev.tyejaedon.pricing.designsystem.GlassModalBottomSheet
+import dev.tyejaedon.pricing.designsystem.GlassSecondaryButton
+import dev.tyejaedon.pricing.designsystem.GlassStatusBadge
+import dev.tyejaedon.pricing.designsystem.GlassTextField
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiEmptyStateCard
+import dev.tyejaedon.pricing.designsystem.OneUiGlassScaffold
+import dev.tyejaedon.pricing.designsystem.OneUiMultiStepContainer
+import dev.tyejaedon.pricing.designsystem.OneUiStepMeta
 import dev.tyejaedon.pricing.ui.components.InlineErrorText
 import dev.tyejaedon.pricing.ui.components.PrimaryActionButton
-import dev.tyejaedon.pricing.ui.pricing.components.CapabilityInputForm
+import dev.tyejaedon.pricing.ui.pricing.components.CapabilityCorridorStep
+import dev.tyejaedon.pricing.ui.pricing.components.CapabilityPositioningStep
+import dev.tyejaedon.pricing.ui.pricing.components.CapabilityServiceStep
 import dev.tyejaedon.pricing.ui.pricing.components.CountryDropdown
 import dev.tyejaedon.pricing.ui.pricing.components.IndustryDropdown
 import dev.tyejaedon.pricing.ui.pricing.components.PricingResultCard
-import dev.tyejaedon.pricing.ui.pricing.components.SaturationSlider
 import dev.tyejaedon.pricing.ui.pricing.components.formatIndustryLabel
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
 import dev.tyejaedon.pricing.viewmodel.MentorTab
@@ -90,6 +99,7 @@ fun PricingScreen(
         onLoadMyProfile = viewModel::loadMyProfile,
         onSaveMyProfile = viewModel::saveMyProfile,
         onSelectTab = viewModel::selectTab,
+        onSelectQuoteStep = viewModel::setQuoteStep,
         onDescriptionChanged = viewModel::onDescriptionChanged,
         onMentorIdChanged = viewModel::onMentorIdChanged,
         onIndustrySelected = viewModel::onIndustrySelected,
@@ -119,6 +129,7 @@ fun PricingScreenContent(
     onLoadMyProfile: () -> Unit = {},
     onSaveMyProfile: (fullName: String, email: String, countryCode: String) -> Unit = { _, _, _ -> },
     onSelectTab: (MentorTab) -> Unit = {},
+    onSelectQuoteStep: (Int) -> Unit = {},
     onDescriptionChanged: (String) -> Unit = {},
     onMentorIdChanged: (String) -> Unit = {},
     onIndustrySelected: (String) -> Unit = {},
@@ -145,18 +156,24 @@ fun PricingScreenContent(
     ) -> Unit = { _, _, _, _ -> },
 ) {
     val state = uiState
+    val glass = LocalOneUiGlassColors.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = "Price your service") },
-                actions = {
-                    if (!demoMode) {
-                        TextButton(onClick = onSignOut) {
-                            Text(text = "Sign out")
-                        }
-                    }
-                },
+    OneUiGlassScaffold(
+        title = "Price your service",
+        actions = {
+            if (!demoMode) {
+                GlassSecondaryButton(
+                    text = "Sign out",
+                    onClick = onSignOut,
+                )
+            }
+        },
+        bottomBar = {
+            GlassFloatingNavDock(
+                items = MentorTab.entries,
+                selectedItem = workspaceState.selectedTab,
+                onSelectItem = onSelectTab,
+                labelProvider = { it.label },
             )
         },
     ) { padding ->
@@ -165,7 +182,7 @@ fun PricingScreenContent(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(PricingSpacing.Medium)
+                    .padding(horizontal = PricingSpacing.Medium)
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium),
         ) {
@@ -198,67 +215,103 @@ fun PricingScreenContent(
             }
 
             if (demoMode) {
-                Text(
+                GlassStatusBadge(
                     text = "Demo mode: sample quote only; no live backend request is sent.",
-                    style = MaterialTheme.typography.bodySmall,
+                    tint = glass.infoTint,
                 )
-            }
-
-            TabRow(selectedTabIndex = workspaceState.selectedTab.ordinal) {
-                MentorTab.entries.forEach { tab ->
-                    Tab(
-                        selected = workspaceState.selectedTab == tab,
-                        onClick = { onSelectTab(tab) },
-                        text = { Text(tab.label, maxLines = 1) },
-                    )
-                }
             }
 
             if (workspaceState.isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = glass.primaryAccent,
+                    trackColor = glass.recessedWellFill,
+                )
             }
             if (!workspaceState.modelsLoaded) {
-                Text(
+                GlassStatusBadge(
                     text = "Warming up pricing engine… Quotes may take a few extra seconds.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
+                    tint = glass.warningTint,
                 )
             }
             workspaceState.statusMessage?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                GlassStatusBadge(text = it, tint = glass.successTint)
             }
-            workspaceState.errorMessage?.let { InlineErrorText(message = it) }
+            workspaceState.errorMessage?.let { InlineErrorText(message = it, modifier = Modifier.fillMaxWidth()) }
 
             when (workspaceState.selectedTab) {
                 MentorTab.QUOTE -> {
-                    Text(
-                        text = "Get a peer-backed KES/hour rate, instantly.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
                     val form = state.form
-                    CapabilityInputForm(
-                        rawDescription = form.rawDescription,
-                        onDescriptionChanged = onDescriptionChanged,
-                        mentorId = form.mentorId,
-                        onMentorIdChanged = onMentorIdChanged,
-                        selectedIndustry = form.selectedIndustry,
-                        onIndustrySelected = onIndustrySelected,
-                        industries = workspaceState.industries,
-                        mentorCountry = form.mentorCountry,
-                        onMentorCountryChanged = onMentorCountrySelected,
-                        clientCountry = form.clientCountry,
-                        onClientCountryChanged = onClientCountrySelected,
-                        baseRateFloor = form.baseRateFloor,
-                        onBaseRateFloorChanged = onBaseRateFloorChanged,
-                    )
+                    val steps =
+                        remember {
+                            listOf(
+                                OneUiStepMeta(
+                                    title = "Describe your service",
+                                    subtitle = "Tell us what you offer so we can match you with similar mentors.",
+                                ),
+                                OneUiStepMeta(
+                                    title = "Choose your market corridor",
+                                    subtitle = "Select your country and your client's country for fair rate calibration.",
+                                ),
+                                OneUiStepMeta(
+                                    title = "Set floor & positioning",
+                                    subtitle = "Add an optional minimum rate and indicate how crowded your niche is.",
+                                ),
+                            )
+                        }
+                    val currentStep = workspaceState.quoteStep.coerceIn(0, steps.lastIndex)
+                    val canProceed =
+                        when (currentStep) {
+                            0 -> form.rawDescription.trim().length >= 20 && form.selectedIndustry.isNotBlank()
+                            1 -> form.mentorCountry.length == 2 && form.clientCountry.length == 2
+                            else -> true
+                        }
 
-                    SaturationSlider(
-                        score = form.competitivenessScore,
-                        onScoreChanged = onCompetitivenessScoreChanged,
-                    )
+                    OneUiMultiStepContainer(
+                        currentStep = currentStep,
+                        steps = steps,
+                        onBack = { onSelectQuoteStep(currentStep - 1) },
+                        onNext = {
+                            if (currentStep < steps.lastIndex) {
+                                onSelectQuoteStep(currentStep + 1)
+                            } else {
+                                onSubmitPriceOptimization()
+                            }
+                        },
+                        canProceed = canProceed,
+                        finalActionLabel = "Get Recommended Rate",
+                        finalActionContentDescription = "Calculate recommended hourly rate",
+                        secondaryResetLabel = "Reset Inputs",
+                        onSecondaryReset = onClearForm,
+                        isBusy = state is PricingUiState.Loading,
+                    ) { stepIndex ->
+                        when (stepIndex) {
+                            0 ->
+                                CapabilityServiceStep(
+                                    rawDescription = form.rawDescription,
+                                    onDescriptionChanged = onDescriptionChanged,
+                                    selectedIndustry = form.selectedIndustry,
+                                    onIndustrySelected = onIndustrySelected,
+                                    industries = workspaceState.industries,
+                                )
+                            1 ->
+                                CapabilityCorridorStep(
+                                    mentorCountry = form.mentorCountry,
+                                    onMentorCountryChanged = onMentorCountrySelected,
+                                    clientCountry = form.clientCountry,
+                                    onClientCountryChanged = onClientCountrySelected,
+                                )
+                            else ->
+                                CapabilityPositioningStep(
+                                    baseRateFloor = form.baseRateFloor,
+                                    onBaseRateFloorChanged = onBaseRateFloorChanged,
+                                    competitivenessScore = form.competitivenessScore,
+                                    onCompetitivenessScoreChanged = onCompetitivenessScoreChanged,
+                                )
+                        }
+                    }
 
-                    form.validationError?.let { InlineErrorText(message = it) }
+                    form.validationError?.let { InlineErrorText(message = it, modifier = Modifier.fillMaxWidth()) }
 
                     when (state) {
                         is PricingUiState.Loading -> LoadingIndicator()
@@ -267,27 +320,39 @@ fun PricingScreenContent(
                                 message = state.message,
                                 onRetry = onRetryOptimization,
                             )
-                        is PricingUiState.Success -> PricingResultCard(result = state.result)
-                        is PricingUiState.Idle -> Unit
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
-                    ) {
-                        OutlinedButton(
-                            onClick = onClearForm,
-                            enabled = state !is PricingUiState.Loading,
-                        ) {
-                            Text("Clear")
+                        is PricingUiState.Success -> {
+                            PricingResultCard(result = state.result)
+                            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
+                                    Text(
+                                        text = "Next steps",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = glass.textPrimary,
+                                    )
+                                    Text(
+                                        text = "Save this service to reuse it later, or review past quotes in History.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = glass.textSecondary,
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+                                    ) {
+                                        GlassSecondaryButton(
+                                            text = "View History",
+                                            onClick = { onSelectTab(MentorTab.HISTORY) },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        PrimaryActionButton(
+                                            text = "Start New Quote",
+                                            onClick = onClearForm,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        PrimaryActionButton(
-                            text = "Calculate rate",
-                            onClick = onSubmitPriceOptimization,
-                            enabled = state !is PricingUiState.Loading,
-                            contentDescription = "Calculate recommended hourly rate",
-                            modifier = Modifier.weight(1f),
-                        )
+                        is PricingUiState.Idle -> Unit
                     }
                 }
                 MentorTab.LISTINGS ->
@@ -300,26 +365,36 @@ fun PricingScreenContent(
                     HistoryTab(
                         workspaceState = workspaceState,
                         onSubmitFeedback = onSubmitFeedback,
+                        onStartNewQuote = { onSelectTab(MentorTab.QUOTE) },
                     )
             }
+            Spacer(modifier = Modifier.height(PricingSpacing.Medium))
         }
     }
 }
 
 @Composable
 private fun LoadingIndicator() {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .semantics {
-                    liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
-                    contentDescription = "Finding peer-matched rates"
-                },
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
-        Text(text = "Finding peer-matched rates…", style = MaterialTheme.typography.bodyMedium)
+    val glass = LocalOneUiGlassColors.current
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+                        contentDescription = "Finding peer-matched rates"
+                    },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+        ) {
+            CircularProgressIndicator(color = glass.primaryAccent)
+            Text(
+                text = "Finding peer-matched rates…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+            )
+        }
     }
 }
 
@@ -333,9 +408,15 @@ private fun ErrorSection(
             Modifier
                 .fillMaxWidth()
                 .semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Assertive },
+        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
     ) {
-        InlineErrorText(message = message)
-        PrimaryActionButton(text = "Try again", onClick = onRetry, contentDescription = "Retry calculation")
+        InlineErrorText(message = message, modifier = Modifier.fillMaxWidth())
+        PrimaryActionButton(
+            text = "Try again",
+            onClick = onRetry,
+            contentDescription = "Retry calculation",
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -347,152 +428,215 @@ private fun MentorOnboardingForm(
     var fullName by remember { mutableStateOf("") }
     var email by remember(defaultEmail) { mutableStateOf(defaultEmail) }
     var countryCode by remember { mutableStateOf("KE") }
+    val glass = LocalOneUiGlassColors.current
 
-    Text(
-        text = "Complete your mentor profile",
-        style = MaterialTheme.typography.titleMedium,
-    )
-    Text(
-        text = "Your profile links your Firebase account to your pricing quotes automatically.",
-        style = MaterialTheme.typography.bodyMedium,
-    )
-    OutlinedTextField(
-        value = fullName,
-        onValueChange = { fullName = it },
-        label = { Text("Full name") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    OutlinedTextField(
-        value = email,
-        onValueChange = { email = it },
-        label = { Text("Email") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    CountryDropdown(
-        label = "Your country",
-        selectedCode = countryCode,
-        onCountrySelected = { countryCode = it },
-        contentDescriptionText = "Your country ISO 2-letter code",
-    )
-    PrimaryActionButton(
-        text = "Save mentor profile",
-        onClick = { onSave(fullName, email, countryCode) },
-        enabled = fullName.isNotBlank() && email.isNotBlank() && countryCode.length == 2,
-        modifier = Modifier.fillMaxWidth(),
-    )
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Medium)) {
+            Text(
+                text = "Complete your mentor profile",
+                style = MaterialTheme.typography.titleMedium,
+                color = glass.textPrimary,
+            )
+            Text(
+                text = "Your profile links your Firebase account to your pricing quotes automatically.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+            )
+            GlassTextField(
+                value = fullName,
+                onValueChange = { fullName = it },
+                label = "Full name",
+                singleLine = true,
+            )
+            GlassTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = "Email",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                singleLine = true,
+            )
+            CountryDropdown(
+                label = "Your country",
+                selectedCode = countryCode,
+                onCountrySelected = { countryCode = it },
+                contentDescriptionText = "Your country ISO 2-letter code",
+            )
+            PrimaryActionButton(
+                text = "Save mentor profile",
+                onClick = { onSave(fullName, email, countryCode) },
+                enabled = fullName.isNotBlank() && email.isNotBlank() && countryCode.length == 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ListingsTab(
     workspaceState: MentorWorkspaceState,
     onApplyListingToQuote: (SelfListingDTO) -> Unit,
     onSaveListing: (listingId: String, title: String, industryId: String, rawText: String, verifiedRate: Float) -> Unit,
 ) {
+    var showAddListingSheet by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     var industryId by remember(workspaceState.industries) {
         mutableStateOf(workspaceState.industries.firstOrNull() ?: "mobile")
     }
     var rawText by remember { mutableStateOf("") }
     var verifiedRate by remember { mutableStateOf("2500") }
+    val glass = LocalOneUiGlassColors.current
 
-    Text(text = "Saved service listings (${workspaceState.listings.size})", style = MaterialTheme.typography.titleMedium)
-    workspaceState.listings.forEach { listing ->
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(PricingSpacing.Medium), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = listing.title, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    text = "${formatIndustryLabel(listing.industryId)} • ${listing.verifiedRate} KES/hour",
-                    style = MaterialTheme.typography.bodySmall,
+    if (showAddListingSheet) {
+        GlassModalBottomSheet(
+            onDismissRequest = { showAddListingSheet = false },
+            title = "Create service listing",
+            actions = {
+                GlassSecondaryButton(
+                    text = "Keep Editing",
+                    onClick = { showAddListingSheet = false },
+                    modifier = Modifier.weight(1f),
                 )
-                Text(text = listing.rawText, style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(onClick = { onApplyListingToQuote(listing) }) {
-                    Text("Use in Quote")
+                PrimaryActionButton(
+                    text = "Save Service Listing",
+                    onClick = {
+                        onSaveListing(
+                            "",
+                            title,
+                            industryId,
+                            rawText,
+                            verifiedRate.toFloatOrNull() ?: 1f,
+                        )
+                        title = ""
+                        rawText = ""
+                        showAddListingSheet = false
+                    },
+                    enabled = title.isNotBlank() && rawText.trim().length >= 20,
+                    modifier = Modifier.weight(1f),
+                )
+            },
+        ) {
+            Text(
+                text = "Save a service once to generate future quotes in one tap.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+            )
+            GlassTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = "Listing title",
+                singleLine = true,
+            )
+            IndustryDropdown(
+                selectedIndustry = industryId,
+                onIndustrySelected = { industryId = it },
+                industries = workspaceState.industries,
+            )
+            val trimmedLen = rawText.trim().length
+            GlassTextField(
+                value = rawText,
+                onValueChange = { rawText = it },
+                label = "Service description",
+                supportingText =
+                    if (trimmedLen < 20) {
+                        "Add at least ${20 - trimmedLen} more characters ($trimmedLen/20)."
+                    } else {
+                        "Ready to save ($trimmedLen characters)."
+                    },
+                singleLine = false,
+                minLines = 3,
+            )
+            GlassTextField(
+                value = verifiedRate,
+                onValueChange = { verifiedRate = it },
+                label = "Base rate (KES/hour)",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Saved service listings (${workspaceState.listings.size})",
+            style = MaterialTheme.typography.titleMedium,
+            color = glass.textPrimary,
+        )
+        if (workspaceState.listings.isNotEmpty()) {
+            GlassSecondaryButton(
+                text = "Add Listing",
+                onClick = { showAddListingSheet = true },
+            )
+        }
+    }
+
+    if (workspaceState.listings.isEmpty()) {
+        OneUiEmptyStateCard(
+            icon = Icons.Filled.Workspaces,
+            title = "Build your service catalog",
+            description = "Save your recurring mentorship offerings so you can pre-fill and calculate quotes in one tap.",
+            actionLabel = "Create First Listing",
+            onAction = { showAddListingSheet = true },
+        )
+    } else {
+        workspaceState.listings.forEach { listing ->
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onApplyListingToQuote(listing) },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
+                    Text(
+                        text = listing.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = glass.textPrimary,
+                    )
+                    GlassStatusBadge(
+                        text = "${formatIndustryLabel(listing.industryId)} • ${listing.verifiedRate} KES/hour",
+                        tint = glass.secondaryAccent,
+                    )
+                    Text(
+                        text = listing.rawText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = glass.textSecondary,
+                    )
+                    GlassSecondaryButton(
+                        text = "Load Into Quote",
+                        onClick = { onApplyListingToQuote(listing) },
+                    )
                 }
             }
         }
     }
-
-    Text(text = "Add service listing", style = MaterialTheme.typography.titleMedium)
-    OutlinedTextField(
-        value = title,
-        onValueChange = { title = it },
-        label = { Text("Listing title") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    IndustryDropdown(
-        selectedIndustry = industryId,
-        onIndustrySelected = { industryId = it },
-        industries = workspaceState.industries,
-    )
-    OutlinedTextField(
-        value = rawText,
-        onValueChange = { rawText = it },
-        label = { Text("Service description (min 20 chars)") },
-        minLines = 3,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    OutlinedTextField(
-        value = verifiedRate,
-        onValueChange = { verifiedRate = it },
-        label = { Text("Base rate (KES/hour)") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    PrimaryActionButton(
-        text = "Save listing",
-        onClick = {
-            onSaveListing(
-                "",
-                title,
-                industryId,
-                rawText,
-                verifiedRate.toFloatOrNull() ?: 1f,
-            )
-            title = ""
-            rawText = ""
-        },
-        enabled = title.isNotBlank() && rawText.trim().length >= 20,
-        modifier = Modifier.fillMaxWidth(),
-    )
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryTab(
     workspaceState: MentorWorkspaceState,
     onSubmitFeedback: (transactionId: String, outcomeValue: String, actualRate: Float?, notes: String?) -> Unit,
+    onStartNewQuote: () -> Unit = {},
 ) {
     var adjustingTxId by remember { mutableStateOf<String?>(null) }
     var adjustedRateInput by remember { mutableStateOf("") }
     var adjustedNotesInput by remember { mutableStateOf("") }
+    val glass = LocalOneUiGlassColors.current
 
     adjustingTxId?.let { txId ->
-        AlertDialog(
+        GlassModalBottomSheet(
             onDismissRequest = { adjustingTxId = null },
-            title = { Text("Report adjusted rate") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
-                    OutlinedTextField(
-                        value = adjustedRateInput,
-                        onValueChange = { adjustedRateInput = it },
-                        label = { Text("Actual rate agreed (KES/hour)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = adjustedNotesInput,
-                        onValueChange = { adjustedNotesInput = it },
-                        label = { Text("Notes (optional)") },
-                        singleLine = true,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
+            title = "Report adjusted rate",
+            actions = {
+                GlassSecondaryButton(
+                    text = "Keep Editing",
+                    onClick = { adjustingTxId = null },
+                    modifier = Modifier.weight(1f),
+                )
+                PrimaryActionButton(
+                    text = "Save Adjusted Rate",
                     onClick = {
                         onSubmitFeedback(
                             txId,
@@ -504,30 +648,54 @@ private fun HistoryTab(
                         adjustedRateInput = ""
                         adjustedNotesInput = ""
                     },
-                ) {
-                    Text("Submit")
-                }
+                    modifier = Modifier.weight(1f),
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { adjustingTxId = null }) {
-                    Text("Cancel")
-                }
-            },
-        )
+        ) {
+            Text(
+                text = "Sharing the final rate agreed with your client helps calibrate future peer benchmarks.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+            )
+            GlassTextField(
+                value = adjustedRateInput,
+                onValueChange = { adjustedRateInput = it },
+                label = "Actual rate agreed (KES/hour)",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+            GlassTextField(
+                value = adjustedNotesInput,
+                onValueChange = { adjustedNotesInput = it },
+                label = "Notes (optional)",
+                singleLine = true,
+            )
+        }
     }
 
-    Text(text = "Quote history (${workspaceState.history.size})", style = MaterialTheme.typography.titleMedium)
+    Text(
+        text = "Quote history (${workspaceState.history.size})",
+        style = MaterialTheme.typography.titleMedium,
+        color = glass.textPrimary,
+    )
     if (workspaceState.history.isEmpty()) {
-        Text(text = "No past quotes recorded yet.", style = MaterialTheme.typography.bodyMedium)
+        OneUiEmptyStateCard(
+            icon = Icons.Filled.History,
+            title = "No quotes recorded yet",
+            description = "Once you calculate a rate, it appears here so you can track client outcomes and sharpen future recommendations.",
+            actionLabel = "Create Your First Quote",
+            onAction = onStartNewQuote,
+        )
         return
     }
     workspaceState.history.forEach { item ->
         val recordedOutcome = workspaceState.feedbackStatusByTx[item.transactionId]
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(PricingSpacing.Medium), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
                 Text(
                     text = "${formatIndustryLabel(item.selectedIndustry ?: "general")} • ${item.finalQuotedRate ?: 0f} KES/hour",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = glass.textPrimary,
                 )
                 val dateLabel =
                     item.executedAt
@@ -537,19 +705,29 @@ private fun HistoryTab(
                 Text(
                     text = "Corridor: ${item.mentorCountryCode ?: "?"} -> ${item.clientCountryCode ?: "?"}$dateLabel",
                     style = MaterialTheme.typography.bodySmall,
+                    color = glass.textMuted,
                 )
                 if (recordedOutcome != null) {
-                    Text(
+                    GlassStatusBadge(
                         text = "Feedback recorded: $recordedOutcome",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodySmall,
+                        tint = glass.successTint,
                     )
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(PricingSpacing.ExtraSmall)) {
-                        OutlinedButton(onClick = { onSubmitFeedback(item.transactionId, "accepted", null, null) }) {
-                            Text("Accepted")
-                        }
-                        OutlinedButton(
+                    Text(
+                        text = "How did this quote go? Your feedback sharpens future rates.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+                        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+                    ) {
+                        GlassSecondaryButton(
+                            text = "Accepted",
+                            onClick = { onSubmitFeedback(item.transactionId, "accepted", null, null) },
+                        )
+                        GlassSecondaryButton(
+                            text = "Booked",
                             onClick = {
                                 onSubmitFeedback(
                                     item.transactionId,
@@ -558,10 +736,9 @@ private fun HistoryTab(
                                     null,
                                 )
                             },
-                        ) {
-                            Text("Booked")
-                        }
-                        OutlinedButton(
+                        )
+                        GlassSecondaryButton(
+                            text = "Adjusted",
                             onClick = {
                                 adjustedRateInput =
                                     item.finalQuotedRate
@@ -570,12 +747,11 @@ private fun HistoryTab(
                                         .orEmpty()
                                 adjustingTxId = item.transactionId
                             },
-                        ) {
-                            Text("Adjusted")
-                        }
-                        OutlinedButton(onClick = { onSubmitFeedback(item.transactionId, "declined", null, null) }) {
-                            Text("Declined")
-                        }
+                        )
+                        GlassSecondaryButton(
+                            text = "Declined",
+                            onClick = { onSubmitFeedback(item.transactionId, "declined", null, null) },
+                        )
                     }
                 }
             }

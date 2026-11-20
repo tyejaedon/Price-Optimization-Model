@@ -3,26 +3,22 @@ package dev.tyejaedon.pricing.admin.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +33,19 @@ import dev.tyejaedon.pricing.admin.data.network.dto.GridSearchConfigDTO
 import dev.tyejaedon.pricing.admin.viewmodel.AdminDashboardUiState
 import dev.tyejaedon.pricing.admin.viewmodel.AdminTab
 import dev.tyejaedon.pricing.admin.viewmodel.AdminViewModel
+import dev.tyejaedon.pricing.designsystem.GlassCard
+import dev.tyejaedon.pricing.designsystem.GlassFloatingNavDock
+import dev.tyejaedon.pricing.designsystem.GlassInsetDivider
+import dev.tyejaedon.pricing.designsystem.GlassModalBottomSheet
+import dev.tyejaedon.pricing.designsystem.GlassPrimaryButton
+import dev.tyejaedon.pricing.designsystem.GlassSecondaryButton
+import dev.tyejaedon.pricing.designsystem.GlassStatusBadge
+import dev.tyejaedon.pricing.designsystem.GlassSwitch
+import dev.tyejaedon.pricing.designsystem.GlassTextField
+import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.OneUiEmptyStateCard
+import dev.tyejaedon.pricing.designsystem.OneUiGlassScaffold
+import dev.tyejaedon.pricing.designsystem.OneUiSpacing
 
 @Composable
 fun AdminDashboardScreen(
@@ -77,16 +86,23 @@ fun AdminDashboardScreenContent(
     onPollRetrainStatus: () -> Unit = {},
     onSeedPlatformMentors: () -> Unit = {},
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Pricing MLOps Console") },
-                actions = {
-                    TextButton(onClick = onRefreshAll) { Text("Refresh") }
-                    if (!demoMode) {
-                        TextButton(onClick = onLock) { Text("Lock") }
-                    }
-                },
+    val glass = LocalOneUiGlassColors.current
+    OneUiGlassScaffold(
+        title = "Pricing MLOps Console",
+        actions = {
+            Row(horizontalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+                GlassSecondaryButton(text = "Sync Now", onClick = onRefreshAll)
+                if (!demoMode) {
+                    GlassSecondaryButton(text = "Lock", onClick = onLock)
+                }
+            }
+        },
+        bottomBar = {
+            GlassFloatingNavDock(
+                items = AdminTab.entries,
+                selectedItem = state.selectedTab,
+                onSelectItem = onSelectTab,
+                labelProvider = { it.label },
             )
         },
     ) { padding ->
@@ -94,73 +110,83 @@ fun AdminDashboardScreenContent(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .padding(horizontal = OneUiSpacing.Medium)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Medium),
         ) {
             if (state.isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = glass.primaryAccent,
+                    trackColor = glass.recessedWellFill,
+                )
             }
-            TabRow(selectedTabIndex = state.selectedTab.ordinal) {
-                AdminTab.entries.forEach { tab ->
-                    Tab(
-                        selected = state.selectedTab == tab,
-                        onClick = { onSelectTab(tab) },
-                        text = { Text(tab.label, maxLines = 1) },
-                    )
-                }
+            state.statusMessage?.let {
+                GlassStatusBadge(text = it, tint = glass.successTint)
             }
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                state.statusMessage?.let { Text(text = it, color = MaterialTheme.colorScheme.primary) }
-                state.errorMessage?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
+            state.errorMessage?.let {
+                GlassStatusBadge(text = it, tint = glass.errorTint)
+            }
 
-                when (state.selectedTab) {
-                    AdminTab.OVERVIEW -> OverviewTab(state)
-                    AdminTab.MLOPS ->
-                        MlopsTab(
-                            state = state,
-                            onUpdateTuning = onUpdateTuning,
-                            onTriggerRetrain = onTriggerRetrain,
-                            onPollRetrainStatus = onPollRetrainStatus,
-                        )
-                    AdminTab.DRIFT -> DriftTab(state)
-                    AdminTab.PROFILES ->
-                        ProfilesTab(
-                            state = state,
-                            onSeedPlatformMentors = onSeedPlatformMentors,
-                        )
-                }
+            when (state.selectedTab) {
+                AdminTab.OVERVIEW -> OverviewTab(state)
+                AdminTab.MLOPS ->
+                    MlopsTab(
+                        state = state,
+                        onUpdateTuning = onUpdateTuning,
+                        onTriggerRetrain = onTriggerRetrain,
+                        onPollRetrainStatus = onPollRetrainStatus,
+                    )
+                AdminTab.DRIFT -> DriftTab(state)
+                AdminTab.PROFILES ->
+                    ProfilesTab(
+                        state = state,
+                        onSeedPlatformMentors = onSeedPlatformMentors,
+                    )
             }
+            Spacer(modifier = Modifier.height(OneUiSpacing.Medium))
         }
     }
 }
 
 @Composable
 private fun OverviewTab(state: AdminDashboardUiState) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Service Health", style = MaterialTheme.typography.titleMedium)
-            Text("Status: ${state.health?.status ?: "Unknown"}")
-            Text("Models Loaded: ${state.health?.modelsLoaded ?: false}")
-            Text("Unit: ${state.health?.unit ?: "KES/hour"}")
+    val glass = LocalOneUiGlassColors.current
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Service Health", style = MaterialTheme.typography.titleMedium, color = glass.textPrimary)
+                GlassStatusBadge(
+                    text = state.health?.status ?: "Unknown",
+                    tint = if (state.health?.modelsLoaded == true) glass.successTint else glass.warningTint,
+                )
+            }
+            GlassInsetDivider(startIndent = 0.dp)
+            Text("Status: ${state.health?.status ?: "Unknown"}", color = glass.textSecondary)
+            Text("Models Loaded: ${state.health?.modelsLoaded ?: false}", color = glass.textSecondary)
+            Text("Unit: ${state.health?.unit ?: "KES/hour"}", color = glass.textSecondary)
         }
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Artifact Provenance", style = MaterialTheme.typography.titleMedium)
-            Text("Version: ${state.artifacts?.artifactVersion ?: "Unavailable"}")
-            Text("Dataset: ${state.artifacts?.datasetVersion ?: "Unavailable"}")
-            Text("Validation: ${state.artifacts?.validationStatus ?: "Unavailable"}")
-            state.artifacts?.loadError?.let { Text("Load error: $it", color = MaterialTheme.colorScheme.error) }
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+            Text("Artifact Provenance", style = MaterialTheme.typography.titleMedium, color = glass.textPrimary)
+            GlassInsetDivider(startIndent = 0.dp)
+            Text("Version: ${state.artifacts?.artifactVersion ?: "Unavailable"}", color = glass.textSecondary)
+            Text("Dataset: ${state.artifacts?.datasetVersion ?: "Unavailable"}", color = glass.textSecondary)
+            Text("Validation: ${state.artifacts?.validationStatus ?: "Unavailable"}", color = glass.textSecondary)
+            state.artifacts?.loadError?.let {
+                GlassStatusBadge(text = "Load error: $it", tint = glass.errorTint)
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MlopsTab(
     state: AdminDashboardUiState,
@@ -173,57 +199,72 @@ private fun MlopsTab(
     var metadataWeight by remember(state.tuning) { mutableStateOf(state.tuning.metadataWeight.toString()) }
     var allowFallback by remember(state.tuning) { mutableStateOf(state.tuning.allowFallback) }
     var confirmRetrain by remember { mutableStateOf(false) }
+    val glass = LocalOneUiGlassColors.current
 
     if (confirmRetrain) {
-        AlertDialog(
+        GlassModalBottomSheet(
             onDismissRequest = { confirmRetrain = false },
-            title = { Text("Trigger model retraining?") },
-            text = { Text("This starts an asynchronous retraining job on the server.") },
-            confirmButton = {
-                TextButton(
+            title = "Trigger model retraining?",
+            actions = {
+                GlassSecondaryButton(
+                    text = "Keep Editing",
+                    onClick = { confirmRetrain = false },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassPrimaryButton(
+                    text = "Start Retrain",
                     onClick = {
                         confirmRetrain = false
                         onTriggerRetrain()
                     },
-                ) {
-                    Text("Start Retrain")
-                }
+                    modifier = Modifier.weight(1f),
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { confirmRetrain = false }) { Text("Cancel") }
-            },
-        )
+        ) {
+            Text(
+                text = "This starts a background retraining job using the latest verified listings and quote feedback.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = glass.textSecondary,
+            )
+        }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Grid Search Hyperparameters", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Medium)) {
+            Text("Grid Search Hyperparameters", style = MaterialTheme.typography.titleMedium, color = glass.textPrimary)
+            GlassTextField(
                 value = kNeighborsInput,
                 onValueChange = { kNeighborsInput = it },
-                label = { Text("kNeighbors (comma-separated)") },
+                label = "kNeighbors (comma-separated)",
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            GlassTextField(
                 value = textWeight,
                 onValueChange = { textWeight = it },
-                label = { Text("Text weight") },
+                label = "Text weight",
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            GlassTextField(
                 value = metadataWeight,
                 onValueChange = { metadataWeight = it },
-                label = { Text("Metadata weight") },
+                label = "Metadata weight",
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Allow partition fallback", modifier = Modifier.weight(1f))
-                Switch(checked = allowFallback, onCheckedChange = { allowFallback = it })
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Allow partition fallback",
+                    color = glass.textPrimary,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSwitch(checked = allowFallback, onCheckedChange = { allowFallback = it })
             }
-            Button(
+            GlassPrimaryButton(
+                text = "Save Tuning",
                 onClick = {
                     val parsedK =
                         kNeighborsInput
@@ -245,30 +286,29 @@ private fun MlopsTab(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save Tuning")
-            }
+            )
         }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Model Retraining", style = MaterialTheme.typography.titleMedium)
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Medium)) {
+            Text("Model Retraining", style = MaterialTheme.typography.titleMedium, color = glass.textPrimary)
             state.retrainStatus?.let {
-                Text("Job ${it.jobId}: ${it.status}")
-                it.artifactVersion?.let { ver -> Text("Artifact: $ver") }
+                GlassStatusBadge(text = "Job ${it.jobId}: ${it.status}", tint = glass.infoTint)
+                it.artifactVersion?.let { ver -> Text("Artifact: $ver", color = glass.textSecondary) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { confirmRetrain = true }, modifier = Modifier.weight(1f)) {
-                    Text("Trigger Retrain")
-                }
-                OutlinedButton(
+            Row(horizontalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+                GlassPrimaryButton(
+                    text = "Trigger Retrain",
+                    onClick = { confirmRetrain = true },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassSecondaryButton(
+                    text = "Poll Status",
                     onClick = onPollRetrainStatus,
                     enabled = state.retrainStatus != null,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text("Poll Status")
-                }
+                )
             }
         }
     }
@@ -276,30 +316,49 @@ private fun MlopsTab(
 
 @Composable
 private fun DriftTab(state: AdminDashboardUiState) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Distribution Drift Summary", style = MaterialTheme.typography.titleMedium)
-            Text("Total Transactions: ${state.drift?.totalTransactions ?: 0}")
-            Text("Avg Quoted Rate: ${state.drift?.averageFinalRate ?: 0f} KES/hour")
+    val glass = LocalOneUiGlassColors.current
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+            Text("Distribution Drift Summary", style = MaterialTheme.typography.titleMedium, color = glass.textPrimary)
+            GlassInsetDivider(startIndent = 0.dp)
+            Text("Total Transactions: ${state.drift?.totalTransactions ?: 0}", color = glass.textSecondary)
+            Text("Avg Quoted Rate: ${state.drift?.averageFinalRate ?: 0f} KES/hour", color = glass.textSecondary)
             state.drift?.byIndustry?.forEach { (industry, count) ->
-                Text("• $industry: $count")
+                Text("• $industry: $count", color = glass.textSecondary)
             }
             state.drift?.byCorridor?.forEach { (corridor, count) ->
-                Text("• Corridor $corridor: $count")
+                Text("• Corridor $corridor: $count", color = glass.textSecondary)
             }
         }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Quote Outcome Feedback (${state.feedback.size})", style = MaterialTheme.typography.titleMedium)
-            state.feedback.forEach { item ->
-                Text("${item.transactionId}: ${item.outcome} (${item.actualRate ?: "-"} KES)")
+    if (state.feedback.isEmpty()) {
+        OneUiEmptyStateCard(
+            icon = Icons.Filled.Analytics,
+            title = "No quote feedback yet",
+            description = "Mentor feedback on accepted, booked, adjusted, or declined quotes will appear here.",
+        )
+    } else {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+                Text(
+                    text = "Quote Outcome Feedback (${state.feedback.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = glass.textPrimary,
+                )
+                GlassInsetDivider(startIndent = 0.dp)
+                state.feedback.forEach { item ->
+                    Text(
+                        text = "${item.transactionId}: ${item.outcome} (${item.actualRate ?: "-"} KES)",
+                        color = glass.textSecondary,
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfilesTab(
     state: AdminDashboardUiState,
@@ -307,37 +366,53 @@ private fun ProfilesTab(
 ) {
     var confirmSeed by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    val glass = LocalOneUiGlassColors.current
 
     if (confirmSeed) {
-        AlertDialog(
+        GlassModalBottomSheet(
             onDismissRequest = { confirmSeed = false },
-            title = { Text("Seed platform mentors?") },
-            text = { Text("This will upsert platform mentor profiles from the corpus into the repository.") },
-            confirmButton = {
-                TextButton(
+            title = "Seed platform mentors?",
+            actions = {
+                GlassSecondaryButton(
+                    text = "Keep Editing",
+                    onClick = { confirmSeed = false },
+                    modifier = Modifier.weight(1f),
+                )
+                GlassPrimaryButton(
+                    text = "Seed Mentors",
                     onClick = {
                         confirmSeed = false
                         onSeedPlatformMentors()
                     },
-                ) {
-                    Text("Seed Mentors")
-                }
+                    modifier = Modifier.weight(1f),
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { confirmSeed = false }) { Text("Cancel") }
-            },
-        )
+        ) {
+            Text(
+                text = "This imports baseline mentor profiles from the verified corpus so pricing has immediate peer coverage.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = glass.textSecondary,
+            )
+        }
     }
 
-    Button(onClick = { confirmSeed = true }, modifier = Modifier.fillMaxWidth()) {
-        Text("Seed Platform Mentors")
-    }
-    OutlinedTextField(
+    GlassPrimaryButton(
+        text = "Seed Platform Mentors",
+        onClick = { confirmSeed = true },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    GlassTextField(
         value = searchQuery,
         onValueChange = { searchQuery = it },
-        label = { Text("Filter profiles by name, ID, or country") },
+        label = "Filter profiles by name, ID, or country",
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = glass.textSecondary,
+            )
+        },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
     )
     val filteredProfiles =
         state.profiles.filter { profile ->
@@ -347,19 +422,43 @@ private fun ProfilesTab(
                 profile.profileId.contains(q, ignoreCase = true) ||
                 profile.countryCode.contains(q, ignoreCase = true)
         }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Mentor Profiles (${filteredProfiles.size})", style = MaterialTheme.typography.titleMedium)
-            filteredProfiles.forEach { profile ->
-                Text("${profile.fullName} (${profile.profileId}) — ${profile.countryCode}")
+    if (filteredProfiles.isEmpty()) {
+        OneUiEmptyStateCard(
+            icon = Icons.Filled.Group,
+            title = "No matching mentor profiles",
+            description = "Try clearing your search filter or seed platform mentors to populate the directory.",
+        )
+    } else {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+                Text(
+                    text = "Mentor Profiles (${filteredProfiles.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = glass.textPrimary,
+                )
+                GlassInsetDivider(startIndent = 0.dp)
+                filteredProfiles.forEach { profile ->
+                    Text(
+                        text = "${profile.fullName} (${profile.profileId}) — ${profile.countryCode}",
+                        color = glass.textSecondary,
+                    )
+                }
             }
         }
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Recent Quote Audits (${state.history.size})", style = MaterialTheme.typography.titleMedium)
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(OneUiSpacing.Small)) {
+            Text(
+                text = "Recent Quote Audits (${state.history.size})",
+                style = MaterialTheme.typography.titleMedium,
+                color = glass.textPrimary,
+            )
+            GlassInsetDivider(startIndent = 0.dp)
             state.history.forEach { tx ->
-                Text("${tx.transactionId}: ${tx.selectedIndustry ?: "-"} (${tx.finalQuotedRate ?: 0f} KES)")
+                Text(
+                    text = "${tx.transactionId}: ${tx.selectedIndustry ?: "-"} (${tx.finalQuotedRate ?: 0f} KES)",
+                    color = glass.textSecondary,
+                )
             }
         }
     }

@@ -2,6 +2,8 @@ package dev.tyejaedon.pricing.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import com.google.common.truth.Truth.assertThat
+import dev.tyejaedon.pricing.designsystem.DarkOneUiGlassColors
+import dev.tyejaedon.pricing.designsystem.LightOneUiGlassColors
 import org.junit.Test
 import kotlin.math.pow
 
@@ -21,6 +23,16 @@ class PricingThemeContrastTest {
     fun `accent color meets non-text contrast in light and dark themes`() {
         assertThat(contrastRatio(AccentMint, SurfaceLight)).isAtLeast(3.0)
         assertThat(contrastRatio(AccentMint, SurfaceDark)).isAtLeast(3.0)
+    }
+
+    @Test
+    fun `one ui glass text colors meet WCAG AA contrast on ambient bases`() {
+        assertThat(contrastRatio(LightOneUiGlassColors.textPrimary, LightOneUiGlassColors.ambientBaseBottom)).isAtLeast(4.5)
+        assertThat(contrastRatio(LightOneUiGlassColors.textSecondary, LightOneUiGlassColors.ambientBaseBottom)).isAtLeast(4.5)
+        assertThat(contrastRatio(LightOneUiGlassColors.errorTint, LightOneUiGlassColors.ambientBaseBottom)).isAtLeast(4.5)
+        assertThat(contrastRatio(DarkOneUiGlassColors.textPrimary, DarkOneUiGlassColors.ambientBaseTop)).isAtLeast(4.5)
+        assertThat(contrastRatio(DarkOneUiGlassColors.textSecondary, DarkOneUiGlassColors.ambientBaseTop)).isAtLeast(4.5)
+        assertThat(contrastRatio(DarkOneUiGlassColors.errorTint, DarkOneUiGlassColors.ambientBaseTop)).isAtLeast(4.5)
     }
 
     private fun contrastRatio(

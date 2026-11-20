@@ -27,22 +27,37 @@ class MentorDemoFlowTest {
             }
         }
 
-        // 1. Quote Tab: fill form, select industry & countries, calculate rate
-        composeRule.onNodeWithContentDescription("Service description input")
+        // 1. Quote Tab: 3-step guided flow -> service & industry, countries, floor & calculate
+        composeRule
+            .onNodeWithContentDescription("Service description input")
             .performTextInput("Senior Android Jetpack Compose architecture and mentoring session")
-        composeRule.onNodeWithContentDescription("Industry selector, currently ")
+        composeRule
+            .onNodeWithContentDescription("Industry selector, currently ")
             .performClick()
         composeRule.onNodeWithText("Mobile Development").performClick()
 
-        composeRule.onNodeWithContentDescription("Your country ISO 2-letter code")
+        composeRule
+            .onNodeWithContentDescription("Continue to next step")
+            .performScrollTo()
+            .performClick()
+
+        composeRule
+            .onNodeWithContentDescription("Your country ISO 2-letter code")
             .performClick()
         composeRule.onAllNodesWithText("Kenya (KE)")[0].performClick()
 
-        composeRule.onNodeWithContentDescription("Client country ISO 2-letter code")
+        composeRule
+            .onNodeWithContentDescription("Client country ISO 2-letter code")
             .performClick()
         composeRule.onAllNodesWithText("United States (US)")[0].performClick()
 
-        composeRule.onNodeWithContentDescription("Calculate recommended hourly rate")
+        composeRule
+            .onNodeWithContentDescription("Continue to next step")
+            .performScrollTo()
+            .performClick()
+
+        composeRule
+            .onNodeWithContentDescription("Calculate recommended hourly rate")
             .performScrollTo()
             .performClick()
 
