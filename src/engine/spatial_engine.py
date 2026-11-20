@@ -41,6 +41,35 @@ DEFAULT_MIN_PARTITION_SIZE = 5
 DEFAULT_QUERY_NEIGHBORS = 5
 DEFAULT_FALLBACK_PARTITION = "general_tech"
 DEFAULT_IDW_EPSILON = 1e-6
+DEFAULT_WEIGHT_KERNEL = "idw_quadratic"
+DEFAULT_EXP_GAMMA = 1.0
+SUPPORTED_WEIGHT_KERNELS = (
+    "idw_linear",
+    "idw_quadratic",
+    "idw_cubic",
+    "idw_quartic",
+    "idw",
+    "exponential",
+    "gaussian_rbf",
+)
+_IDW_KERNEL_POWERS = {
+    "idw_linear": 1.0,
+    "idw_quadratic": 2.0,
+    "idw_cubic": 3.0,
+    "idw_quartic": 4.0,
+}
+
+
+def _validate_positive_finite(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be finite and positive.")
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{name} must be finite and positive.") from exc
+    if not np.isfinite(numeric) or numeric <= 0.0:
+        raise ValueError(f"{name} must be finite and positive.")
+    return numeric
 
 
 def _normalize_partition(partition: Any) -> str:
@@ -318,12 +347,25 @@ class DomainPartitionedKDTreeIndexer:
         }
 
     @staticmethod
-    def compute_inverse_distance_weights(distances: Sequence[float], epsilon: float = DEFAULT_IDW_EPSILON) -> np.ndarray:
-        """Return normalized quadratic IDW weights for finite nonnegative distances.
+    def compute_distance_weights(
+        distances: Sequence[float],
+        kernel: str = DEFAULT_WEIGHT_KERNEL,
+        *,
+        power: Optional[float] = None,
+        epsilon: float = DEFAULT_IDW_EPSILON,
+        gamma: float = DEFAULT_EXP_GAMMA,
+        sigma: Optional[float] = None,
+    ) -> np.ndarray:
+        """Return normalized peer weights for finite nonnegative distances.
 
-        Each unnormalized weight is ``1 / (distance**2 + epsilon)``; the
-        positive epsilon (default ``1e-6``) keeps exact and duplicate matches
-        finite. The returned weights sum to one.
+        Supported kernels:
+        - ``idw_linear`` (p=1), ``idw_quadratic`` (p=2, baseline),
+          ``idw_cubic`` (p=3), ``idw_quartic`` (p=4), or ``idw`` with custom
+          positive ``power``: ``1 / (d**p + epsilon)``.
+        - ``exponential``: ``exp(-gamma * d)`` using log-shift stabilization.
+        - ``gaussian_rbf``: ``exp(-d**2 / (2 * sigma**2))`` using adaptive
+          median bandwidth ``max(median(d), sqrt(epsilon))`` when ``sigma`` is
+          ``None``, stabilized via max-shift before exponentiation.
         """
         distance_array = np.asarray(distances, dtype=float).reshape(-1)
         if distance_array.size == 0:
@@ -333,10 +375,64 @@ class DomainPartitionedKDTreeIndexer:
         if np.any(distance_array < 0.0):
             raise ValueError("distances cannot contain negative values.")
 
-        if not np.isfinite(epsilon) or epsilon <= 0:
-            raise ValueError("epsilon must be finite and positive.")
-        weights = 1.0 / (np.square(distance_array) + epsilon)
-        return (weights / np.sum(weights)).astype(float, copy=False)
+        resolved_kernel = str(kernel or "").strip().lower()
+        if resolved_kernel not in SUPPORTED_WEIGHT_KERNELS:
+            raise ValueError(
+                f"Unsupported weighting kernel '{kernel}'. Expected one of {SUPPORTED_WEIGHT_KERNELS}."
+            )
+
+        if resolved_kernel == "exponential":
+            resolved_gamma = _validate_positive_finite(gamma, "gamma")
+            log_weights = -resolved_gamma * distance_array
+            log_weights = log_weights - np.max(log_weights)
+            weights = np.exp(log_weights)
+        elif resolved_kernel == "gaussian_rbf":
+            if sigma is None:
+                resolved_epsilon = _validate_positive_finite(epsilon, "epsilon")
+                resolved_sigma = max(float(np.median(distance_array)), float(np.sqrt(resolved_epsilon)))
+            else:
+                resolved_sigma = _validate_positive_finite(sigma, "sigma")
+            scaled_distances = distance_array / resolved_sigma
+            log_weights = -0.5 * np.square(scaled_distances)
+            log_weights = log_weights - np.max(log_weights)
+            weights = np.exp(log_weights)
+        else:
+            resolved_epsilon = _validate_positive_finite(epsilon, "epsilon")
+            default_power = _IDW_KERNEL_POWERS.get(resolved_kernel, 2.0)
+            resolved_power = default_power if power is None else _validate_positive_finite(power, "power")
+            with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+                powered = np.power(distance_array, resolved_power)
+                weights = 1.0 / (powered + resolved_epsilon)
+            total = float(np.sum(weights))
+            if not np.isfinite(total) or total <= 0.0:
+                min_distance = float(np.min(distance_array))
+                if min_distance <= 0.0:
+                    weights = (distance_array == 0.0).astype(float)
+                else:
+                    relative = distance_array / min_distance
+                    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+                        eps_scaled = resolved_epsilon / (min_distance ** resolved_power) if np.isfinite(min_distance ** resolved_power) else 0.0
+                        weights = 1.0 / (np.power(relative, resolved_power) + eps_scaled)
+                    weights = np.where(np.isfinite(weights), weights, 0.0)
+
+        weight_sum = float(np.sum(weights))
+        if not np.isfinite(weight_sum) or weight_sum <= 0.0:
+            return np.full(distance_array.shape, 1.0 / distance_array.size, dtype=float)
+        return (weights / weight_sum).astype(float, copy=False)
+
+    @staticmethod
+    def compute_inverse_distance_weights(distances: Sequence[float], epsilon: float = DEFAULT_IDW_EPSILON) -> np.ndarray:
+        """Return normalized quadratic IDW weights for finite nonnegative distances.
+
+        Each unnormalized weight is ``1 / (distance**2 + epsilon)``; the
+        positive epsilon (default ``1e-6``) keeps exact and duplicate matches
+        finite. The returned weights sum to one.
+        """
+        return DomainPartitionedKDTreeIndexer.compute_distance_weights(
+            distances,
+            kernel="idw_quadratic",
+            epsilon=epsilon,
+        )
 
     @staticmethod
     def distance_to_similarity_score(distance: float) -> float:
@@ -379,15 +475,19 @@ class DomainPartitionedKDTreeIndexer:
         k: int = DEFAULT_QUERY_NEIGHBORS,
         allow_fallback: bool = True,
         epsilon: float = DEFAULT_IDW_EPSILON,
+        kernel: str = DEFAULT_WEIGHT_KERNEL,
+        power: Optional[float] = None,
+        gamma: float = DEFAULT_EXP_GAMMA,
+        sigma: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Estimate a base hourly rate from nearest peers in KES/hour.
 
         Requires that :meth:`fit` received ``verified_rates``. The base
         estimate is the weighted mean of the selected peers using normalized
-        quadratic IDW weights (``1 / (distance**2 + epsilon)``). The response
-        includes the full-precision weighted population standard deviation,
-        partition-routing details, and per-peer rates, similarities, weights,
-        and any retained listing provenance. Low-volume routing follows
+        distance weights (defaulting to quadratic IDW ``1 / (d**2 + epsilon)``).
+        The response includes the full-precision weighted population standard
+        deviation, partition-routing details, and per-peer rates, similarities,
+        weights, and any retained listing provenance. Low-volume routing follows
         :meth:`resolve_query_partition`; if no eligible partition exists,
         ``KeyError`` is raised rather than returning a partial prediction.
         """
@@ -407,7 +507,14 @@ class DomainPartitionedKDTreeIndexer:
         local_neighbor_positions = np.asarray(result["local_neighbor_positions"], dtype=int)
         distance_array = np.asarray(result["distances"], dtype=float)
         verified_rates = self.partition_verified_rates[routed_partition][local_neighbor_positions]
-        idw_weights = self.compute_inverse_distance_weights(distance_array, epsilon=epsilon)
+        idw_weights = self.compute_distance_weights(
+            distance_array,
+            kernel=kernel,
+            power=power,
+            epsilon=epsilon,
+            gamma=gamma,
+            sigma=sigma,
+        )
         weighted_rate = float(np.dot(verified_rates, idw_weights))
         peer_stddev = weighted_peer_stddev(verified_rates.tolist(), idw_weights.tolist())
 
