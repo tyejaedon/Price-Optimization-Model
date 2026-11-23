@@ -1,0 +1,9 @@
+# Optional research-only dependencies for M16.4 (TF-IDF + SVD vs. Sentence Transformers).
+# Kept separate from production requirements.txt to preserve minimal container footprint.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.5.0
+sentence-transformers>=3.0.0
+onnxruntime>=1.19.0
+onnx>=1.16.0
+onnxscript>=0.2.0
+psutil>=6.0.0
