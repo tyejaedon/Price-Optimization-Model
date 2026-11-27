@@ -169,7 +169,7 @@ class PricingViewModelTest {
             viewModel.selectTab(MentorTab.LISTINGS)
             dispatcher.scheduler.advanceUntilIdle()
             assertThat(viewModel.workspaceState.value.industries).contains("mobile")
-            assertThat(viewModel.workspaceState.value.listings).hasSize(1)
+            assertThat(viewModel.workspaceState.value.listings).hasSize(2)
 
             val listing =
                 viewModel.workspaceState.value.listings
@@ -180,14 +180,50 @@ class PricingViewModelTest {
 
             viewModel.selectTab(MentorTab.HISTORY)
             dispatcher.scheduler.advanceUntilIdle()
-            assertThat(viewModel.workspaceState.value.history).hasSize(1)
+            assertThat(viewModel.workspaceState.value.history).hasSize(2)
 
-            val txId =
+            val historyItem =
                 viewModel.workspaceState.value.history
-                    .first()
-                    .transactionId
-            viewModel.submitFeedback(txId, "booked", actualRate = 2557f)
+                    .last()
+            val txId = historyItem.transactionId
+            viewModel.submitFeedback(txId, "booked", actualRate = 3157f)
             dispatcher.scheduler.advanceUntilIdle()
             assertThat(viewModel.workspaceState.value.feedbackStatusByTx[txId]).isEqualTo("booked")
+
+            viewModel.applyHistoryItemToQuote(historyItem)
+            assertThat(viewModel.workspaceState.value.selectedTab).isEqualTo(MentorTab.QUOTE)
+            assertThat(viewModel.uiState.value.form.selectedIndustry).isEqualTo("data_ai")
+            assertThat(viewModel.uiState.value.form.mentorCountry).isEqualTo("KE")
+            assertThat(viewModel.uiState.value.form.clientCountry).isEqualTo("GB")
+        }
+
+    @Test
+    fun `openQuoteDetail and closeQuoteDetail toggle detail screen and reset on clear or tab change`() =
+        runTest(dispatcher) {
+            val viewModel = PricingViewModel(FakePricingRepository(simulatedLatencyMs = 0))
+
+            // Opening detail before a quote succeeds is a no-op
+            viewModel.openQuoteDetail()
+            assertThat(viewModel.workspaceState.value.isQuoteDetailOpen).isFalse()
+
+            validForm(viewModel)
+            viewModel.submitPriceOptimization()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertThat(viewModel.uiState.value).isInstanceOf(PricingUiState.Success::class.java)
+
+            viewModel.openQuoteDetail()
+            assertThat(viewModel.workspaceState.value.isQuoteDetailOpen).isTrue()
+
+            viewModel.closeQuoteDetail()
+            assertThat(viewModel.workspaceState.value.isQuoteDetailOpen).isFalse()
+
+            viewModel.openQuoteDetail()
+            viewModel.selectTab(MentorTab.HISTORY)
+            assertThat(viewModel.workspaceState.value.isQuoteDetailOpen).isFalse()
+
+            viewModel.selectTab(MentorTab.QUOTE)
+            viewModel.openQuoteDetail()
+            viewModel.clearForm()
+            assertThat(viewModel.workspaceState.value.isQuoteDetailOpen).isFalse()
         }
 }

@@ -26,6 +26,24 @@ data class PeerMatchDTO(
     @SerializedName("verifiedRate") val verifiedRate: Float,
     @SerializedName("similarityScore") val similarityScore: Float,
     @SerializedName("euclideanDistance") val euclideanDistance: Float,
+    @SerializedName("idwWeight") val idwWeight: Float? = null,
+    @SerializedName("publishedDate") val publishedDate: String? = null,
+    @SerializedName("experienceLevel") val experienceLevel: String? = null,
+    @SerializedName("countryCode") val countryCode: String? = null,
+    @SerializedName("industryLabel") val industryLabel: String? = null,
+)
+
+data class QuoteExplanationDTO(
+    @SerializedName("requestedPartition") val requestedPartition: String? = null,
+    @SerializedName("routedPartition") val routedPartition: String? = null,
+    @SerializedName("usedFallbackPartition") val usedFallbackPartition: Boolean = false,
+    @SerializedName("peerRateStddev") val peerRateStddev: Float? = null,
+    @SerializedName("baseRateFloorRequested") val baseRateFloorRequested: Float? = null,
+    @SerializedName("floorBoundActive") val floorBoundActive: Boolean = false,
+    @SerializedName("floorExceedsBase") val floorExceedsBase: Boolean = false,
+    @SerializedName("feePushesAboveCeiling") val feePushesAboveCeiling: Boolean = false,
+    @SerializedName("corridorUpliftMultiplier") val corridorUpliftMultiplier: Float = 1f,
+    @SerializedName("topMatchedTerms") val topMatchedTerms: List<String> = emptyList(),
 )
 
 data class PredictionResultDTO(
@@ -41,6 +59,7 @@ data class PredictionResultDTO(
     @SerializedName("confidenceScore") val confidenceScore: Float,
     @SerializedName("comparables") val comparables: List<PeerMatchDTO>,
     @SerializedName("reason") val reason: String,
+    @SerializedName("explanation") val explanation: QuoteExplanationDTO? = null,
     @SerializedName("timestamp") val timestamp: String,
 )
 

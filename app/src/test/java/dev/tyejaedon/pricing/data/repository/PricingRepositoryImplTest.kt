@@ -176,6 +176,25 @@ class PricingRepositoryImplTest {
             assertThat(elapsed).isLessThan(3000L)
         }
 
+    @Test
+    fun `parses idwWeight and structured explanation fields when provided`() =
+        runTest {
+            server.enqueue(MockResponse().setBody(EXPLAINED_SUCCESS_RESPONSE))
+
+            val outcome = repository.calculateOptimalRate(query)
+
+            val result = (outcome as PricingOutcome.Success).value
+            assertThat(result.comparables).hasSize(1)
+            assertThat(result.comparables.first().idwWeight).isEqualTo(0.64f)
+            assertThat(result.explanation).isNotNull()
+            assertThat(result.explanation?.requestedPartition).isEqualTo("mobile")
+            assertThat(result.explanation?.routedPartition).isEqualTo("general_tech")
+            assertThat(result.explanation?.usedFallbackPartition).isTrue()
+            assertThat(result.explanation?.floorBoundActive).isTrue()
+            assertThat(result.explanation?.corridorUpliftMultiplier).isEqualTo(1.49f)
+            assertThat(result.explanation?.topMatchedTerms).containsExactly("kotlin", "compose")
+        }
+
     private fun createRepository(readTimeoutMs: Long = 1000): PricingRepositoryImpl {
         val client =
             OkHttpClient
@@ -234,5 +253,7 @@ class PricingRepositoryImplTest {
             )
         const val SUCCESS_RESPONSE =
             """{"basePredictedRate":4700.0,"mpesaTariffSurcharge":57.0,"finalQuotedRate":4757.0,"minQuotedRate":4460.0,"maxQuotedRate":7599.0,"kNeighborsUsed":5,"bilateralArbitrageFactor":0.51,"confidenceScore":0.0,"comparables":[],"reason":"Weighted from 5 indexed peers.","timestamp":"2026-10-06T12:00:00Z"}"""
+        const val EXPLAINED_SUCCESS_RESPONSE =
+            """{"basePredictedRate":4700.0,"mpesaTariffSurcharge":57.0,"finalQuotedRate":4757.0,"minQuotedRate":4460.0,"maxQuotedRate":7599.0,"kNeighborsUsed":5,"bilateralArbitrageFactor":0.51,"confidenceScore":0.0,"comparables":[{"listingId":"list-1","jobTitle":"Android Architect","verifiedRate":4900.0,"similarityScore":0.91,"euclideanDistance":0.33,"idwWeight":0.64}],"reason":"Weighted from 5 indexed peers.","explanation":{"requestedPartition":"mobile","routedPartition":"general_tech","usedFallbackPartition":true,"peerRateStddev":310.0,"baseRateFloorRequested":4460.0,"floorBoundActive":true,"floorExceedsBase":false,"feePushesAboveCeiling":false,"corridorUpliftMultiplier":1.49,"topMatchedTerms":["kotlin","compose"]},"timestamp":"2026-10-06T12:00:00Z"}"""
     }
 }

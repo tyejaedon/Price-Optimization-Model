@@ -275,14 +275,19 @@ class InferenceRuntime:
             fused, requested_partition=partition, k=config["k_neighbors"],
             allow_fallback=config["allow_fallback"], epsilon=config["idw_epsilon"]
         )
+        base_rate = float(prediction["base_predicted_rate"])
+        peer_stddev = float(prediction.get("peer_stddev", 0.0))
         bilateral_factor = float(raw_metadata[0, 0])
         corridor = synthesize_corridor(
-            base_rate=float(prediction["base_predicted_rate"]),
-            peer_stddev=float(prediction["peer_stddev"]),
+            base_rate=base_rate,
+            peer_stddev=peer_stddev,
             bilateral_factor=bilateral_factor,
             base_rate_floor=query.base_rate_floor,
         )
-        quote = self.tariff_evaluator.evaluate_quote(float(prediction["base_predicted_rate"]), query.mentor_country)
+        quote = self.tariff_evaluator.evaluate_quote(base_rate, query.mentor_country)
+        top_terms = self.reducer.top_query_terms(query.raw_description, limit=5) if hasattr(self.reducer, "top_query_terms") else []
+        floor_bound_active = query.base_rate_floor is not None and query.base_rate_floor >= (base_rate - 0.75 * peer_stddev)
+        floor_exceeds_base = query.base_rate_floor is not None and query.base_rate_floor > base_rate
         return PredictionResultDTO(
             base_predicted_rate=quote["base_predicted_rate"],
             mpesa_tariff_surcharge=quote["mpesa_tariff_surcharge"],
@@ -292,6 +297,14 @@ class InferenceRuntime:
             bilateral_arbitrage_factor=bilateral_factor,
             mentor_country_iso2=quote["mentor_country_iso2"],
             nearest_neighbors=prediction["nearest_neighbors"],
+            requested_partition=str(prediction.get("requested_partition") or partition),
+            routed_partition=str(prediction.get("routed_partition") or partition),
+            fallback_triggered=bool(prediction.get("fallback_triggered", False)),
+            peer_rate_stddev=round(peer_stddev, 2),
+            base_rate_floor_requested=query.base_rate_floor,
+            floor_bound_active=floor_bound_active,
+            floor_exceeds_base=floor_exceeds_base,
+            top_matched_terms=top_terms,
         )
 
 

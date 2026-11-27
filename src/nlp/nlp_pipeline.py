@@ -14,6 +14,7 @@ See ``../README.md#how-a-price-is-calculated`` for the pipeline overview,
 
 import argparse
 import json
+import math
 import os
 import re
 import time
@@ -216,6 +217,30 @@ class TextFeatureReducer:
         cleaned_texts = sanitize_many(texts)
         tfidf_sparse = self.vectorizer.transform(cleaned_texts)
         return self._normalize_dense_vectors(self.reducer.transform(tfidf_sparse))
+
+    def top_query_terms(self, raw_text: str, limit: int = 5) -> List[str]:
+        """Return up to ``limit`` highest-weighted TF-IDF terms for ``raw_text``."""
+        if not self.fitted or limit <= 0:
+            return []
+
+        cleaned = sanitize_text(raw_text)
+        if not cleaned:
+            return []
+
+        row = self.vectorizer.transform([cleaned])
+        if row.nnz == 0:
+            return []
+
+        feature_names = self.vectorizer.get_feature_names_out()
+        ranked = sorted(
+            (
+                (float(weight), str(feature_names[int(col_idx)]))
+                for col_idx, weight in zip(row.indices, row.data)
+                if math.isfinite(float(weight)) and float(weight) > 0.0
+            ),
+            key=lambda item: (-item[0], item[1]),
+        )
+        return [term for _, term in ranked[:limit]]
 
     def explained_variance_sum(self) -> float:
         """Return the finite sum of fitted SVD explained-variance ratios."""

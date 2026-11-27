@@ -13,6 +13,7 @@ from src.api.api_contracts import (
     CanonicalPredictionResultDTO,
     CanonicalPricingQueryDTO,
     PredictionResultDTO,
+    QuoteExplanationDTO,
 )
 from src.core.artifact_contract import MANIFEST_NAME, file_sha256
 from src.api.serve import create_app
@@ -77,10 +78,18 @@ class CanonicalContractTests(unittest.TestCase):
             "base_predicted_rate": 100, "mpesa_tariff_surcharge": 7,
             "final_quoted_rate": 107, "min_quoted_rate": 90, "max_quoted_rate": 120,
             "bilateral_arbitrage_factor": 0.8,
+            "requested_partition": "mobile",
+            "routed_partition": "general_tech",
+            "fallback_triggered": True,
+            "peer_rate_stddev": 14.25,
+            "base_rate_floor_requested": 85.0,
+            "floor_bound_active": False,
+            "floor_exceeds_base": False,
+            "top_matched_terms": ["kotlin", "compose"],
             "nearest_neighbors": [
                 {"peer_index": 3, "distance": 0.25, "verified_rate": 110,
-                 "similarity_score": 0.8, "listing_id": "listing-real", "job_title": "Engineer"},
-                {"peer_index": 4, "distance": 0.5, "verified_rate": 90, "similarity_score": 0.67},
+                 "similarity_score": 0.8, "idw_weight": 0.72, "listing_id": "listing-real", "job_title": "Engineer"},
+                {"peer_index": 4, "distance": 0.5, "verified_rate": 90, "similarity_score": 0.67, "idw_weight": 0.28},
             ],
         })
         result = CanonicalPredictionResultDTO.from_legacy(legacy)
@@ -88,8 +97,22 @@ class CanonicalContractTests(unittest.TestCase):
         self.assertEqual(len(result.comparables), 1)
         self.assertEqual(result.comparables[0].listing_id, "listing-real")
         self.assertEqual(result.comparables[0].job_title, "Engineer")
+        self.assertEqual(result.comparables[0].idw_weight, 0.72)
         self.assertEqual(result.confidence_score, 0.0)
         self.assertIn("unavailable", result.reason)
+        self.assertIn("Broadened search to general_tech", result.reason)
+        self.assertIsNotNone(result.explanation)
+        assert result.explanation is not None
+        self.assertEqual(result.explanation.requested_partition, "mobile")
+        self.assertEqual(result.explanation.routed_partition, "general_tech")
+        self.assertTrue(result.explanation.used_fallback_partition)
+        self.assertEqual(result.explanation.peer_rate_stddev, 14.25)
+        self.assertEqual(result.explanation.base_rate_floor_requested, 85.0)
+        self.assertFalse(result.explanation.floor_bound_active)
+        self.assertFalse(result.explanation.floor_exceeds_base)
+        self.assertFalse(result.explanation.fee_pushes_above_ceiling)
+        self.assertEqual(result.explanation.corridor_uplift_multiplier, 1.2)
+        self.assertEqual(result.explanation.top_matched_terms, ["kotlin", "compose"])
         self.assertIsNotNone(result.timestamp.tzinfo)
         with self.assertRaises(ValidationError):
             CanonicalPredictionResultDTO.model_validate({
@@ -127,10 +150,23 @@ class CanonicalApiTests(unittest.TestCase):
                 body = canonical.json()
                 self.assertEqual(set(body), {"basePredictedRate", "mpesaTariffSurcharge", "finalQuotedRate",
                                              "minQuotedRate", "maxQuotedRate", "kNeighborsUsed", "bilateralArbitrageFactor",
-                                             "confidenceScore", "comparables", "reason", "timestamp"})
+                                             "confidenceScore", "comparables", "reason", "explanation", "timestamp"})
                 self.assertEqual(body["kNeighborsUsed"], 5)
                 self.assertEqual(body["comparables"], [])  # row indices are NOT listing IDs
                 self.assertEqual(body["confidenceScore"], 0.0)  # not empirically calibrated
+                self.assertIsNotNone(body["explanation"])
+                self.assertEqual(body["explanation"]["requestedPartition"], "web_backend")
+                self.assertEqual(body["explanation"]["routedPartition"], "web_backend")
+                self.assertFalse(body["explanation"]["usedFallbackPartition"])
+                self.assertGreater(len(body["explanation"]["topMatchedTerms"]), 0)
+                self.assertIn("python", body["explanation"]["topMatchedTerms"])
+
+                floored = client.post("/api/v1/optimize-price", json={**CANONICAL, "baseRateFloor": body["basePredictedRate"] + 50.0})
+                self.assertEqual(floored.status_code, 200, floored.text)
+                floored_exp = floored.json()["explanation"]
+                self.assertTrue(floored_exp["floorBoundActive"])
+                self.assertTrue(floored_exp["floorExceedsBase"])
+                self.assertEqual(floored_exp["baseRateFloorRequested"], body["basePredictedRate"] + 50.0)
                 self.assertLessEqual(body["minQuotedRate"], body["maxQuotedRate"])
                 self.assertEqual(body["finalQuotedRate"],
                                  round(body["basePredictedRate"] + body["mpesaTariffSurcharge"], 2))
@@ -146,7 +182,7 @@ class CanonicalApiTests(unittest.TestCase):
                 self.assertEqual(legacy.json()["base_predicted_rate"], body["basePredictedRate"])
                 self.assertEqual(legacy.json()["min_quoted_rate"], body["minQuotedRate"])
                 self.assertEqual(len(legacy.json()["nearest_neighbors"]), 5)
-                self.assertEqual(len(app.state.dependencies.repository.list_transactions()), 2)
+                self.assertEqual(len(app.state.dependencies.repository.list_transactions()), 3)
 
                 override = client.post("/api/v1/optimize-price", json={**CANONICAL, "costOfLivingIndex": 1.25})
                 self.assertEqual(override.status_code, 200, override.text)

@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import dev.tyejaedon.pricing.data.network.dto.PeerMatchDTO
 import dev.tyejaedon.pricing.data.network.dto.PredictionResultDTO
+import dev.tyejaedon.pricing.data.network.dto.QuoteExplanationDTO
 import dev.tyejaedon.pricing.data.network.dto.QuoteHistoryItemDTO
 import dev.tyejaedon.pricing.data.network.dto.SelfListingDTO
 import dev.tyejaedon.pricing.data.network.dto.SelfProfileDTO
@@ -38,10 +39,18 @@ private val previewResult =
         confidenceScore = 0.89f,
         comparables =
             listOf(
-                PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
-                PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
+                PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f, idwWeight = 0.62f),
+                PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f, idwWeight = 0.38f),
             ),
         reason = "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge.",
+        explanation =
+            QuoteExplanationDTO(
+                requestedPartition = "mobile",
+                routedPartition = "mobile",
+                peerRateStddev = 280f,
+                corridorUpliftMultiplier = 1.49f,
+                topMatchedTerms = listOf("android", "kotlin", "architecture"),
+            ),
         timestamp = "2026-10-10T00:00:00Z",
     )
 

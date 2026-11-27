@@ -105,6 +105,41 @@ function showQuote(quote) {
   );
   addResultRow("Indexed neighbors used", String(quote.kNeighborsUsed));
 
+  const exp = quote.explanation && typeof quote.explanation === "object" ? quote.explanation : null;
+  if (exp) {
+    const details = document.createElement("details");
+    details.className = "result-row";
+    const summary = document.createElement("summary");
+    summary.textContent = "Why this quote?";
+    details.append(summary);
+
+    const addDetail = (label, val) => {
+      const p = document.createElement("p");
+      p.textContent = `${label}: ${val}`;
+      details.append(p);
+    };
+    const partition = exp.routedPartition || exp.requestedPartition || "unknown";
+    addDetail(
+      "Partition searched",
+      exp.usedFallbackPartition ? `${partition} (broadened from ${exp.requestedPartition || "requested"})` : partition,
+    );
+    if (Number.isFinite(Number(exp.corridorUpliftMultiplier)) && Number(exp.corridorUpliftMultiplier) > 1) {
+      addDetail("Cross-border ceiling uplift", `+${((Number(exp.corridorUpliftMultiplier) - 1) * 100).toFixed(0)}%`);
+    }
+    if (Number.isFinite(Number(exp.peerRateStddev))) {
+      addDetail("Peer rate dispersion", `±${formatRate(exp.peerRateStddev)}`);
+    }
+    if (exp.floorExceedsBase) {
+      addDetail("Floor notice", "Requested floor exceeds the peer-matched base rate.");
+    } else if (exp.floorBoundActive) {
+      addDetail("Floor notice", "Requested floor sets the lower corridor bound.");
+    }
+    if (Array.isArray(exp.topMatchedTerms) && exp.topMatchedTerms.length > 0) {
+      addDetail("Matched terms", exp.topMatchedTerms.join(", "));
+    }
+    resultSummary.append(details);
+  }
+
   const peers = Array.isArray(quote.comparables) ? quote.comparables : [];
   peerSummary.textContent = peers.length
     ? `Showing ${peers.length} listing-backed comparable(s).`
@@ -115,10 +150,14 @@ function showQuote(quote) {
     const title = document.createElement("strong");
     title.textContent = peer.jobTitle || "Untitled listing";
     const details = document.createElement("p");
+    const weightSuffix = Number.isFinite(Number(peer.idwWeight))
+      ? ` · Weight: ${(Number(peer.idwWeight) * 100).toFixed(0)}%`
+      : "";
     details.textContent =
       `Listing ID: ${peer.listingId || "Unavailable"} · ` +
       `${formatRate(peer.verifiedRate)} · ` +
-      `Similarity: ${(Number(peer.similarityScore) * 100).toFixed(0)}%`;
+      `Similarity: ${(Number(peer.similarityScore) * 100).toFixed(0)}%` +
+      weightSuffix;
     item.append(title, details);
     peerList.append(item);
   }

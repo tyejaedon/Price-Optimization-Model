@@ -93,15 +93,17 @@ sealed interface ProfileUiState {
 
 enum class MentorTab(
     val label: String,
+    val title: String,
 ) {
-    QUOTE("Quote"),
-    LISTINGS("Listings"),
-    HISTORY("History"),
+    QUOTE(label = "Quote", title = "Price Your Service"),
+    LISTINGS(label = "Listings", title = "Service Catalog"),
+    HISTORY(label = "History", title = "Rate History"),
 }
 
 data class MentorWorkspaceState(
     val selectedTab: MentorTab = MentorTab.QUOTE,
     val quoteStep: Int = 0,
+    val isQuoteDetailOpen: Boolean = false,
     val modelsLoaded: Boolean = true,
     val industries: List<String> = SupportedIndustries,
     val listings: List<SelfListingDTO> = emptyList(),

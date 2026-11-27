@@ -3,7 +3,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from src.nlp.nlp_pipeline import _lemmatizer, sanitize_many, sanitize_text
+from src.nlp.nlp_pipeline import TextFeatureReducer, _lemmatizer, sanitize_many, sanitize_text
 
 
 class NlpPipelineSanitizationTests(unittest.TestCase):
@@ -78,6 +78,20 @@ class NlpPipelineSanitizationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertNotIn("www", result.stdout.lower())
         self.assertNotIn("2026", result.stdout)
+
+    def test_top_query_terms_returns_weighted_vocabulary_matches(self) -> None:
+        reducer = TextFeatureReducer(n_components=2)
+        self.assertEqual(reducer.top_query_terms("python backend api"), [])
+        reducer.fit_transform([
+            "Python FastAPI backend engineering and PostgreSQL optimization",
+            "Android Kotlin Jetpack Compose architecture",
+            "Cloud DevOps Kubernetes Terraform pipelines",
+        ])
+        terms = reducer.top_query_terms("Python FastAPI backend PostgreSQL APIs", limit=5)
+        self.assertTrue(1 <= len(terms) <= 5)
+        self.assertIn("python", terms)
+        self.assertEqual(reducer.top_query_terms("...", limit=3), [])
+        self.assertEqual(reducer.top_query_terms("python", limit=0), [])
 
 
 if __name__ == "__main__":

@@ -140,6 +140,40 @@
         <div id="peers"></div>
         <p id="reason"></p>
       </section>
+
+      <section id="glossary-section" aria-labelledby="glossary-heading">
+        <details>
+          <summary id="glossary-heading"><strong>Pricing Glossary (Technical Terms Explained)</strong></summary>
+          <dl>
+            <dt>Recommended Rate (Final Quoted Rate)</dt>
+            <dd>The total hourly rate in KES/hour you quote to the client. It combines your peer-matched base rate with the M-Pesa transfer surcharge so payout fees do not reduce your net earnings.</dd>
+            <dt>Base Predicted Rate (Your Take-Home)</dt>
+            <dd>Your net hourly earnings before mobile-money transfer fees, calculated from verified peer listings or raised to your Base-Rate Floor if your floor is higher.</dd>
+            <dt>M-Pesa Tariff Surcharge</dt>
+            <dd>The official M-Pesa transfer fee for your payout band, passed through on top of your base rate.</dd>
+            <dt>Base-Rate Floor</dt>
+            <dd>Your optional walk-away minimum hourly rate (KES/hour). If the peer estimate or corridor floor falls below this level, the quote is clamped upward to protect your minimum.</dd>
+            <dt>Negotiation Corridor (Min – Max Range)</dt>
+            <dd>Your recommended bargaining window (excluding the M-Pesa fee). Anchor negotiations near the ceiling for international clients and use the floor as your lowest acceptable retainer rate.</dd>
+            <dt>Bilateral Arbitrage Factor</dt>
+            <dd>A cross-border purchasing-power index between your country and the client's country. Higher-income client markets widen your upper negotiation ceiling.</dd>
+            <dt>Competitiveness Score (0.00 – 1.00)</dt>
+            <dd>Measures market crowding in your niche. Lower scores represent rare specializations (wider premium ceiling); higher scores represent crowded markets (tighter corridor around the peer median).</dd>
+            <dt>IDW Quote Weight (Inverse Distance Weighting)</dt>
+            <dd>The percentage share each comparable peer listing contributed to your base rate. Closer matches in feature space receive exponentially greater weight.</dd>
+            <dt>Similarity Score</dt>
+            <dd>A 0%–100% profile match score derived from Euclidean distance in the spatial KD-Tree index (<code>1 / (1 + distance)</code>).</dd>
+            <dt>Matched Terms (TF-IDF Keywords)</dt>
+            <dd>The most distinctive technical terms extracted from your service description that guided peer selection.</dd>
+            <dt>Industry Partition &amp; Fallback Routing</dt>
+            <dd>Peer listings are grouped by industry domain (e.g., Mobile, Data &amp; AI). If a niche partition has too few verified peers, routing broadens to <code>general_tech</code> so you still receive a reliable quote.</dd>
+            <dt>Peer Rate Dispersion (± KES/hour)</dt>
+            <dd>The standard deviation across matched peers' hourly rates. Lower dispersion means tighter market consensus.</dd>
+            <dt>Confidence (Uncalibrated)</dt>
+            <dd>An internal distance diagnostic rather than a calibrated probability. Always rely on peer count and similarity scores to judge evidence strength.</dd>
+          </dl>
+        </details>
+      </section>
     </main>
   </body>
 </html>

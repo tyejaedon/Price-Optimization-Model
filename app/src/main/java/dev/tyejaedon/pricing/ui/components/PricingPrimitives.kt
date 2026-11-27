@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.tyejaedon.pricing.designsystem.GlassCard
@@ -58,12 +59,14 @@ fun PrimaryActionButton(
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     GlassCard(
         modifier = modifier,
         shape = OneUiShapes.OuterContainer,
         contentPadding = PaddingValues(PricingSpacing.CardPadding),
+        onClick = onClick,
     ) {
         content()
     }
@@ -79,13 +82,14 @@ fun InlineErrorText(
     Row(
         modifier =
             modifier
+                .fillMaxWidth()
                 .clip(pillShape)
                 .background(glass.errorTint.copy(alpha = 0.14f), pillShape)
                 .border(BorderStroke(1.dp, glass.errorTint.copy(alpha = 0.28f)), pillShape)
                 .padding(horizontal = 14.dp, vertical = 10.dp)
                 .semantics { contentDescription = "Error: $message" },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
+        horizontalArrangement = Arrangement.spacedBy(PricingSpacing.Small, Alignment.CenterHorizontally),
     ) {
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
@@ -97,6 +101,7 @@ fun InlineErrorText(
             text = message,
             color = glass.errorTint,
             style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -118,7 +123,10 @@ private fun PricingPrimitivesLightPreview() {
                     onClick = {},
                     modifier = Modifier.fillMaxWidth(),
                 )
-                InlineErrorText(message = "Description must be at least 20 characters.")
+                InlineErrorText(
+                    message = "Description must be at least 20 characters.",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -142,7 +150,10 @@ private fun PricingPrimitivesDarkPreview() {
                     enabled = false,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                InlineErrorText(message = "Network timeout while contacting pricing service.")
+                InlineErrorText(
+                    message = "Network timeout while contacting pricing service.",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

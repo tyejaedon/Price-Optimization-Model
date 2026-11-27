@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -23,33 +25,75 @@ import dev.tyejaedon.pricing.data.network.dto.PredictionResultDTO
 import dev.tyejaedon.pricing.designsystem.GlassInsetDivider
 import dev.tyejaedon.pricing.designsystem.GlassStatusBadge
 import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
-import dev.tyejaedon.pricing.designsystem.OneUiShapes
-import dev.tyejaedon.pricing.designsystem.recessedGlassWell
 import dev.tyejaedon.pricing.ui.components.SectionCard
 import dev.tyejaedon.pricing.ui.pricing.formatting.formatKesRate
 import dev.tyejaedon.pricing.ui.theme.PricingSpacing
+import kotlin.math.roundToInt
 
 /**
- * Pricing result presentation (issue #142). Keeps corridor, M-Pesa surcharge and the uncalibrated
- * confidence score visually distinct per line item, and never fabricates placeholder comparables.
- * `AnimateRecommendation(rate, similarity)` from the class diagram is implemented as an animated
- * count-up of the final rate that is skipped when the system "reduce motion" setting is enabled.
+ * Compact summary card for a pricing quote on the main Quote tab. Replaces the uncalibrated `0%`
+ * confidence pill with peer-match evidence, summarizes take-home vs. M-Pesa pass-through in one
+ * line, and navigates to `QuoteDetailScreen` on click for full explainability.
  */
 @Composable
 fun PricingResultCard(
     result: PredictionResultDTO,
     modifier: Modifier = Modifier,
+    onOpenDetails: (() -> Unit)? = null,
 ) {
     val reduceMotion = isReduceMotionEnabled()
     val glass = LocalOneUiGlassColors.current
-    val warningColor = glass.warningTint
     val animatedRate by animateFloatAsState(
         targetValue = result.finalQuotedRate,
         animationSpec = if (reduceMotion) tween(durationMillis = 0) else tween(durationMillis = 600),
         label = "finalQuotedRateCountUp",
     )
 
-    SectionCard(modifier = modifier) {
+    val evidenceLabel =
+        if (result.comparables.isNotEmpty()) {
+            val avgSim =
+                (
+                    result.comparables
+                        .map { it.similarityScore.coerceIn(0f, 1f) }
+                        .average() * 100.0
+                ).roundToInt()
+            "${result.kNeighborsUsed} peers • $avgSim% match"
+        } else {
+            "${result.kNeighborsUsed} indexed peers"
+        }
+
+    val takeHomeSummary =
+        if (result.mpesaTariffSurcharge > 0f) {
+            "You net ${formatKesRate(result.basePredictedRate)} KES + ${formatKesRate(result.mpesaTariffSurcharge)} KES M-Pesa fee"
+        } else {
+            "You net ${formatKesRate(result.basePredictedRate)} KES • No M-Pesa fee"
+        }
+
+    val explanation = result.explanation
+    val highlightBadge: Pair<String, androidx.compose.ui.graphics.Color>? =
+        when {
+            explanation?.floorExceedsBase == true ->
+                "Your floor is above market median" to glass.warningTint
+            explanation?.usedFallbackPartition == true ->
+                "Broadened to ${formatIndustryLabel(explanation.routedPartition ?: "general_tech")}" to glass.infoTint
+            (explanation?.corridorUpliftMultiplier ?: 1f) > 1.01f -> {
+                val upliftPct = (((explanation?.corridorUpliftMultiplier ?: 1f) - 1f) * 100f).roundToInt()
+                "+$upliftPct% cross-border ceiling headroom" to glass.secondaryAccent
+            }
+            else -> null
+        }
+
+    val cardModifier =
+        if (onOpenDetails != null) {
+            modifier.semantics { contentDescription = "Open full quote breakdown" }
+        } else {
+            modifier
+        }
+
+    SectionCard(
+        modifier = cardModifier,
+        onClick = onOpenDetails,
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -62,7 +106,7 @@ fun PricingResultCard(
                     color = glass.textSecondary,
                 )
                 GlassStatusBadge(
-                    text = "${(result.confidenceScore * 100).toInt()}% confidence",
+                    text = evidenceLabel,
                     tint = glass.primaryAccent,
                 )
             }
@@ -75,6 +119,11 @@ fun PricingResultCard(
                         contentDescription = "Final quoted rate ${formatKesRate(result.finalQuotedRate)} KES per hour"
                     },
             )
+            Text(
+                text = takeHomeSummary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = glass.textSecondary,
+            )
 
             BilateralCorridorSelector(
                 minRate = result.minQuotedRate,
@@ -82,121 +131,38 @@ fun PricingResultCard(
                 finalRate = result.basePredictedRate,
             )
 
-            GlassInsetDivider(startIndent = 0.dp)
-
-            LineItem(label = "M-Pesa transfer fee", value = "+${formatKesRate(result.mpesaTariffSurcharge)} KES/hour")
-            LineItem(
-                label = "Confidence (uncalibrated)",
-                value = "${(result.confidenceScore * 100).toInt()}%",
-                caption = "Not a probability that this quote is accurate.",
-                captionColor = warningColor,
-            )
-
-            GlassInsetDivider(startIndent = 0.dp)
-
-            Text(
-                text = "Comparable peers",
-                style = MaterialTheme.typography.titleMedium,
-                color = glass.textPrimary,
-            )
-            ComparablesList(result = result)
-
-            Text(
-                text = result.reason,
-                style = MaterialTheme.typography.bodySmall,
-                color = glass.textMuted,
-            )
-        }
-    }
-}
-
-@Composable
-private fun LineItem(
-    label: String,
-    value: String,
-    caption: String? = null,
-    captionColor: Color = LocalOneUiGlassColors.current.textPrimary,
-) {
-    val glass = LocalOneUiGlassColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = glass.textSecondary,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = glass.textPrimary,
-            )
-        }
-        if (caption != null) {
-            Text(text = caption, style = MaterialTheme.typography.bodySmall, color = captionColor)
-        }
-    }
-}
-
-@Composable
-private fun ComparablesList(result: PredictionResultDTO) {
-    val glass = LocalOneUiGlassColors.current
-    if (result.comparables.isEmpty()) {
-        Text(
-            text = "No listing-backed comparables are available for this quote yet.",
-            style = MaterialTheme.typography.bodySmall,
-            color = glass.textMuted,
-        )
-        return
-    }
-    if (result.comparables.size < result.kNeighborsUsed) {
-        Text(
-            text =
-                "Showing ${result.comparables.size} of ${result.kNeighborsUsed} indexed peers; " +
-                    "some listings lack public provenance.",
-            style = MaterialTheme.typography.bodySmall,
-            color = glass.textMuted,
-        )
-    }
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .recessedGlassWell(shape = OneUiShapes.InnerCard)
-                .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(PricingSpacing.Small),
-    ) {
-        result.comparables.forEachIndexed { index, peer ->
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = peer.jobTitle?.takeIf(String::isNotBlank) ?: "Untitled listing",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = glass.textPrimary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "${formatKesRate(peer.verifiedRate)} KES/hour",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = glass.secondaryAccent,
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Listing ID: ${peer.listingId}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glass.textMuted,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "Similarity: ${formatSimilarity(peer.similarityScore)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glass.textSecondary,
-                    )
-                }
+            if (highlightBadge != null) {
+                GlassStatusBadge(
+                    text = highlightBadge.first,
+                    tint = highlightBadge.second,
+                )
             }
-            if (index < result.comparables.lastIndex) {
+
+            if (onOpenDetails != null) {
                 GlassInsetDivider(startIndent = 0.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val ctaText =
+                        if (result.comparables.isNotEmpty()) {
+                            "View full breakdown & ${result.comparables.size} peers"
+                        } else {
+                            "View full breakdown & drivers"
+                        }
+                    Text(
+                        text = ctaText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = glass.primaryAccent,
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = glass.primaryAccent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
     }
@@ -221,8 +187,3 @@ private fun isReduceMotionEnabled(): Boolean {
         }
     }
 }
-
-private fun formatSimilarity(score: Float): String =
-    java.text.NumberFormat
-        .getPercentInstance(java.util.Locale.getDefault())
-        .format(score.coerceIn(0f, 1f))
