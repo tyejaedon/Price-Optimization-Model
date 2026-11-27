@@ -4,6 +4,7 @@ import dev.tyejaedon.pricing.data.network.dto.MetadataResponseDTO
 import dev.tyejaedon.pricing.data.network.dto.PeerMatchDTO
 import dev.tyejaedon.pricing.data.network.dto.PredictionResultDTO
 import dev.tyejaedon.pricing.data.network.dto.PricingQueryDTO
+import dev.tyejaedon.pricing.data.network.dto.QuoteExplanationDTO
 import dev.tyejaedon.pricing.data.network.dto.QuoteFeedbackDTO
 import dev.tyejaedon.pricing.data.network.dto.QuoteFeedbackRequestDTO
 import dev.tyejaedon.pricing.data.network.dto.QuoteHistoryItemDTO
@@ -51,6 +52,16 @@ class FakePricingRepository(
                 isActive = true,
                 marketCompetitiveness = 0.5f,
             ),
+            SelfListingDTO(
+                listingId = "demo-listing-2",
+                mentorId = "demo-mentor",
+                industryId = "data_ai",
+                title = "Applied Machine Learning & MLOps Coaching",
+                rawText = "Production ML systems mentor guiding feature stores, model serving, and evaluation.",
+                verifiedRate = 3100f,
+                isActive = true,
+                marketCompetitiveness = 0.35f,
+            ),
         )
 
     private val demoHistory =
@@ -65,6 +76,17 @@ class FakePricingRepository(
                 finalQuotedRate = 2557f,
                 executedAt = "2026-11-16T09:00:00Z",
                 listingId = "demo-listing-1",
+            ),
+            QuoteHistoryItemDTO(
+                transactionId = "demo-tx-2",
+                selectedIndustry = "data_ai",
+                mentorCountryCode = "KE",
+                clientCountryCode = "GB",
+                basePredictedRate = 3100f,
+                mpesaTariffSurcharge = 57f,
+                finalQuotedRate = 3157f,
+                executedAt = "2026-11-18T14:30:00Z",
+                listingId = "demo-listing-2",
             ),
         )
 
@@ -142,22 +164,60 @@ class FakePricingRepository(
         fun defaultSuccess(query: PricingQueryDTO): PricingOutcome<PredictionResultDTO> {
             val base = 2500f
             val surcharge = if (query.mentorCountry.equals("KE", ignoreCase = true)) 57f else 0f
+            val bilateralFactor = if (query.mentorCountry == query.clientCountry) 1.0f else 0.51f
+            val uplift = if (bilateralFactor < 1f) 2f - bilateralFactor else 1f
+            val minRate = maxOf(query.baseRateFloor ?: 0f, base * 0.85f)
+            val maxRate = base * 1.35f
+            val finalRate = base + surcharge
             return PricingOutcome.Success(
                 PredictionResultDTO(
                     basePredictedRate = base,
                     mpesaTariffSurcharge = surcharge,
-                    finalQuotedRate = base + surcharge,
-                    minQuotedRate = base * 0.85f,
-                    maxQuotedRate = base * 1.35f,
+                    finalQuotedRate = finalRate,
+                    minQuotedRate = minRate,
+                    maxQuotedRate = maxRate,
                     kNeighborsUsed = 5,
-                    bilateralArbitrageFactor = if (query.mentorCountry == query.clientCountry) 1.0f else 0.51f,
+                    bilateralArbitrageFactor = bilateralFactor,
                     confidenceScore = 0.0f,
                     comparables =
                         listOf(
-                            PeerMatchDTO("list_001", "Senior Android Architect", 2600f, 0.92f, 0.41f),
-                            PeerMatchDTO("list_045", "Kotlin Mentor", 2400f, 0.88f, 0.55f),
+                            PeerMatchDTO(
+                                listingId = "list_001",
+                                jobTitle = "Senior Android Architect",
+                                verifiedRate = 2600f,
+                                similarityScore = 0.92f,
+                                euclideanDistance = 0.41f,
+                                idwWeight = 0.62f,
+                                experienceLevel = "Senior",
+                                countryCode = "KE",
+                                industryLabel = "Mobile",
+                            ),
+                            PeerMatchDTO(
+                                listingId = "list_045",
+                                jobTitle = "Kotlin Mentor",
+                                verifiedRate = 2400f,
+                                similarityScore = 0.88f,
+                                euclideanDistance = 0.55f,
+                                idwWeight = 0.38f,
+                                experienceLevel = "Mid-Senior",
+                                countryCode = "KE",
+                                industryLabel = "Mobile",
+                            ),
                         ),
                     reason = "Weighted from 5 indexed peers in KES/hour; corridor excludes the M-Pesa surcharge.",
+                    explanation =
+                        QuoteExplanationDTO(
+                            requestedPartition = query.industry,
+                            routedPartition = query.industry,
+                            usedFallbackPartition = false,
+                            peerRateStddev = 280f,
+                            baseRateFloorRequested = query.baseRateFloor,
+                            floorBoundActive = query.baseRateFloor != null && query.baseRateFloor >= base * 0.85f,
+                            floorExceedsBase = query.baseRateFloor != null && query.baseRateFloor > base,
+                            feePushesAboveCeiling = finalRate > maxRate,
+                            corridorUpliftMultiplier = uplift,
+                            topMatchedTerms = listOf("android", "kotlin", "jetpack compose", "architecture", "mentoring"),
+                        ),
                     timestamp = "2026-10-10T00:00:00Z",
                 ),
             )

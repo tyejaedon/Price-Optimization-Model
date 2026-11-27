@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.tyejaedon.pricing.data.network.dto.PricingQueryDTO
 import dev.tyejaedon.pricing.data.network.dto.QuoteFeedbackRequestDTO
+import dev.tyejaedon.pricing.data.network.dto.QuoteHistoryItemDTO
 import dev.tyejaedon.pricing.data.network.dto.SelfListingDTO
 import dev.tyejaedon.pricing.data.network.dto.SelfListingUpsertDTO
 import dev.tyejaedon.pricing.data.network.dto.SelfProfileUpsertDTO
@@ -35,8 +36,25 @@ class PricingViewModel(
         _workspaceState.update { it.copy(quoteStep = step.coerceIn(0, 2)) }
     }
 
+    fun openQuoteDetail() {
+        if (_uiState.value is PricingUiState.Success) {
+            _workspaceState.update { it.copy(isQuoteDetailOpen = true) }
+        }
+    }
+
+    fun closeQuoteDetail() {
+        _workspaceState.update { it.copy(isQuoteDetailOpen = false) }
+    }
+
     fun selectTab(tab: MentorTab) {
-        _workspaceState.update { it.copy(selectedTab = tab, statusMessage = null, errorMessage = null) }
+        _workspaceState.update {
+            it.copy(
+                selectedTab = tab,
+                isQuoteDetailOpen = false,
+                statusMessage = null,
+                errorMessage = null,
+            )
+        }
         when (tab) {
             MentorTab.LISTINGS -> loadListings()
             MentorTab.HISTORY -> loadHistory()
@@ -115,6 +133,35 @@ class PricingViewModel(
                 selectedTab = MentorTab.QUOTE,
                 quoteStep = 1,
                 statusMessage = "Loaded \"${listing.title}\" — confirm your countries to calculate.",
+            )
+        }
+    }
+
+    fun applyHistoryItemToQuote(item: QuoteHistoryItemDTO) {
+        val matchedListing =
+            item.listingId?.let { id ->
+                _workspaceState.value.listings.firstOrNull { it.listingId == id }
+            }
+        updateForm { current ->
+            current.copy(
+                listingId = matchedListing?.listingId ?: current.listingId,
+                rawDescription = matchedListing?.rawText ?: current.rawDescription,
+                selectedIndustry = item.selectedIndustry ?: matchedListing?.industryId ?: current.selectedIndustry,
+                mentorCountry = item.mentorCountryCode?.uppercase() ?: current.mentorCountry,
+                clientCountry = item.clientCountryCode?.uppercase() ?: current.clientCountry,
+                validationError = null,
+            )
+        }
+        val effectiveDescription = matchedListing?.rawText ?: _uiState.value.form.rawDescription
+        val nextStep = if (effectiveDescription.trim().length >= 20) 1 else 0
+        val mentorCode = item.mentorCountryCode ?: "KE"
+        val clientCode = item.clientCountryCode ?: "US"
+        _workspaceState.update {
+            it.copy(
+                selectedTab = MentorTab.QUOTE,
+                quoteStep = nextStep,
+                isQuoteDetailOpen = false,
+                statusMessage = "Loaded corridor $mentorCode -> $clientCode into Quote.",
             )
         }
     }
@@ -254,6 +301,7 @@ class PricingViewModel(
             return
         }
 
+        _workspaceState.update { it.copy(isQuoteDetailOpen = false) }
         _uiState.update { PricingUiState.Loading(form) }
         viewModelScope.launch {
             val query = constructQueryPayload(form)
@@ -273,7 +321,14 @@ class PricingViewModel(
         val readyProfile = (_profileState.value as? ProfileUiState.Ready)?.profile
         val preservedMentorId = readyProfile?.profileId ?: currentForm.mentorId
         val preservedMentorCountry = readyProfile?.countryCode?.uppercase().orEmpty()
-        _workspaceState.update { it.copy(quoteStep = 0, statusMessage = null, errorMessage = null) }
+        _workspaceState.update {
+            it.copy(
+                quoteStep = 0,
+                isQuoteDetailOpen = false,
+                statusMessage = null,
+                errorMessage = null,
+            )
+        }
         _uiState.update {
             PricingUiState.Idle(
                 PricingFormState(

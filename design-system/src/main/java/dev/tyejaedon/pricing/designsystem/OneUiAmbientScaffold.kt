@@ -154,6 +154,7 @@ fun OneUiGlassScaffold(
     title: String,
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(),
+    navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
@@ -182,6 +183,7 @@ fun OneUiGlassScaffold(
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
+                    navigationIcon = navigationIcon,
                     actions = actions,
                     scrollBehavior = scrollBehavior,
                     colors =
@@ -194,6 +196,7 @@ fun OneUiGlassScaffold(
                                     glass.ambientBaseTop.copy(alpha = 0.80f)
                                 },
                             titleContentColor = glass.textPrimary,
+                            navigationIconContentColor = glass.textPrimary,
                             actionIconContentColor = glass.textPrimary,
                         ),
                 )

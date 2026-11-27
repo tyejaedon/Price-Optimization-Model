@@ -1,22 +1,33 @@
 package dev.tyejaedon.pricing.ui.pricing.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import dev.tyejaedon.pricing.designsystem.GlassStatusBadge
 import dev.tyejaedon.pricing.designsystem.LocalOneUiGlassColors
 import dev.tyejaedon.pricing.designsystem.OneUiAmbientCanvas
@@ -49,16 +60,47 @@ fun SaturationSlider(
             )
             GlassStatusBadge(text = "$percent%", tint = glass.primaryAccent)
         }
+        @OptIn(ExperimentalMaterial3Api::class)
         Slider(
             value = score,
             onValueChange = onScoreChanged,
             valueRange = 0f..1f,
-            colors =
-                SliderDefaults.colors(
-                    thumbColor = glass.primaryAccent,
-                    activeTrackColor = glass.primaryAccent,
-                    inactiveTrackColor = glass.recessedWellFill,
-                ),
+            thumb = {
+                val interactionSource = remember { MutableInteractionSource() }
+                SliderDefaults.Thumb(
+                    interactionSource = interactionSource,
+                    colors = SliderDefaults.colors(thumbColor = glass.textPrimary),
+                    thumbSize = DpSize(20.dp, 20.dp),
+                    modifier = Modifier.zIndex(2f),
+                )
+            },
+            track = { sliderState ->
+                val activeColor = glass.primaryAccent
+                val inactiveColor = glass.recessedWellFill
+                val range = sliderState.valueRange.endInclusive - sliderState.valueRange.start
+                val fraction = if (range > 0f) {
+                    ((sliderState.value - sliderState.valueRange.start) / range).coerceIn(0f, 1f)
+                } else 0f
+
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(CircleShape)
+                            .background(inactiveColor),
+                ) {
+                    if (fraction > 0f) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(fraction)
+                                    .fillMaxHeight()
+                                    .background(activeColor),
+                        )
+                    }
+                }
+            },
             modifier =
                 Modifier
                     .fillMaxWidth()

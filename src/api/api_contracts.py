@@ -77,6 +77,10 @@ class PeerMatchDTO(StrictModel):
     # Only populated by an inference artifact with real listing provenance (#71).
     listing_id: Optional[str] = Field(default=None, min_length=1, max_length=200)
     job_title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    published_date: Optional[str] = Field(default=None, alias="publishedDate")
+    experience_level: Optional[str] = Field(default=None, alias="experienceLevel")
+    country_code: Optional[str] = Field(default=None, alias="countryCode")
+    industry_label: Optional[str] = Field(default=None, alias="industryLabel")
 
 
 class PredictionResultDTO(StrictModel):
@@ -95,6 +99,14 @@ class PredictionResultDTO(StrictModel):
     bilateral_arbitrage_factor: Optional[float] = None
     mentor_country_iso2: str = "ZZ"
     nearest_neighbors: List[PeerMatchDTO] = Field(default_factory=list)
+    requested_partition: Optional[str] = None
+    routed_partition: Optional[str] = None
+    fallback_triggered: bool = False
+    peer_rate_stddev: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
+    base_rate_floor_requested: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
+    floor_bound_active: bool = False
+    floor_exceeds_base: bool = False
+    top_matched_terms: List[str] = Field(default_factory=list, max_length=10)
 
     @field_validator("final_quoted_rate")
     @classmethod
@@ -185,6 +197,26 @@ class CanonicalPeerMatchDTO(StrictModel):
     verified_rate: float = Field(alias="verifiedRate", ge=0.0, allow_inf_nan=False)
     similarity_score: float = Field(alias="similarityScore", ge=0.0, le=1.0, allow_inf_nan=False)
     euclidean_distance: float = Field(alias="euclideanDistance", ge=0.0, allow_inf_nan=False)
+    idw_weight: Optional[float] = Field(default=None, alias="idwWeight", ge=0.0, le=1.0, allow_inf_nan=False)
+    published_date: Optional[str] = Field(default=None, alias="publishedDate")
+    experience_level: Optional[str] = Field(default=None, alias="experienceLevel")
+    country_code: Optional[str] = Field(default=None, alias="countryCode")
+    industry_label: Optional[str] = Field(default=None, alias="industryLabel")
+
+
+class QuoteExplanationDTO(StrictModel):
+    """Structured pricing drivers explaining corridor, partition routing, floor, and matched terms."""
+
+    requested_partition: Optional[str] = Field(default=None, alias="requestedPartition", min_length=1, max_length=100)
+    routed_partition: Optional[str] = Field(default=None, alias="routedPartition", min_length=1, max_length=100)
+    used_fallback_partition: bool = Field(default=False, alias="usedFallbackPartition")
+    peer_rate_stddev: Optional[float] = Field(default=None, alias="peerRateStddev", ge=0.0, allow_inf_nan=False)
+    base_rate_floor_requested: Optional[float] = Field(default=None, alias="baseRateFloorRequested", ge=0.0, allow_inf_nan=False)
+    floor_bound_active: bool = Field(default=False, alias="floorBoundActive")
+    floor_exceeds_base: bool = Field(default=False, alias="floorExceedsBase")
+    fee_pushes_above_ceiling: bool = Field(default=False, alias="feePushesAboveCeiling")
+    corridor_uplift_multiplier: float = Field(default=1.0, alias="corridorUpliftMultiplier", ge=1.0, allow_inf_nan=False)
+    top_matched_terms: List[str] = Field(default_factory=list, alias="topMatchedTerms", max_length=10)
 
 
 class CanonicalPredictionResultDTO(StrictModel):
@@ -205,6 +237,7 @@ class CanonicalPredictionResultDTO(StrictModel):
                                     description="0.0: not empirically calibrated; not a probability of quote accuracy.")
     comparables: List[CanonicalPeerMatchDTO]
     reason: str = Field(min_length=1)
+    explanation: Optional[QuoteExplanationDTO] = Field(default=None)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @model_validator(mode="after")
@@ -223,8 +256,16 @@ class CanonicalPredictionResultDTO(StrictModel):
             raise ValueError("canonical pricing requires a computed corridor and bilateral factor")
         comparables = [
             CanonicalPeerMatchDTO(
-                listingId=peer.listing_id, jobTitle=peer.job_title, verifiedRate=peer.verified_rate,
-                similarityScore=peer.similarity_score, euclideanDistance=peer.distance,
+                listingId=peer.listing_id,
+                jobTitle=peer.job_title,
+                verifiedRate=peer.verified_rate,
+                similarityScore=peer.similarity_score,
+                euclideanDistance=peer.distance,
+                idwWeight=peer.idw_weight,
+                publishedDate=peer.published_date,
+                experienceLevel=peer.experience_level,
+                countryCode=peer.country_code,
+                industryLabel=peer.industry_label,
             )
             for peer in prediction.nearest_neighbors if peer.listing_id is not None
         ]
@@ -238,13 +279,28 @@ class CanonicalPredictionResultDTO(StrictModel):
             reason += " No Kenyan M-Pesa fee applies."
         if len(comparables) < count:
             reason += " Listing-backed comparables are unavailable for some peers."
+        if prediction.fallback_triggered and prediction.routed_partition:
+            reason += f" Broadened search to {prediction.routed_partition} due to limited peers."
+        uplift = round(2.0 - prediction.bilateral_arbitrage_factor, 4) if prediction.bilateral_arbitrage_factor < 1.0 else 1.0
+        explanation = QuoteExplanationDTO(
+            requestedPartition=prediction.requested_partition,
+            routedPartition=prediction.routed_partition,
+            usedFallbackPartition=prediction.fallback_triggered,
+            peerRateStddev=prediction.peer_rate_stddev,
+            baseRateFloorRequested=prediction.base_rate_floor_requested,
+            floorBoundActive=prediction.floor_bound_active,
+            floorExceedsBase=prediction.floor_exceeds_base,
+            feePushesAboveCeiling=prediction.final_quoted_rate > prediction.max_quoted_rate,
+            corridorUpliftMultiplier=uplift,
+            topMatchedTerms=list(prediction.top_matched_terms[:10]),
+        )
         return cls(
             basePredictedRate=prediction.base_predicted_rate,
             mpesaTariffSurcharge=prediction.mpesa_tariff_surcharge,
             finalQuotedRate=prediction.final_quoted_rate,
             minQuotedRate=prediction.min_quoted_rate, maxQuotedRate=prediction.max_quoted_rate,
             kNeighborsUsed=count, bilateralArbitrageFactor=prediction.bilateral_arbitrage_factor,
-            confidenceScore=0.0, comparables=comparables, reason=reason,
+            confidenceScore=0.0, comparables=comparables, reason=reason, explanation=explanation,
         )
 
 
